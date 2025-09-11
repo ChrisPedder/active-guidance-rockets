@@ -1,0 +1,121 @@
+[project]
+name = "active-guidance-rockets"
+version = "0.1.0"
+description = "OpenAI Gym environment for rocket directional control during boost phase using RL"
+authors = [
+    {name = "Chris Pedder", email = "chrisjbpedder@hey.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11,<4.0"
+dependencies = [
+    "gymnasium>=0.29.0",
+    "numpy>=1.24.0",
+    "matplotlib>=3.7.0",
+]
+
+[project.optional-dependencies]
+rl = [
+    "stable-baselines3>=2.0.0",
+    "torch==2.5.1",
+    "tensorboard>=2.13.0",
+]
+viz = [
+    "matplotlib>=3.7.0",
+    "pygame>=2.5.0",
+    "plotly>=5.15.0",
+    "seaborn>=0.12.0",
+]
+sim = [
+    "pybullet>=3.2.5",
+    "scipy>=1.11.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "mypy>=1.5.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.25.0",
+]
+all = [
+    "stable-baselines3>=2.0.0",
+    "torch==2.5.1",
+    "tensorboard>=2.13.0",
+    "matplotlib>=3.7.0",
+    "pygame>=2.5.0",
+    "plotly>=5.15.0",
+    "seaborn>=0.12.0",
+    "pybullet>=3.2.5",
+    "scipy>=1.11.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["rocket_env"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --strict-markers --cov=rocket_env"
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+
+[tool.coverage.run]
+source = ["rocket_env"]
+omit = ["tests/*", "examples/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.7.0",
+    "mypy>=1.5.0",
+    "jupyter>=1.0.0",
+    "ipykernel>=6.25.0",
+]
