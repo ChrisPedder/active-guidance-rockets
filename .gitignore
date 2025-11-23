@@ -9,6 +9,7 @@ __pycache__/
 # Model artifacts
 logs/
 models/
+motors/
 
 # Distribution / packaging
 .Python

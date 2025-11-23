@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# visualize_agent.py
+
 """
 Visualization Script for Rocket Control Agent
 

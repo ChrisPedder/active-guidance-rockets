@@ -11,8 +11,10 @@ dependencies = [
     "gymnasium>=0.29.0",
     "numpy>=1.24.0",
     "matplotlib>=3.7.0",
+    "seaborn>=0.13.2",
+    "scipy>=1.11.0",  # Moved to main deps for thrust curve integration
+    "requests>=2.31.0",  # Added for thrustcurve.org API
 ]
-
 [project.optional-dependencies]
 rl = [
     "stable-baselines3>=2.0.0",
@@ -27,7 +29,10 @@ viz = [
 ]
 sim = [
     "pybullet>=3.2.5",
-    "scipy>=1.11.0",
+]
+thrust = [
+    "pandas>=2.0.0",  # Added for thrust curve data handling
+    "lxml>=4.9.0",  # Added for XML parsing of .rse files
 ]
 dev = [
     "pytest>=7.4.0",
@@ -46,16 +51,14 @@ all = [
     "plotly>=5.15.0",
     "seaborn>=0.12.0",
     "pybullet>=3.2.5",
-    "scipy>=1.11.0",
+    "pandas>=2.0.0",
+    "lxml>=4.9.0",
 ]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
-
 [tool.hatch.build.targets.wheel]
 packages = ["rocket_env"]
-
 [tool.black]
 line-length = 88
 target-version = ['py311']
@@ -72,7 +75,6 @@ extend-exclude = '''
   | dist
 )/
 '''
-
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
@@ -87,17 +89,14 @@ warn_unused_ignores = true
 warn_no_return = true
 warn_unreachable = true
 strict_equality = true
-
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q --strict-markers --cov=rocket_env"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
-
 [tool.coverage.run]
 source = ["rocket_env"]
 omit = ["tests/*", "examples/*"]
-
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
@@ -109,7 +108,6 @@ exclude_lines = [
     "if 0:",
     "if __name__ == .__main__.:",
 ]
-
 [tool.uv]
 dev-dependencies = [
     "pytest>=7.4.0",
@@ -118,4 +116,5 @@ dev-dependencies = [
     "mypy>=1.5.0",
     "jupyter>=1.0.0",
     "ipykernel>=6.25.0",
+    "ipdb>=0.13.13",
 ]
