@@ -1,0 +1,484 @@
+#!/usr/bin/env python3
+"""
+Rocket Training Configuration System
+
+This module provides a clean way to parametrize all training settings,
+avoiding magic numbers and enabling systematic experimentation.
+
+Usage:
+    from rocket_config import RocketTrainingConfig, load_config
+
+    # Load from YAML file
+    config = load_config("configs/experiment_01.yaml")
+
+    # Or create programmatically
+    config = RocketTrainingConfig.for_estes_c6()
+"""
+
+import yaml
+from dataclasses import dataclass, field, asdict
+from typing import Dict, Any, Optional, List
+from pathlib import Path
+
+
+@dataclass
+class RocketPhysicsConfig:
+    """Physical parameters for the rocket"""
+
+    # Mass properties (kg)
+    dry_mass: float = 0.150          # 150g - typical for Estes C6 rocket
+    propellant_mass: float = 0.0123  # Will be overridden by motor
+
+    # Geometry (meters)
+    diameter: float = 0.024          # 24mm body tube
+    length: float = 0.45             # 45cm length
+
+    # Fins
+    num_fins: int = 4
+    fin_span: float = 0.04           # 4cm fin span
+    fin_root_chord: float = 0.05     # 5cm root chord
+    fin_tip_chord: float = 0.025     # 2.5cm tip chord
+
+    # Control surfaces
+    max_tab_deflection: float = 15.0   # degrees
+    tab_chord_fraction: float = 0.25   # fraction of fin chord
+    tab_span_fraction: float = 0.5     # fraction of fin span
+
+    # Aerodynamics
+    cd_body: float = 0.5              # Body drag coefficient
+    cd_fins: float = 0.01             # Fin drag coefficient
+    cl_alpha: float = 2.0             # Lift curve slope (per radian)
+
+    # Control effectiveness
+    control_effectiveness: float = 1.0  # Multiplier for control authority
+
+    # === Physics Tuning (for patched environment) ===
+    # These parameters fix the physics bugs in the original environment
+    disturbance_scale: float = 0.0001    # CRITICAL: was 0.01 (100x too large)
+    damping_scale: float = 1.0           # Multiplier for aerodynamic damping
+    initial_spin_std: float = 15.0       # Initial spin disturbance (deg/s std)
+    max_roll_rate: float = 720.0      # deg/s - termination threshold (increased from 360)
+    max_episode_time: float = 15.0    # seconds - max episode duration
+
+@dataclass
+class MotorConfig:
+    """Motor selection and configuration"""
+
+    name: str = "estes_c6"           # Motor identifier
+    thrust_multiplier: float = 1.0   # Scale thrust (for testing)
+
+    # Extended motor specifications (optional, for auto-generated configs)
+    manufacturer: Optional[str] = None
+    designation: Optional[str] = None
+    diameter_mm: Optional[float] = None
+    length_mm: Optional[float] = None
+    total_mass_g: Optional[float] = None
+    propellant_mass_g: Optional[float] = None
+    case_mass_g: Optional[float] = None
+    impulse_class: Optional[str] = None
+    total_impulse_Ns: Optional[float] = None
+    avg_thrust_N: Optional[float] = None
+    max_thrust_N: Optional[float] = None
+    burn_time_s: Optional[float] = None
+    thrust_curve: Optional[Dict[str, List[float]]] = None
+
+    def to_motor(self) -> 'Motor':
+        """
+        Convert this config to a Motor object from motor_loader.
+
+        Returns:
+            Motor object that can provide thrust/mass as functions of time
+        """
+        from motor_loader import Motor
+
+        # Convert dataclass to dict format expected by Motor class
+        motor_dict = {
+            'name': self.name,
+            'manufacturer': self.manufacturer,
+            'designation': self.designation,
+            'diameter_mm': self.diameter_mm,
+            'length_mm': self.length_mm,
+            'total_mass_g': self.total_mass_g,
+            'propellant_mass_g': self.propellant_mass_g,
+            'case_mass_g': self.case_mass_g,
+            'impulse_class': self.impulse_class,
+            'total_impulse_Ns': self.total_impulse_Ns,
+            'avg_thrust_N': self.avg_thrust_N,
+            'max_thrust_N': self.max_thrust_N,
+            'burn_time_s': self.burn_time_s,
+            'thrust_curve': self.thrust_curve,
+            'thrust_multiplier': self.thrust_multiplier,
+        }
+
+        # Remove None values
+        motor_dict = {k: v for k, v in motor_dict.items() if v is not None}
+
+        return Motor(motor_dict)
+
+    def get_specs_dict(self) -> Dict[str, float]:
+        """
+        Get motor specifications as a dictionary.
+        Uses data from the config if available.
+
+        Returns:
+            Dictionary with motor specs (for backward compatibility with validation)
+        """
+        # Use actual config data if available
+        if self.avg_thrust_N is not None and self.propellant_mass_g is not None:
+            return {
+                'average_thrust': self.avg_thrust_N,
+                'max_thrust': self.max_thrust_N or self.avg_thrust_N * 1.5,
+                'total_impulse': self.total_impulse_Ns or 0,
+                'burn_time': self.burn_time_s or 0,
+                'propellant_mass': self.propellant_mass_g / 1000,  # Convert to kg
+                'case_mass': self.case_mass_g / 1000 if self.case_mass_g else 0,
+                'recommended_mass_range': self._estimate_mass_range(),
+            }
+        else:
+            # Fallback: return minimal default values
+            return {
+                'average_thrust': 10.0,
+                'max_thrust': 15.0,
+                'total_impulse': 20.0,
+                'burn_time': 2.0,
+                'propellant_mass': 0.02,
+                'case_mass': 0.02,
+                'recommended_mass_range': (0.05, 0.5),
+            }
+
+    def _estimate_mass_range(self) -> tuple:
+        """Estimate recommended rocket mass range based on motor thrust"""
+        if self.avg_thrust_N is None:
+            return (0.05, 0.5)
+
+        # Rule of thumb: TWR between 3-10 at liftoff
+        # Recommended mass = thrust / (TWR * g)
+        g = 9.81
+        min_mass = self.avg_thrust_N / (10 * g)  # TWR = 10
+        max_mass = self.avg_thrust_N / (3 * g)   # TWR = 3
+
+        return (min_mass, max_mass)
+
+@dataclass
+class EnvironmentConfig:
+    """Environment simulation parameters"""
+
+    # Simulation
+    dt: float = 0.02                  # Time step (seconds) - 50Hz
+    max_episode_steps: int = 500      # Max steps per episode
+
+    # Initial conditions
+    initial_spin_rate_range: tuple = (-30.0, 30.0)  # deg/s
+    initial_tilt_range: tuple = (-5.0, 5.0)         # degrees
+
+    # Wind
+    enable_wind: bool = True
+    max_wind_speed: float = 5.0       # m/s
+    max_gust_speed: float = 2.0       # m/s
+    wind_variability: float = 0.5     # How much wind changes
+
+    # Termination conditions
+    max_tilt_angle: float = 45.0      # degrees - terminate if exceeded
+    min_altitude: float = -1.0        # meters - ground level with tolerance
+    max_altitude: float = 500.0       # meters - success threshold
+
+    # Observation normalization
+    normalize_observations: bool = True
+    obs_clip_value: float = 10.0      # Clip normalized obs to this range
+
+
+@dataclass
+class RewardConfig:
+    """Reward function weights and parameters"""
+
+    # Primary objectives
+    altitude_reward_scale: float = 0.01     # Reward per meter altitude
+    spin_penalty_scale: float = -0.1        # Penalty per deg/s of spin
+
+    # Stability bonuses
+    low_spin_bonus: float = 1.0             # Bonus when spin < threshold
+    low_spin_threshold: float = 10.0        # deg/s
+
+    # Control penalties
+    control_effort_penalty: float = -0.01   # Penalty for large actions
+    control_smoothness_penalty: float = -0.05  # Penalty for action changes
+
+    # Terminal rewards
+    success_bonus: float = 100.0            # Bonus for reaching target altitude
+    crash_penalty: float = -50.0            # Penalty for crash
+
+    # Reward shaping
+    use_potential_shaping: bool = True      # Use potential-based shaping
+    gamma: float = 0.99                     # Discount for shaping
+
+
+@dataclass
+class PPOConfig:
+    """PPO algorithm hyperparameters"""
+
+    # Core hyperparameters
+    learning_rate: float = 3e-4
+    n_steps: int = 2048               # Steps per rollout
+    batch_size: int = 64
+    n_epochs: int = 10
+    gamma: float = 0.99               # Discount factor
+    gae_lambda: float = 0.95          # GAE lambda
+
+    # Clipping
+    clip_range: float = 0.2
+    clip_range_vf: Optional[float] = None  # Value function clip (None = same as policy)
+
+    # Regularization
+    ent_coef: float = 0.01            # Entropy coefficient
+    vf_coef: float = 0.5              # Value function coefficient
+    max_grad_norm: float = 0.5        # Gradient clipping
+
+    # Advantage normalization
+    normalize_advantage: bool = True
+
+    # Network architecture
+    policy_net_arch: List[int] = field(default_factory=lambda: [256, 256])
+    value_net_arch: List[int] = field(default_factory=lambda: [256, 256])
+    activation: str = "tanh"          # "relu", "tanh", "elu"
+
+    # Training
+    total_timesteps: int = 500_000
+    n_envs: int = 8                   # Parallel environments
+    device: str = "auto"              # "auto", "cpu", "cuda"
+
+
+@dataclass
+class CurriculumConfig:
+    """Curriculum learning settings"""
+
+    enabled: bool = True
+
+    # Stage definitions (progress through these as training improves)
+    stages: List[Dict[str, Any]] = field(default_factory=lambda: [
+        {
+            "name": "basic",
+            "initial_spin_range": (-10, 10),
+            "wind_enabled": False,
+            "target_reward": 50,
+        },
+        {
+            "name": "moderate_spin",
+            "initial_spin_range": (-30, 30),
+            "wind_enabled": False,
+            "target_reward": 100,
+        },
+        {
+            "name": "with_wind",
+            "initial_spin_range": (-30, 30),
+            "wind_enabled": True,
+            "max_wind_speed": 3.0,
+            "target_reward": 150,
+        },
+        {
+            "name": "full",
+            "initial_spin_range": (-60, 60),
+            "wind_enabled": True,
+            "max_wind_speed": 5.0,
+            "target_reward": 200,
+        }
+    ])
+
+    # Advancement criteria
+    episodes_to_evaluate: int = 100
+    advancement_threshold: float = 0.8  # Fraction of episodes meeting target
+
+
+@dataclass
+class LoggingConfig:
+    """Logging and checkpointing settings"""
+
+    log_dir: str = "logs"
+    save_dir: str = "models"
+
+    # Tensorboard
+    tensorboard_log: bool = True
+
+    # Checkpointing
+    save_freq: int = 10_000           # Steps between saves
+    keep_checkpoints: int = 5         # Number to keep
+
+    # Evaluation
+    eval_freq: int = 5_000
+    n_eval_episodes: int = 20
+
+    # Metrics logging
+    log_episode_freq: int = 10        # Log every N episodes
+
+    # Experiment tracking
+    experiment_name: str = "rocket_spin_control"
+    tags: List[str] = field(default_factory=list)
+
+
+@dataclass
+class RocketTrainingConfig:
+    """Complete training configuration"""
+
+    physics: RocketPhysicsConfig = field(default_factory=RocketPhysicsConfig)
+    motor: MotorConfig = field(default_factory=MotorConfig)
+    environment: EnvironmentConfig = field(default_factory=EnvironmentConfig)
+    reward: RewardConfig = field(default_factory=RewardConfig)
+    ppo: PPOConfig = field(default_factory=PPOConfig)
+    curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return asdict(self)
+
+    def save(self, path: str):
+        """Save configuration to YAML file"""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(path, 'w') as f:
+            yaml.dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
+
+    @classmethod
+    def load(cls, path: str) -> 'RocketTrainingConfig':
+        """Load configuration from YAML file"""
+        with open(path, 'r') as f:
+            data = yaml.safe_load(f)
+
+        return cls(
+            physics=RocketPhysicsConfig(**data.get('physics', {})),
+            motor=MotorConfig(**data.get('motor', {})),
+            environment=EnvironmentConfig(**data.get('environment', {})),
+            reward=RewardConfig(**data.get('reward', {})),
+            ppo=PPOConfig(**data.get('ppo', {})),
+            curriculum=CurriculumConfig(**data.get('curriculum', {})),
+            logging=LoggingConfig(**data.get('logging', {})),
+        )
+
+    @classmethod
+    def for_estes_c6(cls) -> 'RocketTrainingConfig':
+        """Pre-configured settings for Estes C6 motor"""
+        return cls(
+            physics=RocketPhysicsConfig(
+                dry_mass=0.100,      # 100g rocket
+                diameter=0.024,       # 24mm
+                length=0.40,          # 40cm
+            ),
+            motor=MotorConfig(name="estes_c6"),
+            ppo=PPOConfig(
+                learning_rate=1e-4,   # Lower for stability
+                n_steps=1024,
+                batch_size=32,
+                n_epochs=20,
+                clip_range=0.1,       # Smaller for fine control
+            ),
+        )
+
+    @classmethod
+    def for_aerotech_f40(cls) -> 'RocketTrainingConfig':
+        """Pre-configured settings for Aerotech F40 motor"""
+        return cls(
+            physics=RocketPhysicsConfig(
+                dry_mass=0.400,       # 400g rocket
+                diameter=0.029,       # 29mm
+                length=0.60,          # 60cm
+            ),
+            motor=MotorConfig(name="aerotech_f40"),
+            ppo=PPOConfig(
+                learning_rate=3e-4,
+                n_steps=2048,
+                batch_size=64,
+            ),
+        )
+
+    @classmethod
+    def for_cesaroni_g79(cls) -> 'RocketTrainingConfig':
+        """Pre-configured settings for Cesaroni G79 motor"""
+        return cls(
+            physics=RocketPhysicsConfig(
+                dry_mass=0.800,       # 800g rocket
+                diameter=0.038,       # 38mm
+                length=0.80,          # 80cm
+            ),
+            motor=MotorConfig(name="cesaroni_g79"),
+        )
+
+    def validate(self) -> List[str]:
+        """Validate configuration and return list of warnings/errors"""
+        issues = []
+
+        # Check thrust-to-weight ratio
+        motor_specs = self.motor.get_specs_dict()
+        total_mass = self.physics.dry_mass + motor_specs['propellant_mass']
+        twr = motor_specs['average_thrust'] / (total_mass * 9.81)
+
+        if twr < 1.0:
+            issues.append(f"CRITICAL: TWR={twr:.2f} < 1.0 - rocket cannot fly!")
+        elif twr < 2.0:
+            issues.append(f"WARNING: TWR={twr:.2f} is marginal (recommend > 2.0)")
+
+        # Check mass is in recommended range
+        rec_range = motor_specs['recommended_mass_range']
+        if not (rec_range[0] <= self.physics.dry_mass <= rec_range[1]):
+            issues.append(
+                f"WARNING: dry_mass={self.physics.dry_mass}kg outside recommended "
+                f"range [{rec_range[0]:.2f}, {rec_range[1]:.2f}] for {self.motor.name}"
+            )
+
+        # Check PPO parameters
+        if self.ppo.batch_size > self.ppo.n_steps * self.ppo.n_envs:
+            issues.append(
+                f"WARNING: batch_size ({self.ppo.batch_size}) > rollout size "
+                f"({self.ppo.n_steps * self.ppo.n_envs})"
+            )
+
+        return issues
+
+def load_config(path: str) -> RocketTrainingConfig:
+    """Convenience function to load configuration"""
+    return RocketTrainingConfig.load(path)
+
+
+def create_default_configs():
+    """Create default configuration files for different scenarios"""
+
+    configs_dir = Path("configs")
+    configs_dir.mkdir(exist_ok=True)
+
+    # Create configurations for each motor
+    RocketTrainingConfig.for_estes_c6().save(configs_dir / "estes_c6.yaml")
+    RocketTrainingConfig.for_aerotech_f40().save(configs_dir / "aerotech_f40.yaml")
+    RocketTrainingConfig.for_cesaroni_g79().save(configs_dir / "cesaroni_g79.yaml")
+
+    # Create a debug/test configuration
+    debug_config = RocketTrainingConfig.for_estes_c6()
+    debug_config.ppo.total_timesteps = 10_000
+    debug_config.logging.eval_freq = 1_000
+    debug_config.curriculum.enabled = False
+    debug_config.save(configs_dir / "debug.yaml")
+
+    print(f"Created configuration files in {configs_dir}/")
+
+
+if __name__ == "__main__":
+    create_default_configs()
+
+    # Test loading and validation
+    config = RocketTrainingConfig.for_estes_c6()
+    issues = config.validate()
+
+    print("\nConfiguration validation:")
+    if issues:
+        for issue in issues:
+            print(f"  {issue}")
+    else:
+        print("  ✓ All checks passed")
+
+    print(f"\nTWR calculation:")
+    motor_specs = config.motor.get_specs_dict()
+    total_mass = config.physics.dry_mass + motor_specs['propellant_mass']
+    twr = motor_specs['average_thrust'] / (total_mass * 9.81)
+    print(f"  Motor: {config.motor.name}")
+    print(f"  Dry mass: {config.physics.dry_mass*1000:.1f}g")
+    print(f"  Total mass: {total_mass*1000:.1f}g")
+    print(f"  Average thrust: {motor_specs['average_thrust']:.1f}N")
+    print(f"  TWR: {twr:.2f}")

@@ -1,4 +1,4 @@
-# realistic_rocket_control_env.py
+# rocket_boost_control_env.py
 
 import numpy as np
 import gymnasium as gym

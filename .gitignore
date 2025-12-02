@@ -10,6 +10,9 @@ __pycache__/
 logs/
 models/
 motors/
+experiments/
+sweeps/
+visualization_results/
 
 # Distribution / packaging
 .Python

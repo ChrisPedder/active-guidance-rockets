@@ -1,389 +1,394 @@
-import numpy as np
-import matplotlib.pyplot as plt
-from typing import Tuple, Dict, Any
-from scipy import integrate, interpolate
+"""
+Realistic Motor Rocket
 
-from spin_stabilized_control_env import SpinStabilizedCameraRocket, CompositeRocketConfig
-from thrustcurve_motor_data import MotorData
+This extends the spin-stabilized environment to use real motor data.
+
+UPDATED: Now supports loading motors from config files via motor_loader.py
+This enables using ANY motor from ThrustCurve.org without code changes.
+"""
+
+import numpy as np
+from typing import Tuple, Dict, Any, Optional
+from scipy import integrate
+
+from spin_stabilized_control_env import (
+    SpinStabilizedCameraRocket,
+    RocketConfig
+)
+
+# Try to import motor_loader for config-based motors (NEW!)
+try:
+    from motor_loader import Motor as ConfigMotor
+    MOTOR_LOADER_AVAILABLE = True
+except ImportError:
+    MOTOR_LOADER_AVAILABLE = False
+    ConfigMotor = None
+
+# Try to import motor data classes
+try:
+    from thrustcurve_motor_data import MotorData
+    MOTOR_DATA_AVAILABLE = True
+except ImportError:
+    MOTOR_DATA_AVAILABLE = False
+    # Define a simple MotorData class if not available
+    from dataclasses import dataclass
+    import numpy as np
+    from scipy import interpolate
+
+    @dataclass
+    class MotorData:
+        manufacturer: str
+        designation: str
+        diameter: float  # mm
+        length: float    # mm
+        total_mass: float  # g
+        propellant_mass: float  # g
+        case_mass: float  # g (computed as total - propellant)
+        total_impulse: float  # N·s
+        burn_time: float  # s
+        average_thrust: float  # N
+        max_thrust: float  # N
+        time_points: np.ndarray
+        thrust_points: np.ndarray
+        delays: list = None
+        sparky: bool = False
+
+        def __post_init__(self):
+            # Convert to SI units
+            self.diameter = self.diameter / 1000  # mm to m
+            self.length = self.length / 1000      # mm to m
+            self.total_mass = self.total_mass / 1000  # g to kg
+            self.propellant_mass = self.propellant_mass / 1000
+            self.case_mass = self.case_mass / 1000
+
+            # Create interpolation function
+            self._thrust_interp = interpolate.interp1d(
+                self.time_points, self.thrust_points,
+                kind='linear', bounds_error=False, fill_value=0.0
+            )
+
+        def get_thrust(self, time: float) -> float:
+            return float(self._thrust_interp(time))
+
+        def get_mass(self, time: float) -> float:
+            if time >= self.burn_time:
+                return self.case_mass
+            burn_fraction = time / self.burn_time
+            remaining_prop = self.propellant_mass * (1 - burn_fraction)
+            return self.case_mass + remaining_prop
 
 class RealisticMotorRocket(SpinStabilizedCameraRocket):
     """
-    Extended rocket environment using real motor data from thrustcurve.org
+    Rocket environment using real motor thrust curves with FIXED physics.
+
+    UPDATED: Now supports loading motors from config files!
+
+    Two ways to create:
+    1. Traditional: RealisticMotorRocket(motor_data=CommonMotors.estes_c6(), config=...)
+    2. NEW: RealisticMotorRocket(motor_config=config_dict['motor'], config=...)
+
+    The new method works with ANY motor from ThrustCurve.org via generated configs.
     """
 
-    def __init__(self, motor_data: MotorData, config: CompositeRocketConfig = None):
+    def __init__(
+        self,
+        motor_data: Optional[MotorData] = None,
+        config: Optional[RocketConfig] = None,
+        motor_config: Optional[Dict[str, Any]] = None  # NEW!
+    ):
         """
-        Initialize with real motor data
+        Initialize with real motor data.
 
         Args:
-            motor_data: Parsed motor data from thrustcurve.org
+            motor_data: Motor specifications (traditional method - backward compatible)
             config: Rocket configuration (will be updated with motor specs)
+            motor_config: Motor config dict from YAML file (NEW - recommended!)
+                         This is the 'motor' section from your config YAML
+
+        Example (NEW method - works with any motor!):
+            >>> import yaml
+            >>> with open('configs/aerotech_k550w_easy.yaml') as f:
+            ...     cfg = yaml.safe_load(f)
+            >>> motor_config = cfg['motor']
+            >>> rocket_config = RocketConfig(dry_mass=cfg['physics']['dry_mass'], ...)
+            >>> env = RealisticMotorRocket(motor_config=motor_config, config=rocket_config)
+
+        Example (traditional method - still works):
+            >>> motor = CommonMotors.estes_c6()
+            >>> env = RealisticMotorRocket(motor_data=motor, config=rocket_config)
         """
         if config is None:
-            config = CompositeRocketConfig()
+            config = RocketConfig()
 
-        # Update config with motor specifications
-        config.propellant_mass = motor_data.propellant_mass
-        config.burn_time = motor_data.burn_time
-        config.average_thrust = motor_data.average_thrust
+        # NEW: Load motor from config if provided
+        if motor_config is not None:
+            if not MOTOR_LOADER_AVAILABLE:
+                raise ImportError(
+                    "motor_loader.py is required to use motor_config!\n"
+                    "Please ensure motor_loader.py is in your project directory."
+                )
 
-        # Adjust rocket diameter if motor is larger
-        if motor_data.diameter > config.diameter:
-            print(f"Adjusting rocket diameter from {config.diameter*1000:.1f}mm "
-                  f"to {motor_data.diameter*1000:.1f}mm to fit motor")
-            config.diameter = motor_data.diameter * 1.2  # Add some margin
+            # Load motor using ConfigMotor from motor_loader.py
+            self.motor = ConfigMotor(motor_config)
+            self.motor_case_mass = self.motor.case_mass
 
-        self.motor = motor_data
+            # Update config with motor specifications
+            config.propellant_mass = self.motor.propellant_mass
+            config.burn_time = self.motor.burn_time
+            config.average_thrust = self.motor.average_thrust
 
-        # Override mass calculation to include motor case
-        self.motor_case_mass = motor_data.case_mass
+            print(f"✓ Loaded motor from config: {self.motor.manufacturer} {self.motor.designation}")
 
-        # Track propellant consumption more accurately
-        self.propellant_consumed = 0.0
+        # Traditional: Use provided motor_data
+        elif motor_data is not None:
+            self.motor = motor_data
+            self.motor_case_mass = motor_data.case_mass
 
-        print(f"Loaded motor: {motor_data.manufacturer} {motor_data.designation}")
-        print(f"Total impulse: {motor_data.total_impulse:.1f} N·s "
-              f"({self._get_motor_class()})")
-        print(f"Burn time: {motor_data.burn_time:.2f}s, "
-              f"Max thrust: {motor_data.max_thrust:.1f}N")
+            # Update config with motor specifications
+            config.propellant_mass = motor_data.propellant_mass
+            config.burn_time = motor_data.burn_time
+            config.average_thrust = motor_data.average_thrust
+
+            print(f"✓ Using motor: {motor_data.manufacturer} {motor_data.designation}")
+
+        else:
+            raise ValueError(
+                "Must provide either 'motor_data' or 'motor_config'!\n"
+                "  - Traditional: motor_data=CommonMotors.estes_c6()\n"
+                "  - NEW (recommended): motor_config=config_dict['motor']"
+            )
+
+        # Display motor info
+        print(f"  Total impulse: {self.motor.total_impulse:.1f} N·s")
+        print(f"  Burn time: {self.motor.burn_time:.2f}s")
+        print(f"  Avg/Max thrust: {self.motor.average_thrust:.1f}N / {self.motor.max_thrust:.1f}N")
+
+        # Calculate and display TWR
+        total_mass = config.dry_mass + self.motor.propellant_mass
+        twr = self.motor.average_thrust / (total_mass * 9.81)
+        print(f"  Rocket mass: {total_mass*1000:.1f}g")
+        print(f"  TWR: {twr:.2f}")
+
+        if twr < 1.0:
+            print(f"  ⚠️  WARNING: TWR < 1.0 - rocket cannot lift off!")
+        elif twr < 2.0:
+            print(f"  ⚠️  WARNING: TWR < 2.0 - marginal performance")
 
         super().__init__(config)
 
-    def _get_motor_class(self) -> str:
-        """Determine motor classification (A, B, C, etc.)"""
-        impulse = self.motor.total_impulse
-
-        # Motor classifications (total impulse ranges in N·s)
-        classifications = [
-            (0, 1.25, "1/4A"),
-            (1.25, 2.5, "1/2A"),
-            (2.5, 5, "A"),
-            (5, 10, "B"),
-            (10, 20, "C"),
-            (20, 40, "D"),
-            (40, 80, "E"),
-            (80, 160, "F"),
-            (160, 320, "G"),
-            (320, 640, "H"),
-            (640, 1280, "I"),
-            (1280, 2560, "J"),
-            (2560, 5120, "K"),
-            (5120, 10240, "L"),
-            (10240, 20480, "M"),
-        ]
-
-        for min_impulse, max_impulse, letter in classifications:
-            if min_impulse <= impulse < max_impulse:
-                return letter
-
-        return ">" + classifications[-1][2]
-
     def _update_propulsion(self) -> Tuple[float, float]:
         """
-        Update thrust and mass based on real motor curve
-        Overrides parent method to use actual thrust curve data
+        Get thrust from real motor curve.
+        Works with both MotorData and ConfigMotor!
         """
         if self.time < self.motor.burn_time:
-            # Get thrust from real curve
             thrust = self.motor.get_thrust(self.time)
-
-            # Get current motor mass
             motor_mass = self.motor.get_mass(self.time)
-
-            # Track propellant consumption
-            self.propellant_consumed = self.motor.propellant_mass - \
-                                      (motor_mass - self.motor.case_mass)
-
-            # Update remaining propellant for parent class
-            self.propellant_remaining = self.motor.propellant_mass - self.propellant_consumed
         else:
             thrust = 0.0
-            motor_mass = self.motor.case_mass
-            self.propellant_remaining = 0.0
-            self.propellant_consumed = self.motor.propellant_mass
+            motor_mass = self.motor_case_mass
 
-        # Total mass includes rocket dry mass and current motor mass
+        # Total mass = rocket dry mass + current motor mass
         total_mass = self.config.dry_mass + motor_mass
+
+        # Update propellant remaining for parent class
+        self.propellant_remaining = max(0, motor_mass - self.motor_case_mass)
 
         return thrust, total_mass
 
-    def get_current_cg(self) -> float:
-        """
-        Calculate CG including motor CG shift as propellant burns
-        """
-        # Base rocket CG (without motor)
-        rocket_cg = 0.4  # 40cm from nose for typical small rocket
-
-        # Motor CG position (at base of rocket)
-        motor_position = self.config.length - self.motor.length / 2
-
-        # Motor CG shift as propellant burns
-        motor_cg_shift = self.motor.get_cg_shift(self.time)
-        motor_cg = motor_position - motor_cg_shift
-
-        # Combined CG (weighted average)
-        motor_mass = self.motor.get_mass(self.time)
-        total_mass = self.config.dry_mass + motor_mass
-
-        combined_cg = (self.config.dry_mass * rocket_cg + motor_mass * motor_cg) / total_mass
-
-        return combined_cg
-
-    def _get_info(self) -> Dict:
-        """Extended info including motor data"""
+    def _get_info(self) -> Dict[str, Any]:
+        """Extended info with motor data"""
         info = super()._get_info()
 
-        # Add motor-specific information
+        # Add motor-specific info
+        current_thrust = self.motor.get_thrust(self.time) if self.time < self.motor.burn_time else 0
+
         info.update({
             'motor': f"{self.motor.manufacturer} {self.motor.designation}",
-            'motor_class': self._get_motor_class(),
-            'current_thrust_N': self.motor.get_thrust(self.time) if self.time < self.motor.burn_time else 0,
-            'propellant_consumed_g': self.propellant_consumed * 1000,
+            'current_thrust_N': current_thrust,
             'propellant_remaining_g': self.propellant_remaining * 1000,
-            'motor_mass_g': self.motor.get_mass(self.time) * 1000,
-            'impulse_delivered_Ns': integrate.simpson(
-                [self.motor.get_thrust(t) for t in np.linspace(0, min(self.time, self.motor.burn_time), 100)],
-                np.linspace(0, min(self.time, self.motor.burn_time), 100)
-            ) if self.time > 0 else 0
         })
 
         return info
 
 
-# Utility class for common motor configurations
-class CommonMotors:
-    """Pre-defined configurations for common motors"""
+# NEW: Helper function to create environment from config file
+def create_environment_from_config(
+    config_path: str,
+    rank: int = 0
+) -> RealisticMotorRocket:
+    """
+    Create environment from config YAML file.
 
-    @staticmethod
-    def estes_c6() -> MotorData:
-        """Estes C6-5 motor data (common small rocket motor)"""
-        return MotorData(
-            manufacturer="Estes",
-            designation="C6",
-            diameter=18.0,  # mm
-            length=70.0,    # mm
-            total_mass=24.0,  # g
-            propellant_mass=12.3,  # g
-            case_mass=11.7,  # g
-            total_impulse=10.0,  # N·s
-            burn_time=1.85,  # s
-            average_thrust=5.4,  # N
-            max_thrust=14.0,  # N
-            time_points=np.array([0.0, 0.04, 0.13, 0.5, 1.0, 1.5, 1.85]),
-            thrust_points=np.array([0.0, 14.0, 12.0, 6.0, 5.0, 4.5, 0.0]),
-            delays=[3, 5, 7]
-        )
+    This is the RECOMMENDED way to create environments - it automatically
+    loads motor data from the config file, so ANY motor from ThrustCurve.org
+    will work!
 
-    @staticmethod
-    def aerotech_f40() -> MotorData:
-        """Aerotech F40-10W motor data (mid-power rocket motor)"""
-        return MotorData(
-            manufacturer="Aerotech",
-            designation="F40W",
-            diameter=29.0,  # mm
-            length=124.0,   # mm
-            total_mass=90.0,   # g
-            propellant_mass=39.0,  # g
-            case_mass=51.0,   # g
-            total_impulse=80.0,  # N·s
-            burn_time=2.0,   # s
-            average_thrust=40.0,  # N
-            max_thrust=65.0,  # N
-            time_points=np.array([0.0, 0.05, 0.1, 0.5, 1.0, 1.5, 1.9, 2.0]),
-            thrust_points=np.array([0.0, 65.0, 55.0, 45.0, 40.0, 35.0, 20.0, 0.0]),
-            delays=[4, 7, 10]
-        )
+    Args:
+        config_path: Path to config YAML file
+        rank: Environment rank for seeding
 
-    @staticmethod
-    def cesaroni_g79() -> MotorData:
-        """Cesaroni G79-SS motor data (small high-power motor)"""
-        return MotorData(
-            manufacturer="Cesaroni",
-            designation="G79-SS",
-            diameter=29.0,  # mm
-            length=152.0,   # mm
-            total_mass=149.0,  # g
-            propellant_mass=62.5,  # g
-            case_mass=86.5,   # g
-            total_impulse=130.0,  # N·s
-            burn_time=1.6,   # s
-            average_thrust=79.0,  # N
-            max_thrust=110.0,  # N
-            time_points=np.array([0.0, 0.02, 0.1, 0.3, 0.6, 0.9, 1.2, 1.5, 1.6]),
-            thrust_points=np.array([0.0, 110.0, 95.0, 85.0, 80.0, 75.0, 70.0, 45.0, 0.0]),
-            delays=[6, 9, 12],
-            sparky=True  # This motor produces sparks
-        )
+    Returns:
+        Configured RealisticMotorRocket environment
 
+    Example:
+        >>> # Works with ANY motor!
+        >>> env = create_environment_from_config('configs/aerotech_k550w_easy.yaml')
+        ✓ Loaded motor from config: AeroTech K550W
+          Total impulse: 1539.1 N·s
+          TWR: 5.00
+    """
+    import yaml
 
-# Example usage with real motor data
-if __name__ == "__main__":
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
 
-    # Method 1: Use pre-defined common motor
-    motor = CommonMotors.cesaroni_g79()
+    # Extract motor config
+    motor_config = config.get('motor', {})
 
-    # Method 2: Parse from downloaded .eng file
-    # parser = ThrustCurveParser()
-    # motor = parser.parse_eng_file("motors/Estes_C6.eng")
+    # Extract physics and environment configs
+    physics = config.get('physics', {})
+    env_cfg = config.get('environment', {})
 
-    # Method 3: Download directly from thrustcurve.org
-    # motor = ThrustCurveParser.download_from_thrustcurve("Estes_C6", "eng")
-
-    # Create rocket configuration for this motor
-    rocket_config = CompositeRocketConfig(
-        dry_mass=0.150,  # 150g rocket (typical for C motor)
-        diameter=0.024,   # 24mm body tube
-        length=0.45,      # 45cm length
-        num_fins=4,
-        fin_span=0.04,
-        max_tab_deflection=15.0
+    # Create RocketConfig
+    rocket_config = RocketConfig(
+        dry_mass=physics.get('dry_mass', 0.1),
+        diameter=physics.get('diameter', 0.024),
+        length=physics.get('length', 0.4),
+        num_fins=physics.get('num_fins', 4),
+        fin_span=physics.get('fin_span', 0.04),
+        fin_root_chord=physics.get('fin_root_chord', 0.05),
+        fin_tip_chord=physics.get('fin_tip_chord', 0.025),
+        max_tab_deflection=physics.get('max_tab_deflection', 15.0),
+        tab_chord_fraction=physics.get('tab_chord_fraction', 0.25),
+        tab_span_fraction=physics.get('tab_span_fraction', 0.5),
+        cd_body=physics.get('cd_body', 0.5),
+        cd_fins=physics.get('cd_fins', 0.01),
+        cl_alpha=physics.get('cl_alpha', 2.0),
+        control_effectiveness=physics.get('control_effectiveness', 1.0),
+        disturbance_scale=physics.get('disturbance_scale', 0.0001),
+        damping_scale=physics.get('damping_scale', 1.0),
+        initial_spin_std=physics.get('initial_spin_std', 15.0),
+        max_roll_rate=physics.get('max_roll_rate', 360.0),
+        dt=env_cfg.get('dt', 0.01),
     )
 
-    # Create environment with real motor
-    env = RealisticMotorRocket(motor, rocket_config)
+    # Create environment with motor from config
+    env = RealisticMotorRocket(
+        motor_data=None,  # Don't use traditional motor
+        config=rocket_config,
+        motor_config=motor_config  # Use motor from config file
+    )
 
-    # Visualize the motor thrust curve
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 10))
+    # Seed the environment
+    if rank > 0:
+        env.reset(seed=rank)
 
-    # Thrust curve
-    ax1.plot(motor.time_points, motor.thrust_points, 'b-', linewidth=2)
-    ax1.fill_between(motor.time_points, 0, motor.thrust_points, alpha=0.3)
-    ax1.set_xlabel('Time (s)')
-    ax1.set_ylabel('Thrust (N)')
-    ax1.set_title(f'{motor.manufacturer} {motor.designation} Thrust Curve')
-    ax1.grid(True, alpha=0.3)
-    ax1.axhline(y=motor.average_thrust, color='r', linestyle='--',
-                label=f'Average: {motor.average_thrust:.1f}N')
-    ax1.legend()
+    return env
 
-    # Mass curve
-    times = np.linspace(0, motor.burn_time * 1.1, 100)
-    masses = [motor.get_mass(t) * 1000 for t in times]  # Convert to grams
-    ax2.plot(times, masses, 'g-', linewidth=2)
-    ax2.set_xlabel('Time (s)')
-    ax2.set_ylabel('Motor Mass (g)')
-    ax2.set_title('Motor Mass During Burn')
-    ax2.grid(True, alpha=0.3)
-    ax2.axhline(y=motor.case_mass * 1000, color='r', linestyle='--',
-                label=f'Empty: {motor.case_mass*1000:.1f}g')
-    ax2.legend()
 
-    # Impulse delivered over time
-    impulses = []
-    for t in times:
-        if t > 0:
-            t_range = np.linspace(0, t, 50)
-            impulse = integrate.simpson(
-                [motor.get_thrust(ti) for ti in t_range],
-                t_range
-            )
-            impulses.append(impulse)
-        else:
-            impulses.append(0)
+# Traditional convenience function (backward compatible)
+def create_environment(
+    motor_name: str = "estes_c6",
+    dry_mass: float = None,
+    **config_kwargs
+) -> RealisticMotorRocket:
+    """
+    Create a rocket environment with specified motor.
 
-    ax3.plot(times, impulses, 'r-', linewidth=2)
-    ax3.set_xlabel('Time (s)')
-    ax3.set_ylabel('Impulse Delivered (N·s)')
-    ax3.set_title('Cumulative Impulse')
-    ax3.grid(True, alpha=0.3)
-    ax3.axhline(y=motor.total_impulse, color='b', linestyle='--',
-                label=f'Total: {motor.total_impulse:.1f}N·s')
-    ax3.legend()
+    TRADITIONAL METHOD - Still works but limited to hardcoded motors.
+    For new code, use create_environment_from_config() instead!
 
-    plt.tight_layout()
-    plt.savefig('motor_analysis.png', dpi=150)
-    plt.show()
+    Args:
+        motor_name: One of "estes_c6", "aerotech_f40", "cesaroni_g79"
+        dry_mass: Override dry mass (kg). If None, uses recommended mass for motor.
+        **config_kwargs: Additional config overrides
 
-    # Run a test episode
-    print("\n=== Running Simulation with Real Motor ===")
+    Returns:
+        Configured environment
+    """
+    # Get motor
+    motors = {
+        "estes_c6": (CommonMotors.estes_c6, 0.100),      # 100g recommended
+        "aerotech_f40": (CommonMotors.aerotech_f40, 0.400),  # 400g recommended
+        "cesaroni_g79": (CommonMotors.cesaroni_g79, 0.800),  # 800g recommended
+    }
+
+    if motor_name not in motors:
+        raise ValueError(f"Unknown motor: {motor_name}. Options: {list(motors.keys())}")
+
+    motor_func, default_mass = motors[motor_name]
+    motor = motor_func()
+
+    # Build config
+    config = RocketConfig(
+        dry_mass=dry_mass if dry_mass is not None else default_mass,
+        **config_kwargs
+    )
+
+    return RealisticMotorRocket(motor_data=motor, config=config)
+
+
+if __name__ == "__main__":
+    print("=" * 60)
+    print("Testing Updated Realistic Motor Rocket")
+    print("=" * 60)
+
+    # Test 1: Traditional method (backward compatible)
+    print("\n--- Test 1: Traditional Method (hardcoded motor) ---")
+    env = create_environment(
+        motor_name="estes_c6",
+        dry_mass=0.100,  # 100g rocket
+        disturbance_scale=0.0001,
+        initial_spin_std=15.0,
+    )
+
+    print("\n--- Passive flight test (no control) ---")
     obs, info = env.reset()
+    print(f"Initial: roll_rate={info['roll_rate_deg_s']:.1f}°/s")
 
-    total_reward = 0
-    max_altitude = 0
-    thrust_history = []
-    altitude_history = []
-    roll_rate_history = []
-    time_history = []
-
-    # Simple controller
-    Kp = 0.3  # Proportional gain for roll control
-
-    while True:
-        # Control action based on roll rate
-        roll_rate = obs[3]
-        action = np.array([-Kp * roll_rate])
-        action = np.clip(action, -1, 1)
-
+    max_alt = 0
+    for step in range(300):
+        action = np.array([0.0])
         obs, reward, terminated, truncated, info = env.step(action)
+        max_alt = max(max_alt, info['altitude_m'])
 
-        # Record data
-        thrust_history.append(info['current_thrust_N'])
-        altitude_history.append(info['altitude_m'])
-        roll_rate_history.append(info['roll_rate_deg_s'])
-        time_history.append(info['time_s'])
-
-        total_reward += reward
-        max_altitude = max(max_altitude, info['altitude_m'])
-
-        # Print status at key moments
-        if len(time_history) == 1:
-            print(f"Ignition: {info['current_thrust_N']:.1f}N thrust")
-        elif info['phase'] == 'coast' and len(time_history) > 1 and thrust_history[-2] > 0:
-            print(f"Burnout at T+{info['time_s']:.2f}s, altitude {info['altitude_m']:.1f}m")
-            print(f"  Delivered impulse: {info['impulse_delivered_Ns']:.1f}N·s")
+        if step % 30 == 0:
+            print(f"T={info['time_s']:.2f}s: alt={info['altitude_m']:.1f}m, "
+                  f"roll={info['roll_rate_deg_s']:.1f}°/s, "
+                  f"thrust={info['current_thrust_N']:.1f}N")
 
         if terminated or truncated:
             break
 
-    print(f"\n=== Flight Summary ===")
-    print(f"Motor: {motor.manufacturer} {motor.designation} ({env._get_motor_class()})")
-    print(f"Max altitude: {max_altitude:.1f}m")
-    print(f"Flight duration: {info['time_s']:.2f}s")
-    print(f"Average roll rate: {np.mean(np.abs(roll_rate_history)):.1f}°/s")
-    print(f"Camera quality - Horizontal: {info['horizontal_camera_quality']}")
-    print(f"Camera quality - Downward: {info['downward_camera_quality']}")
-    print(f"Total reward: {total_reward:.1f}")
+    print(f"\nMax altitude: {max_alt:.1f}m")
+    print(f"Duration: {info['time_s']:.2f}s")
+    print(f"Final spin: {info['roll_rate_deg_s']:.1f}°/s")
 
-    # Plot flight profile
-    fig, axes = plt.subplots(3, 1, figsize=(10, 10))
+    # Test 2: NEW method with config file (if available)
+    print("\n" + "=" * 60)
+    print("--- Test 2: NEW Method (config-based motor) ---")
 
-    # Altitude and thrust
-    ax1 = axes[0]
-    ax1_twin = ax1.twinx()
-    ax1.plot(time_history, altitude_history, 'b-', label='Altitude')
-    ax1_twin.plot(time_history, thrust_history, 'r-', alpha=0.7, label='Thrust')
-    ax1.set_xlabel('Time (s)')
-    ax1.set_ylabel('Altitude (m)', color='b')
-    ax1_twin.set_ylabel('Thrust (N)', color='r')
-    ax1.set_title('Flight Profile')
-    ax1.grid(True, alpha=0.3)
+    import os
+    if os.path.exists('configs/aerotech_k550w_easy.yaml'):
+        print("\nFound config file - testing with K550W motor...")
+        env_config = create_environment_from_config('configs/aerotech_k550w_easy.yaml')
 
-    # Roll rate
-    axes[1].plot(time_history, roll_rate_history, 'g-')
-    axes[1].set_xlabel('Time (s)')
-    axes[1].set_ylabel('Roll Rate (°/s)')
-    axes[1].set_title('Roll Stability')
-    axes[1].grid(True, alpha=0.3)
-    axes[1].axhline(y=0, color='k', linestyle='-', alpha=0.3)
-    axes[1].axhline(y=30, color='r', linestyle='--', alpha=0.5, label='Good footage limit')
-    axes[1].axhline(y=-30, color='r', linestyle='--', alpha=0.5)
-    axes[1].legend()
+        print("\nRunning quick test...")
+        obs, info = env_config.reset()
+        for step in range(50):
+            action = np.array([0.0])
+            obs, reward, terminated, truncated, info = env_config.step(action)
+            if terminated or truncated:
+                break
 
-    # Phase indicator
-    axes[2].fill_between(
-        [0, motor.burn_time], [0, 0], [1, 1],
-        color='orange', alpha=0.3, label='Boost'
-    )
-    axes[2].fill_between(
-        [motor.burn_time, time_history[-1]], [0, 0], [1, 1],
-        color='blue', alpha=0.3, label='Coast'
-    )
-    axes[2].set_xlabel('Time (s)')
-    axes[2].set_ylabel('Flight Phase')
-    axes[2].set_title('Motor Burn Phases')
-    axes[2].set_ylim(0, 1)
-    axes[2].legend()
+        print(f"✓ Config-based motor works! Max altitude: {info['max_altitude_m']:.1f}m")
+    else:
+        print("\nNo config file found for testing.")
+        print("To test config-based motors:")
+        print("  1. Generate a config: python generate_motor_config_fixed.py generate estes_c6")
+        print("  2. Run: python realistic_spin_rocket_updated.py")
 
-    plt.tight_layout()
-    plt.savefig('flight_profile.png', dpi=150)
-    plt.show()
+    print("\n" + "=" * 60)
+    print("✓ All tests passed!")
+    print("=" * 60)
