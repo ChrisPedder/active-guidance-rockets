@@ -1,0 +1,144 @@
+# Configuration for Estes C6 Motor
+# This is the most common model rocket motor
+# Recommended rocket mass: 50-150g
+
+physics:
+  # Mass (kg) - CRITICAL: Must give TWR > 2.0
+  # C6 avg thrust = 5.4N, so max mass for TWR=2 is 0.275kg
+  # Recommended: 0.100kg (100g) for TWR ≈ 4.9
+  dry_mass: 0.100
+  propellant_mass: 0.0123  # Will be overridden by motor
+
+  # Geometry (meters)
+  diameter: 0.024          # 24mm body tube (standard for C motors)
+  length: 0.40             # 40cm rocket length
+
+  # Fins
+  num_fins: 4
+  fin_span: 0.04           # 4cm fin span
+  fin_root_chord: 0.05     # 5cm root chord
+  fin_tip_chord: 0.025     # 2.5cm tip chord
+
+  # Control surfaces - these tabs on fins create roll torque
+  max_tab_deflection: 15.0   # degrees - max deflection
+  tab_chord_fraction: 0.25   # 25% of fin chord is controllable
+  tab_span_fraction: 0.5     # 50% of fin span has tab
+
+  # Aerodynamics
+  cd_body: 0.5
+  cd_fins: 0.01
+  cl_alpha: 2.0
+  control_effectiveness: 1.0
+
+  # Physics tuning (CRITICAL FIXES for patched environment)
+  disturbance_scale: 0.0001   # REDUCED from 0.01 - key fix!
+  damping_scale: 1.0          # Aerodynamic damping multiplier
+  initial_spin_std: 15.0      # Initial spin disturbance (deg/s)
+
+motor:
+  name: "estes_c6"
+  thrust_multiplier: 1.0
+
+environment:
+  dt: 0.02                  # 50Hz simulation
+  max_episode_steps: 500    # 10 seconds max
+
+  # Initial conditions (randomized within range)
+  initial_spin_rate_range: [-30.0, 30.0]  # deg/s
+  initial_tilt_range: [-5.0, 5.0]         # degrees
+
+  # Wind
+  enable_wind: true
+  max_wind_speed: 3.0       # m/s - light wind
+  max_gust_speed: 1.0       # m/s
+  wind_variability: 0.3
+
+  # Termination
+  max_tilt_angle: 45.0      # degrees
+  min_altitude: -1.0        # meters
+  max_altitude: 200.0       # meters - C6 typically reaches 100-200m
+
+  # Observation handling
+  normalize_observations: true
+  obs_clip_value: 10.0
+
+reward:
+  # Primary objectives
+  altitude_reward_scale: 0.01       # +1 per 100m
+  spin_penalty_scale: -0.1          # -1 per 10°/s
+
+  # Stability bonuses
+  low_spin_bonus: 1.0               # Bonus when spin < threshold
+  low_spin_threshold: 10.0          # deg/s
+
+  # Control penalties
+  control_effort_penalty: -0.01     # Small penalty for large actions
+  control_smoothness_penalty: -0.05 # Penalty for jerky control
+
+  # Terminal rewards
+  success_bonus: 100.0              # Reaching max altitude
+  crash_penalty: -50.0              # Ground impact
+
+  # Reward shaping
+  use_potential_shaping: false
+  gamma: 0.99
+
+ppo:
+  # Core hyperparameters
+  learning_rate: 0.0001     # Conservative for stable training
+  n_steps: 1024             # Steps before update
+  batch_size: 32            # Minibatch size
+  n_epochs: 20              # Passes through data per update
+  gamma: 0.99               # Discount factor
+  gae_lambda: 0.95          # GAE lambda
+
+  # Clipping - smaller for fine control tasks
+  clip_range: 0.1
+  clip_range_vf: null       # Same as policy
+
+  # Regularization
+  ent_coef: 0.005           # Small entropy bonus
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+
+  normalize_advantage: true
+
+  # Network architecture
+  policy_net_arch: [128, 128]
+  value_net_arch: [128, 128]
+  activation: "tanh"        # Smooth activations for control
+
+  # Training
+  total_timesteps: 500000
+  n_envs: 8
+  device: "auto"
+
+curriculum:
+  enabled: false            # Start with curriculum disabled
+  stages:
+    - name: "basic"
+      initial_spin_range: [-10, 10]
+      wind_enabled: false
+      target_reward: 50
+    - name: "moderate"
+      initial_spin_range: [-30, 30]
+      wind_enabled: false
+      target_reward: 100
+    - name: "full"
+      initial_spin_range: [-30, 30]
+      wind_enabled: true
+      target_reward: 150
+  episodes_to_evaluate: 100
+  advancement_threshold: 0.8
+
+logging:
+  log_dir: "logs"
+  save_dir: "models"
+  tensorboard_log: true
+  save_freq: 10000
+  keep_checkpoints: 5
+  eval_freq: 5000
+  n_eval_episodes: 20
+  log_episode_freq: 10
+  experiment_name: "rocket_spin_control"
+  tags: ["estes_c6", "spin_control"]

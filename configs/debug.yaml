@@ -1,0 +1,92 @@
+# Debug Configuration - Fast Training for Testing
+# Use this to verify your setup works before running full training
+
+physics:
+  dry_mass: 0.100
+  propellant_mass: 0.0123
+  diameter: 0.024
+  length: 0.40
+  num_fins: 4
+  fin_span: 0.04
+  fin_root_chord: 0.05
+  fin_tip_chord: 0.025
+  max_tab_deflection: 15.0
+  tab_chord_fraction: 0.25
+  tab_span_fraction: 0.5
+  cd_body: 0.5
+  cd_fins: 0.01
+  cl_alpha: 2.0
+  control_effectiveness: 1.0
+
+  # Physics tuning (CRITICAL FIXES)
+  disturbance_scale: 0.0001   # Key fix for stable physics
+  damping_scale: 1.0
+  initial_spin_std: 10.0      # Lower for easier debugging
+
+motor:
+  name: "estes_c6"
+  thrust_multiplier: 1.0
+
+environment:
+  dt: 0.02
+  max_episode_steps: 300    # Shorter episodes
+  initial_spin_rate_range: [-15.0, 15.0]  # Easier initial conditions
+  initial_tilt_range: [-3.0, 3.0]
+  enable_wind: false        # No wind for debugging
+  max_wind_speed: 0.0
+  max_gust_speed: 0.0
+  wind_variability: 0.0
+  max_tilt_angle: 45.0
+  min_altitude: -1.0
+  max_altitude: 150.0
+  normalize_observations: true
+  obs_clip_value: 10.0
+
+reward:
+  altitude_reward_scale: 0.05
+  spin_penalty_scale: -0.5
+  low_spin_bonus: 1.0
+  low_spin_threshold: 10.0
+  control_effort_penalty: -0.001
+  control_smoothness_penalty: -0.05
+  success_bonus: 100.0
+  crash_penalty: -500.0
+  use_potential_shaping: false
+  gamma: 0.99
+
+ppo:
+  learning_rate: 0.0003     # Faster learning for quick results
+  n_steps: 512              # Smaller rollouts
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2           # Standard clip for faster training
+  clip_range_vf: null
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  normalize_advantage: true
+  policy_net_arch: [64, 64]  # Smaller networks
+  value_net_arch: [64, 64]
+  activation: "tanh"
+
+  # Quick training
+  total_timesteps: 50000    # Only 50k steps
+  n_envs: 4                 # Fewer parallel envs
+  device: "auto"
+
+curriculum:
+  enabled: false
+
+logging:
+  log_dir: "logs/debug"
+  save_dir: "models/debug"
+  tensorboard_log: true
+  save_freq: 5000
+  keep_checkpoints: 2
+  eval_freq: 2500
+  n_eval_episodes: 5        # Quick evaluation
+  log_episode_freq: 5
+  experiment_name: "debug_run"
+  tags: ["debug", "test"]

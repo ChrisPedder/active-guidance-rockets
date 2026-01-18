@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rocket Control Lecture - HES-SO</title>
+
+    <!-- Reveal.js core CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reset.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.css">
+
+    <!-- Theme - using 'white' for clean academic look -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/theme/white.css" id="theme">
+
+    <!-- Syntax highlighting -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/monokai.css">
+
+    <!-- Custom styling for academic presentations -->
+    <style>
+        /* Custom academic styling */
+        .reveal {
+            font-size: 32px;
+        }
+
+        .reveal h1 {
+            font-size: 2.2em;
+            color: #2c3e50;
+            margin-bottom: 0.5em;
+        }
+
+        .reveal h2 {
+            font-size: 1.6em;
+            color: #34495e;
+            margin-bottom: 0.8em;
+        }
+
+        .reveal h3 {
+            font-size: 1.3em;
+            color: #546e7a;
+        }
+
+        /* Make code blocks more readable */
+        .reveal pre {
+            font-size: 0.55em;
+            line-height: 1.4;
+            box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Improve list spacing */
+        .reveal ul, .reveal ol {
+            margin: 0.5em 0;
+        }
+
+        .reveal li {
+            margin: 0.4em 0;
+        }
+
+        /* Style for emphasis */
+        .reveal .emphasis {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        /* Style for key terms */
+        .reveal .key-term {
+            color: #3498db;
+            font-weight: bold;
+        }
+
+        /* Two-column layout helper */
+        .reveal .columns {
+            display: flex;
+            gap: 2em;
+        }
+
+        .reveal .column {
+            flex: 1;
+        }
+
+        /* Smaller text for citations/notes */
+        .reveal .small {
+            font-size: 0.7em;
+            color: #7f8c8d;
+        }
+
+        /* Title slide styling */
+        .reveal .title-slide h1 {
+            margin-top: 1.5em;
+        }
+
+        /* Progress bar color */
+        .reveal .progress {
+            background: rgba(52, 152, 219, 0.2);
+        }
+
+        .reveal .progress span {
+            background: #3498db;
+        }
+
+        /* Math equations styling */
+        .reveal .mjx-chtml {
+            font-size: 1.1em !important;
+        }
+
+        /* ===== BACKGROUND STYLING ===== */
+
+        /* Default background for all slides */
+        .reveal .slides {
+            background-color: #f8f9fa;
+        }
+
+        /* Individual slide backgrounds */
+        .reveal section {
+            background-color: #ffffff;
+            padding: 40px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Alternative: Subtle gradient background */
+        .reveal .slides.gradient-bg {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+
+        /* Alternative: University branding background */
+        .reveal .slides.university-bg {
+            background-image: url('path/to/your/logo.png');
+            background-repeat: no-repeat;
+            background-position: bottom 20px right 20px;
+            background-size: 100px;
+        }
+
+        /* Title slide background - different from content slides */
+        .reveal section.title-slide {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .reveal section.title-slide h1,
+        .reveal section.title-slide h2,
+        .reveal section.title-slide p {
+            color: white;
+        }
+
+        /* Footer for all slides (like slide numbers, date, etc) */
+        .reveal .slide-footer {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            font-size: 0.5em;
+            color: #95a5a6;
+        }
+
+        /* Mermaid diagram styling */
+        .reveal .mermaid {
+            background-color: transparent;
+        }
+
+        .reveal .mermaid svg {
+            max-height: 500px;
+            max-width: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            <!-- Part A -->
+            <section data-markdown="slides.md"
+                     data-separator="^\n---\n$"
+                     data-separator-vertical="^\n----\n$"
+                     data-separator-notes="^Note:">
+            </section>
+        </div>
+    </div>
+
+    <!-- Reveal.js core -->
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.js"></script>
+
+    <!-- Plugins -->
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/markdown/markdown.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/highlight.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/notes/notes.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/math/math.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/zoom/zoom.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/search/search.js"></script>
+
+    <!-- Mermaid -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default',
+            securityLevel: 'loose',
+            themeVariables: {
+                primaryColor: '#3498db',
+                primaryTextColor: '#2c3e50',
+                primaryBorderColor: '#2980b9',
+                lineColor: '#34495e',
+                secondaryColor: '#95a5a6',
+                tertiaryColor: '#ecf0f1'
+            },
+            flowchart: {
+                nodeSpacing: 50,
+                rankSpacing: 50,
+                padding: 20  // Add more padding to nodes
+            }
+        });
+        Reveal.initialize({
+            // Display options
+            hash: true,
+            center: true,
+            progress: true,
+            slideNumber: 'c/t',
+            showSlideNumber: 'all',
+
+            // Transition style
+            transition: 'slide', // none/fade/slide/convex/concave/zoom
+
+            // Math rendering
+            math: {
+                mathjax: 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js',
+                config: 'TeX-AMS_HTML-full',
+            },
+
+            // Code highlighting
+            highlight: {
+                highlightOnLoad: true
+            },
+
+            // Plugins
+            plugins: [
+                RevealMarkdown,
+                RevealHighlight,
+                RevealNotes,
+                RevealMath.KaTeX,
+                RevealZoom,
+                RevealSearch
+            ]
+        });
+
+        // Re-render Mermaid diagrams when slides change
+        // Re-render Mermaid diagrams when slides change and on ready
+        Reveal.on('ready', function() {
+            mermaid.run({
+                querySelector: '.mermaid'
+            });
+        });
+
+        Reveal.on('slidechanged', function() {
+            mermaid.run({
+                querySelector: '.mermaid'
+            });
+        });
+    </script>
+</body>
+</html>

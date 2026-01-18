@@ -1,0 +1,112 @@
+# configs/cesaroni_g79_easy.yaml
+#
+# Easy start config for Cesaroni G79 motor (high power)
+# Use this for initial training before progressing to harder configs
+#
+# G79 is a high-power motor - needs careful tuning for RL training
+
+physics:
+  dry_mass: 0.8               # 800g - good for G79
+  propellant_mass: 0.0625     # Correct G79 propellant mass
+  diameter: 0.038             # 38mm motor mount
+  length: 0.8
+  num_fins: 4
+  fin_span: 0.06              # Larger fins for bigger rocket
+  fin_root_chord: 0.08
+  fin_tip_chord: 0.04
+
+  # CRITICAL: Very reduced control authority for high-power motor
+  max_tab_deflection: 3.0
+  tab_chord_fraction: 0.25
+  tab_span_fraction: 0.5
+
+  cd_body: 0.5
+  cd_fins: 0.01
+  cl_alpha: 2.0
+  control_effectiveness: 1.0
+
+  # Conservative physics tuning
+  disturbance_scale: 0.0001
+  damping_scale: 3.0
+  initial_spin_std: 3.0
+  max_roll_rate: 900.0
+
+motor:
+  name: cesaroni_g79
+  thrust_multiplier: 1.0
+
+environment:
+  dt: 0.01                    # 100 Hz required for high-power motors
+  max_episode_steps: 500
+  initial_spin_rate_range:
+  - -10.0
+  - 10.0
+  initial_tilt_range:
+  - -5.0
+  - 5.0
+  enable_wind: false
+  max_wind_speed: 0.0
+  max_gust_speed: 0.0
+  wind_variability: 0.0
+  max_tilt_angle: 60.0
+  min_altitude: -1.0
+  max_altitude: 800.0         # G79 goes higher
+  normalize_observations: true
+  obs_clip_value: 10.0
+
+reward:
+  altitude_reward_scale: 0.003  # Lower scale for higher altitudes
+  spin_penalty_scale: -0.05
+  low_spin_bonus: 1.0
+  low_spin_threshold: 30.0
+  control_effort_penalty: -0.005
+  control_smoothness_penalty: -0.02
+  success_bonus: 100.0
+  crash_penalty: -20.0
+  use_potential_shaping: false
+  gamma: 0.99
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  normalize_advantage: true
+  policy_net_arch:
+  - 256
+  - 256
+  value_net_arch:
+  - 256
+  - 256
+  activation: tanh
+  total_timesteps: 500000
+  n_envs: 8
+  device: auto
+
+curriculum:
+  enabled: false
+  stages: []
+  episodes_to_evaluate: 100
+  advancement_threshold: 0.8
+
+logging:
+  log_dir: logs
+  save_dir: models
+  tensorboard_log: true
+  save_freq: 10000
+  keep_checkpoints: 5
+  eval_freq: 5000
+  n_eval_episodes: 20
+  log_episode_freq: 10
+  experiment_name: rocket_g79_easy
+  tags:
+  - cesaroni_g79
+  - spin_control
+  - easy

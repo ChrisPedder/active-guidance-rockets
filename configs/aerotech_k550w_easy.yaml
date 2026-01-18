@@ -1,0 +1,152 @@
+# aerotech_k550w_easy.yaml
+#
+# Auto-generated config for AeroTech K550W
+# Difficulty: easy
+#
+# Motor: K+-class, 1539.1 N·s total impulse
+#        396.8N average thrust, 3.88s burn time
+#        Thrust curve: 12 data points from ThrustCurve.org
+#
+# Rocket: 7201g dry mass, TWR=5.00
+#
+# Physics Analysis:
+#   - Control authority: 383 °/s² per degree deflection
+#   - Recommended tab deflection: 10.0°
+#   - Random action safe: Yes
+#
+# NOTE: Auto-calculated dry mass for TWR≈5.0
+# NOTE: High velocity motor - using 100 Hz simulation
+#
+physics:
+  dry_mass: 7.2006
+  propellant_mass: 0.8891
+  diameter: 0.0594
+  length: 0.8
+  num_fins: 4
+  fin_span: 0.10
+  fin_root_chord: 0.20
+  fin_tip_chord: 0.08
+  max_tab_deflection: 10.0
+  tab_chord_fraction: 0.25
+  tab_span_fraction: 0.5
+  cd_body: 0.5
+  cd_fins: 0.01
+  cl_alpha: 2.0
+  control_effectiveness: 1.0
+  disturbance_scale: 0.0001
+  damping_scale: 3.0
+  initial_spin_std: 5.0
+  max_roll_rate: 540.0
+motor:
+  name: aerotech_k550w
+  manufacturer: AeroTech
+  designation: K550W
+  thrust_multiplier: 1.0
+  diameter_mm: 54.0
+  length_mm: 410.0
+  total_mass_g: 1487.4
+  propellant_mass_g: 889.1
+  case_mass_g: 598.3
+  impulse_class: K+
+  total_impulse_Ns: 1539.1
+  avg_thrust_N: 396.8
+  max_thrust_N: 655.3
+  burn_time_s: 3.879
+  thrust_curve:
+    time_s:
+    - 0.0
+    - 0.0
+    - 0.1
+    - 0.2
+    - 0.3
+    - 0.7
+    - 1.2
+    - 1.6
+    - 1.8
+    - 2.5
+    - 2.9
+    - 3.5
+    thrust_N:
+    - 0.0
+    - 628.15
+    - 853.13
+    - 695.98
+    - 628.64
+    - 606.17
+    - 606.17
+    - 588.2
+    - 543.32
+    - 435.55
+    - 89.85
+    - 0.0
+environment:
+  dt: 0.01
+  max_episode_steps: 500
+  initial_spin_rate_range:
+  - -10.0
+  - 10.0
+  initial_tilt_range:
+  - -5.0
+  - 5.0
+  enable_wind: false
+  max_wind_speed: 0.0
+  max_gust_speed: 0.0
+  wind_variability: 0.0
+  max_tilt_angle: 60.0
+  min_altitude: -1.0
+  max_altitude: 1800
+  normalize_observations: true
+  obs_clip_value: 10.0
+reward:
+  altitude_reward_scale: 0.003
+  spin_penalty_scale: -0.05
+  low_spin_bonus: 1.0
+  low_spin_threshold: 30.0
+  control_effort_penalty: -0.005
+  control_smoothness_penalty: -0.02
+  success_bonus: 100.0
+  crash_penalty: -20.0
+  use_potential_shaping: false
+  gamma: 0.99
+ppo:
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  normalize_advantage: true
+  policy_net_arch:
+  - 256
+  - 256
+  value_net_arch:
+  - 256
+  - 256
+  activation: tanh
+  total_timesteps: 500000
+  n_envs: 8
+  device: auto
+curriculum:
+  enabled: false
+  stages: []
+  episodes_to_evaluate: 100
+  advancement_threshold: 0.8
+logging:
+  log_dir: logs
+  save_dir: models
+  tensorboard_log: true
+  save_freq: 10000
+  keep_checkpoints: 5
+  eval_freq: 5000
+  n_eval_episodes: 20
+  log_episode_freq: 10
+  experiment_name: rocket_aerotech_k550w_easy
+  tags:
+  - aerotech_k550w
+  - spin_control
+  - easy

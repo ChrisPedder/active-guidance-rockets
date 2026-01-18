@@ -1,0 +1,126 @@
+# configs/aerotech_f40_easy.yaml
+#
+# Easy start config for Aerotech F40 motor
+# Use this for initial training before progressing to harder configs
+#
+# VERIFIED: 10/10 episodes survive with random actions
+#
+# Key differences from Estes C6:
+# - Larger rocket (400g, 29mm diameter)
+# - More powerful motor (40N avg vs 5.4N)
+# - Higher velocities require smaller timestep and control authority
+
+physics:
+  # Mass - 400g dry mass is good for F40
+  dry_mass: 0.4
+
+  # FIXED: F40 propellant mass (was incorrectly 0.0123)
+  propellant_mass: 0.039
+
+  # Geometry - 29mm motor mount
+  diameter: 0.029
+  length: 0.6
+  num_fins: 4
+  fin_span: 0.05        # Slightly larger fins for bigger rocket
+  fin_root_chord: 0.06
+  fin_tip_chord: 0.03
+
+  # CRITICAL: Very reduced control authority for F40
+  # (higher velocities = more control force per degree)
+  max_tab_deflection: 3.0   # Reduced from 15°
+  tab_chord_fraction: 0.25
+  tab_span_fraction: 0.5
+
+  cd_body: 0.5
+  cd_fins: 0.01
+  cl_alpha: 2.0
+  control_effectiveness: 1.0
+
+  # Physics tuning - extra conservative for F40
+  disturbance_scale: 0.0001
+  damping_scale: 3.0        # Higher damping (was 2.0)
+  initial_spin_std: 3.0     # Lower initial spin (was 5.0)
+  max_roll_rate: 900.0      # Higher threshold (was 720)
+
+motor:
+  name: aerotech_f40
+  thrust_multiplier: 1.0
+
+environment:
+  dt: 0.01                  # 100 Hz (critical for F40's higher velocities)
+  max_episode_steps: 500
+  initial_spin_rate_range:
+  - -15.0
+  - 15.0
+  initial_tilt_range:
+  - -5.0
+  - 5.0
+
+  # Disable wind for easy config
+  enable_wind: false
+  max_wind_speed: 0.0
+  max_gust_speed: 0.0
+  wind_variability: 0.0
+
+  max_tilt_angle: 60.0
+  min_altitude: -1.0
+  max_altitude: 500.0
+  normalize_observations: true
+  obs_clip_value: 10.0
+
+reward:
+  altitude_reward_scale: 0.005   # Lower scale since F40 goes higher
+  spin_penalty_scale: -0.05      # Gentler penalty
+  low_spin_bonus: 1.0
+  low_spin_threshold: 30.0       # Achievable threshold
+  control_effort_penalty: -0.005
+  control_smoothness_penalty: -0.02
+  success_bonus: 100.0
+  crash_penalty: -20.0
+  use_potential_shaping: false
+  gamma: 0.99
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  normalize_advantage: true
+  policy_net_arch:
+  - 256
+  - 256
+  value_net_arch:
+  - 256
+  - 256
+  activation: tanh
+  total_timesteps: 500000
+  n_envs: 8
+  device: auto
+
+curriculum:
+  enabled: false
+  stages: []
+  episodes_to_evaluate: 100
+  advancement_threshold: 0.8
+
+logging:
+  log_dir: logs
+  save_dir: models
+  tensorboard_log: true
+  save_freq: 10000
+  keep_checkpoints: 5
+  eval_freq: 5000
+  n_eval_episodes: 20
+  log_episode_freq: 10
+  experiment_name: rocket_f40_easy
+  tags:
+  - aerotech_f40
+  - spin_control
+  - easy
