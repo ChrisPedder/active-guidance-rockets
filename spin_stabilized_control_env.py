@@ -1,95 +1,93 @@
 """
-Patched Spin-Stabilized Camera Rocket Environment
+Spin-Stabilized Camera Rocket Environment
 
-This file patches the physics bugs in the original spin_stabilized_control_env.py:
+A Gymnasium environment for training RL agents to control roll/spin rate
+on model rockets using small deflectable tabs on fins. The goal is to
+maintain stable camera footage by minimizing spin rate.
 
-Bug 1: Disturbance torque was ~1000x too large for small rockets
-Bug 2: Roll inertia calculation didn't account for rocket size properly
-Bug 3: Damping was insufficient for the disturbance magnitude
+Physics modeling:
+- Roll inertia calculated from RocketAirframe component geometry
+- Control effectiveness from fin and tab geometry
+- Aerodynamic damping from fin area and moment arm
+- Disturbance torque scaled by rocket diameter³ (volume scaling)
 
-These bugs caused:
-- Spin rates of 4000+ °/s within 10 timesteps
-- Episodes terminating in <0.2 seconds
-- Impossible control task for RL agent
-
+REQUIRES: A RocketAirframe instance must be provided for physics calculations.
 """
 
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 from typing import Tuple, Dict, Any
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+
+from airframe import RocketAirframe
 
 
 @dataclass
 class RocketConfig:
     """
-    Configuration for spin-stabilized camera rocket.
+    Configuration for spin-stabilized camera rocket simulation.
 
-    Key changes from original:
-    - Added disturbance_scale parameter (default much lower)
-    - Added damping_scale parameter
-    - Better documentation of expected ranges
+    This contains simulation and physics tuning parameters.
+    Rocket geometry is defined separately via RocketAirframe.
+
+    Parameters:
+    - Control tab geometry (applied to airframe fins)
+    - Physics tuning (disturbance, damping scales)
+    - Simulation settings (timestep, termination thresholds)
+    - Motor parameters (overridden when using RealisticMotorRocket)
     """
-    # === Mass Properties ===
-    # IMPORTANT: Must give TWR > 2.0 with your motor!
-    dry_mass: float = 0.150          # kg - for Estes C6, use 0.08-0.15 kg
-    propellant_mass: float = 0.012   # kg - will be overridden by motor
+    # === Control Tab Geometry ===
+    tab_chord_fraction: float = 0.25      # Fraction of fin chord that is tab
+    tab_span_fraction: float = 0.5        # Fraction of fin span with tab
+    max_tab_deflection: float = 15.0      # Maximum deflection (degrees)
+    num_controlled_fins: int = 2          # Number of fins with active tabs
 
-    # === Geometry ===
-    diameter: float = 0.024          # m - 24mm for C motors, 29mm for D-F, 38mm for G+
-    length: float = 0.45             # m
-    wall_thickness: float = 0.001    # m
+    # === Physics Tuning ===
+    disturbance_scale: float = 0.0001     # Random torque magnitude scaling
+    damping_scale: float = 1.0            # Multiplier for aerodynamic damping
+    initial_spin_std: float = 15.0        # Initial spin disturbance (deg/s std)
 
     # === Motor (defaults for simple thrust model) ===
-    thrust_curve: str = "neutral"
-    average_thrust: float = 5.4      # N - Estes C6 average
-    burn_time: float = 1.85          # s
-
-    # === Fins ===
-    num_fins: int = 4
-    fin_span: float = 0.04           # m
-    fin_root_chord: float = 0.05     # m
-    fin_thickness: float = 0.002     # m
-    fin_position: float = 0.35       # m from nose
-
-    # === Control Tabs ===
-    tab_chord_fraction: float = 0.25
-    tab_span_fraction: float = 0.5
-    max_tab_deflection: float = 15.0  # degrees
-    num_controlled_fins: int = 2
-
-    # === Physics Tuning (NEW - the key fixes) ===
-    disturbance_scale: float = 0.0001    # REDUCED from 0.01 (100x smaller)
-    damping_scale: float = 1.0           # Multiplier for aerodynamic damping
-    initial_spin_std: float = 15.0       # degrees/s std for initial spin
-
-    # === Camera ===
-    horizontal_camera_fov: float = 120.0
-    downward_camera_fov: float = 90.0
+    # These are overridden when using RealisticMotorRocket with real motor data
+    average_thrust: float = 5.4           # N - Estes C6 average
+    burn_time: float = 1.85               # s
+    propellant_mass: float = 0.012        # kg
+    thrust_curve: str = "neutral"         # "neutral", "progressive", "regressive"
 
     # === Simulation ===
-    dt: float = 0.01                 # 100 Hz
-    max_altitude: float = 500.0      # m
-    max_roll_rate: float = 360.0     # deg/s - reduced from 720 for earlier termination
-    max_episode_time: float = 15.0   # seconds
+    dt: float = 0.01                      # Time step (100 Hz)
+    max_altitude: float = 500.0           # m - for observation normalization
+    max_roll_rate: float = 360.0          # deg/s - termination threshold
+    max_episode_time: float = 15.0        # seconds
 
 
 class SpinStabilizedCameraRocket(gym.Env):
     """
-    Patched rocket environment with fixed physics for small model rockets.
+    Gymnasium environment for spin-stabilized rocket control.
 
-    Key fixes:
-    1. Disturbance torque scaled by rocket diameter³ (volume scaling)
-    2. Damping coefficient scaled appropriately
-    3. Roll inertia uses more realistic mass distribution
-    4. Configurable physics parameters for tuning
+    Physics are calculated from the provided RocketAirframe, which defines
+    the rocket's geometry, mass distribution, and aerodynamic properties.
+
+    Args:
+        airframe: RocketAirframe instance defining rocket geometry (REQUIRED)
+        config: RocketConfig with simulation and physics tuning parameters
     """
 
     metadata = {'render_modes': ['human']}
 
-    def __init__(self, config: RocketConfig = None):
+    def __init__(self, airframe: RocketAirframe, config: RocketConfig = None):
         super().__init__()
+
+        if airframe is None:
+            raise ValueError(
+                "RocketAirframe is required. Create one with:\n"
+                "  airframe = RocketAirframe.load('my_rocket.ork')  # From OpenRocket\n"
+                "  airframe = RocketAirframe.estes_alpha()          # Factory method\n"
+                "  airframe = RocketAirframe.load('airframe.yaml')  # From YAML"
+            )
+
+        self.airframe = airframe
         self.config = config or RocketConfig()
 
         # Action space: normalized tab deflection [-1, 1]
@@ -175,8 +173,8 @@ class SpinStabilizedCameraRocket(gym.Env):
         v = max(self.vertical_velocity, 0.1)  # Avoid division issues
         q = 0.5 * rho * v**2
 
-        # Vertical dynamics
-        frontal_area = np.pi * (self.config.diameter / 2)**2
+        # Vertical dynamics - use airframe frontal area
+        frontal_area = self.airframe.get_frontal_area()
         cd = 0.4 if self.time < self.config.burn_time else 0.5
         drag = cd * q * frontal_area
 
@@ -185,9 +183,9 @@ class SpinStabilizedCameraRocket(gym.Env):
         self.altitude += self.vertical_velocity * dt
         self.altitude = max(0, self.altitude)  # Can't go below ground
 
-        # Roll dynamics (FIXED)
-        roll_torque = self._calculate_roll_torque_fixed(q)
-        I_roll = self._calculate_roll_inertia_fixed(mass)
+        # Roll dynamics - using airframe geometry
+        roll_torque = self._calculate_roll_torque(q)
+        I_roll = self._calculate_roll_inertia(mass)
 
         self.roll_acceleration = roll_torque / I_roll
 
@@ -217,87 +215,59 @@ class SpinStabilizedCameraRocket(gym.Env):
 
         return self._get_observation(), reward, terminated, truncated, self._get_info()
 
-    def _calculate_roll_torque_fixed(self, dynamic_pressure: float) -> float:
+    def _calculate_roll_torque(self, dynamic_pressure: float) -> float:
         """
-        FIXED roll torque calculation with proper scaling for small rockets.
+        Calculate roll torque using airframe geometry.
+
+        Components:
+        - Control torque from deflectable tabs
+        - Aerodynamic damping from fins
+        - Random disturbance torque
         """
         control_torque = 0.0
         damping_torque = 0.0
         disturbance = 0.0
 
         if dynamic_pressure > 1.0:
-            # === Control torque from tabs ===
-            tab_area = (self.config.tab_chord_fraction * self.config.fin_root_chord *
-                       self.config.tab_span_fraction * self.config.fin_span)
+            # Control torque using airframe geometry
+            effectiveness = self.airframe.get_control_effectiveness(
+                dynamic_pressure,
+                tab_chord_fraction=self.config.tab_chord_fraction,
+                tab_span_fraction=self.config.tab_span_fraction,
+                num_controlled_fins=self.config.num_controlled_fins
+            )
+            control_torque = effectiveness * self.tab_deflection
 
-            # Lift coefficient (thin airfoil theory, valid for small angles)
-            Cl_tab = 2 * np.pi * np.sin(self.tab_deflection)
-
-            # Force per tab
-            tab_force = 0.5 * Cl_tab * dynamic_pressure * tab_area
-
-            # Moment arm
-            moment_arm = self.config.diameter / 2 + 0.5 * self.config.fin_span
-
-            # Two tabs in differential mode
-            control_torque = 2 * tab_force * moment_arm
-
-            # Effectiveness factor
+            # Velocity-dependent effectiveness
             speed_effectiveness = np.tanh(dynamic_pressure / 200.0)
             control_torque *= speed_effectiveness
 
-            # === Aerodynamic damping (INCREASED) ===
-            # Damping scales with fin area and moment arm
-            fin_area = self.config.fin_span * self.config.fin_root_chord
-            total_fin_area = self.config.num_fins * fin_area
-
-            # Damping coefficient based on fin geometry
-            # This creates a torque opposing rotation
-            damping_coef = 0.5 * total_fin_area * moment_arm**2 * self.config.damping_scale
+            # Aerodynamic damping from airframe
+            damping_coef = self.airframe.get_aerodynamic_damping_coeff()
+            damping_coef *= self.config.damping_scale
             damping_torque = -damping_coef * self.roll_rate * dynamic_pressure / max(self.vertical_velocity, 1.0)
 
-            # === Disturbance torque (FIXED - scaled by rocket size) ===
-            # Disturbance scales with diameter³ (volume/inertia scaling)
-            # This is the key fix - small rockets get small disturbances
-            size_factor = (self.config.diameter / 0.054)**3  # Normalized to 54mm rocket
+            # Disturbance scaled by airframe diameter (volume scaling)
+            size_factor = (self.airframe.body_diameter / 0.054)**3
             disturbance_std = self.config.disturbance_scale * np.sqrt(dynamic_pressure) * size_factor
             disturbance = np.random.normal(0, disturbance_std)
 
-        total_torque = control_torque + damping_torque + disturbance
+        return control_torque + damping_torque + disturbance
 
-        return total_torque
-
-    def _calculate_roll_inertia_fixed(self, mass: float) -> float:
+    def _calculate_roll_inertia(self, mass: float) -> float:
         """
-        FIXED roll inertia with better mass distribution model.
+        Calculate roll inertia using airframe component geometry.
+
+        The airframe calculates inertia from its components (nose cone,
+        body tube, fins) using the parallel axis theorem.
         """
-        radius = self.config.diameter / 2
-
-        # Body tube - thin walled cylinder
-        # Assume tube is ~20% of total mass
-        tube_mass_fraction = 0.2
-        tube_inertia = tube_mass_fraction * mass * radius**2
-
-        # Internal components (motor, nose, etc.) - roughly cylindrical, centered
-        # These contribute less to roll inertia
-        internal_mass_fraction = 0.8
-        internal_radius = radius * 0.5  # Effective radius of internal mass
-        internal_inertia = 0.5 * internal_mass_fraction * mass * internal_radius**2
-
-        # Fins
-        fin_mass_each = (self.config.fin_span * self.config.fin_root_chord *
-                        self.config.fin_thickness * 1800)  # kg/m³ for fiberglass
-        fin_distance = radius + self.config.fin_span / 2
-        fins_inertia = self.config.num_fins * fin_mass_each * fin_distance**2
-
-        total_inertia = tube_inertia + internal_inertia + fins_inertia
-
-        # Ensure minimum inertia to prevent numerical issues
-        min_inertia = 1e-6  # kg·m²
-        return max(total_inertia, min_inertia)
+        # Additional mass is motor/propellant (total mass minus airframe dry mass)
+        additional_mass = mass - self.airframe.dry_mass
+        additional_mass = max(0, additional_mass)  # Ensure non-negative
+        return self.airframe.get_roll_inertia(additional_mass)
 
     def _update_propulsion(self) -> Tuple[float, float]:
-        """Update thrust and mass"""
+        """Update thrust and mass using simple thrust model."""
         if self.time < self.config.burn_time:
             burn_fraction = self.config.dt / self.config.burn_time
             self.propellant_remaining -= self.config.propellant_mass * burn_fraction
@@ -314,21 +284,21 @@ class SpinStabilizedCameraRocket(gym.Env):
         else:
             thrust = 0.0
 
-        mass = self.config.dry_mass + self.propellant_remaining
+        mass = self.airframe.dry_mass + self.propellant_remaining
         return thrust, mass
 
     def _get_air_density(self) -> float:
-        """Atmospheric density model"""
+        """Atmospheric density model (ISA)."""
         return 1.225 * np.exp(-self.altitude / 8000)
 
     def _calculate_camera_shake(self) -> float:
-        """Camera shake metric"""
+        """Camera shake metric based on roll rate and acceleration."""
         roll_rate_contribution = abs(self.roll_rate) * 10.0
         accel_contribution = abs(self.roll_acceleration) * 0.5
         return roll_rate_contribution + accel_contribution
 
     def _calculate_reward(self, camera_shake: float) -> float:
-        """Reward function for camera stability"""
+        """Reward function for camera stability."""
         reward = 0.0
         roll_rate_deg = np.rad2deg(abs(self.roll_rate))
 
@@ -362,7 +332,7 @@ class SpinStabilizedCameraRocket(gym.Env):
         return float(np.clip(reward, -20, 20))
 
     def _is_terminated(self) -> bool:
-        """Check termination conditions"""
+        """Check termination conditions."""
         # Ground impact
         if self.altitude < -0.1 and self.time > 0.5:
             return True
@@ -379,7 +349,7 @@ class SpinStabilizedCameraRocket(gym.Env):
         return False
 
     def _get_observation(self) -> np.ndarray:
-        """Get observation vector"""
+        """Get observation vector."""
         rho = self._get_air_density()
         q = 0.5 * rho * max(self.vertical_velocity, 0)**2
 
@@ -403,7 +373,7 @@ class SpinStabilizedCameraRocket(gym.Env):
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
 
     def _get_info(self) -> Dict[str, Any]:
-        """Get info dict"""
+        """Get info dict with flight telemetry."""
         roll_rate_deg = np.rad2deg(abs(self.roll_rate))
 
         if roll_rate_deg < 10:
@@ -423,11 +393,12 @@ class SpinStabilizedCameraRocket(gym.Env):
             'tab_deflection_deg': np.rad2deg(self.tab_deflection),
             'time_s': self.time,
             'phase': 'boost' if self.time < self.config.burn_time else 'coast',
-            'mass_kg': self.config.dry_mass + self.propellant_remaining,
+            'mass_kg': self.airframe.dry_mass + self.propellant_remaining,
             'camera_shake': self.camera_shake_history[-1] if self.camera_shake_history else 0,
             'max_altitude_m': self.max_altitude_reached,
             'horizontal_camera_quality': h_quality,
-            'downward_camera_quality': h_quality,  # Simplified
+            'downward_camera_quality': h_quality,
+            'airframe': self.airframe.name,
         }
 
     def render(self, mode='human'):
@@ -438,29 +409,28 @@ class SpinStabilizedCameraRocket(gym.Env):
                   f"Phase={info['phase']} | Quality={info['horizontal_camera_quality']}")
 
 
-# Test the fix
+# Test the environment
 if __name__ == "__main__":
     print("=" * 60)
-    print("Testing PATCHED Spin-Stabilized Rocket Environment")
+    print("Testing Spin-Stabilized Rocket Environment")
     print("=" * 60)
 
-    # Create environment with small rocket config (like Estes C6)
+    # Create airframe (required)
+    airframe = RocketAirframe.estes_alpha()
+    print(f"\nAirframe: {airframe.name}")
+    print(airframe.summary())
+
+    # Create config with physics tuning
     config = RocketConfig(
-        dry_mass=0.100,         # 100g rocket
-        propellant_mass=0.012,  # C6 motor
-        diameter=0.024,         # 24mm
-        length=0.40,
-        average_thrust=5.4,     # C6 average
-        burn_time=1.85,
         max_tab_deflection=15.0,
-        initial_spin_std=15.0,  # Moderate initial disturbance
-        disturbance_scale=0.0001,  # Key fix - much smaller
+        initial_spin_std=15.0,
+        disturbance_scale=0.0001,
     )
 
-    env = SpinStabilizedCameraRocket(config)
+    # Create environment
+    env = SpinStabilizedCameraRocket(airframe=airframe, config=config)
 
-    print(f"\nConfig: {config.dry_mass*1000:.0f}g rocket, {config.diameter*1000:.0f}mm diameter")
-    print(f"Motor: {config.average_thrust:.1f}N for {config.burn_time:.2f}s")
+    print(f"\nConfig: max_tab_deflection={config.max_tab_deflection}°")
     print(f"Disturbance scale: {config.disturbance_scale}")
 
     # Test with zero control

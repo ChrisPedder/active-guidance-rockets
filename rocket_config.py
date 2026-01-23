@@ -23,42 +23,63 @@ from pathlib import Path
 
 @dataclass
 class RocketPhysicsConfig:
-    """Physical parameters for the rocket"""
+    """
+    Physics configuration for rocket training.
 
-    # Mass properties (kg)
-    dry_mass: float = 0.150          # 150g - typical for Estes C6 rocket
-    propellant_mass: float = 0.0123  # Will be overridden by motor
+    Rocket geometry is defined separately in a RocketAirframe file.
+    This config contains only physics tuning parameters, control surface
+    configuration, and simulation settings.
 
-    # Geometry (meters)
-    diameter: float = 0.024          # 24mm body tube
-    length: float = 0.45             # 45cm length
+    REQUIRED: airframe_file must specify path to .ork or .yaml airframe file.
+    """
 
-    # Fins
-    num_fins: int = 4
-    fin_span: float = 0.04           # 4cm fin span
-    fin_root_chord: float = 0.05     # 5cm root chord
-    fin_tip_chord: float = 0.025     # 2.5cm tip chord
+    # === Airframe Reference (REQUIRED) ===
+    # Path to airframe file (.ork from OpenRocket or .yaml)
+    airframe_file: str = None  # REQUIRED - no default
 
-    # Control surfaces
+    # Control surfaces - applied to airframe fins
     max_tab_deflection: float = 15.0   # degrees
     tab_chord_fraction: float = 0.25   # fraction of fin chord
     tab_span_fraction: float = 0.5     # fraction of fin span
+    num_controlled_fins: int = 2       # number of fins with active tabs
 
-    # Aerodynamics
+    # Aerodynamics tuning
     cd_body: float = 0.5              # Body drag coefficient
     cd_fins: float = 0.01             # Fin drag coefficient
     cl_alpha: float = 2.0             # Lift curve slope (per radian)
-
-    # Control effectiveness
     control_effectiveness: float = 1.0  # Multiplier for control authority
 
-    # === Physics Tuning (for patched environment) ===
-    # These parameters fix the physics bugs in the original environment
-    disturbance_scale: float = 0.0001    # CRITICAL: was 0.01 (100x too large)
+    # === Physics Tuning ===
+    disturbance_scale: float = 0.0001    # Random disturbance magnitude
     damping_scale: float = 1.0           # Multiplier for aerodynamic damping
     initial_spin_std: float = 15.0       # Initial spin disturbance (deg/s std)
-    max_roll_rate: float = 720.0      # deg/s - termination threshold (increased from 360)
-    max_episode_time: float = 15.0    # seconds - max episode duration
+    max_roll_rate: float = 720.0         # deg/s - termination threshold
+    max_episode_time: float = 15.0       # seconds - max episode duration
+
+    def resolve_airframe(self) -> 'RocketAirframe':
+        """
+        Load and return the RocketAirframe from the specified file.
+
+        Returns:
+            RocketAirframe instance
+
+        Raises:
+            ValueError: If airframe_file is not specified
+        """
+        from airframe import RocketAirframe
+
+        if not self.airframe_file:
+            raise ValueError(
+                "airframe_file is REQUIRED in RocketPhysicsConfig.\n"
+                "Specify a path to an OpenRocket (.ork) or YAML (.yaml) file:\n"
+                "  physics:\n"
+                "    airframe_file: 'configs/airframes/my_rocket.ork'\n"
+                "\n"
+                "Or use a factory method that includes an airframe:\n"
+                "  config = RocketTrainingConfig.for_estes_alpha()"
+            )
+
+        return RocketAirframe.load(self.airframe_file)
 
 @dataclass
 class MotorConfig:
@@ -355,13 +376,18 @@ class RocketTrainingConfig:
         )
 
     @classmethod
-    def for_estes_c6(cls) -> 'RocketTrainingConfig':
-        """Pre-configured settings for Estes C6 motor"""
+    def for_estes_alpha(cls, airframe_path: str = "configs/airframes/estes_alpha.yaml") -> 'RocketTrainingConfig':
+        """
+        Pre-configured settings for Estes Alpha III with C6 motor.
+
+        Args:
+            airframe_path: Path to airframe file (default: Estes Alpha YAML)
+        """
         return cls(
             physics=RocketPhysicsConfig(
-                dry_mass=0.100,      # 100g rocket
-                diameter=0.024,       # 24mm
-                length=0.40,          # 40cm
+                airframe_file=airframe_path,
+                max_tab_deflection=15.0,
+                disturbance_scale=0.0001,
             ),
             motor=MotorConfig(name="estes_c6"),
             ppo=PPOConfig(
@@ -374,13 +400,18 @@ class RocketTrainingConfig:
         )
 
     @classmethod
-    def for_aerotech_f40(cls) -> 'RocketTrainingConfig':
-        """Pre-configured settings for Aerotech F40 motor"""
+    def for_high_power(cls, airframe_path: str) -> 'RocketTrainingConfig':
+        """
+        Pre-configured settings for high power rockets.
+
+        Args:
+            airframe_path: Path to airframe file (REQUIRED)
+        """
         return cls(
             physics=RocketPhysicsConfig(
-                dry_mass=0.400,       # 400g rocket
-                diameter=0.029,       # 29mm
-                length=0.60,          # 60cm
+                airframe_file=airframe_path,
+                max_tab_deflection=20.0,
+                disturbance_scale=0.0001,
             ),
             motor=MotorConfig(name="aerotech_f40"),
             ppo=PPOConfig(
@@ -390,25 +421,26 @@ class RocketTrainingConfig:
             ),
         )
 
-    @classmethod
-    def for_cesaroni_g79(cls) -> 'RocketTrainingConfig':
-        """Pre-configured settings for Cesaroni G79 motor"""
-        return cls(
-            physics=RocketPhysicsConfig(
-                dry_mass=0.800,       # 800g rocket
-                diameter=0.038,       # 38mm
-                length=0.80,          # 80cm
-            ),
-            motor=MotorConfig(name="cesaroni_g79"),
-        )
-
     def validate(self) -> List[str]:
         """Validate configuration and return list of warnings/errors"""
         issues = []
 
+        # Check airframe is specified
+        if not self.physics.airframe_file:
+            issues.append("CRITICAL: physics.airframe_file is REQUIRED")
+            return issues
+
+        # Try to load airframe and validate
+        try:
+            airframe = self.physics.resolve_airframe()
+            dry_mass = airframe.dry_mass
+        except Exception as e:
+            issues.append(f"CRITICAL: Failed to load airframe: {e}")
+            return issues
+
         # Check thrust-to-weight ratio
         motor_specs = self.motor.get_specs_dict()
-        total_mass = self.physics.dry_mass + motor_specs['propellant_mass']
+        total_mass = dry_mass + motor_specs['propellant_mass']
         twr = motor_specs['average_thrust'] / (total_mass * 9.81)
 
         if twr < 1.0:
@@ -418,9 +450,9 @@ class RocketTrainingConfig:
 
         # Check mass is in recommended range
         rec_range = motor_specs['recommended_mass_range']
-        if not (rec_range[0] <= self.physics.dry_mass <= rec_range[1]):
+        if not (rec_range[0] <= dry_mass <= rec_range[1]):
             issues.append(
-                f"WARNING: dry_mass={self.physics.dry_mass}kg outside recommended "
+                f"WARNING: dry_mass={dry_mass}kg outside recommended "
                 f"range [{rec_range[0]:.2f}, {rec_range[1]:.2f}] for {self.motor.name}"
             )
 
@@ -444,13 +476,11 @@ def create_default_configs():
     configs_dir = Path("configs")
     configs_dir.mkdir(exist_ok=True)
 
-    # Create configurations for each motor
-    RocketTrainingConfig.for_estes_c6().save(configs_dir / "estes_c6.yaml")
-    RocketTrainingConfig.for_aerotech_f40().save(configs_dir / "aerotech_f40.yaml")
-    RocketTrainingConfig.for_cesaroni_g79().save(configs_dir / "cesaroni_g79.yaml")
+    # Create Estes Alpha configuration
+    RocketTrainingConfig.for_estes_alpha().save(configs_dir / "estes_alpha.yaml")
 
     # Create a debug/test configuration
-    debug_config = RocketTrainingConfig.for_estes_c6()
+    debug_config = RocketTrainingConfig.for_estes_alpha()
     debug_config.ppo.total_timesteps = 10_000
     debug_config.logging.eval_freq = 1_000
     debug_config.curriculum.enabled = False
@@ -463,7 +493,7 @@ if __name__ == "__main__":
     create_default_configs()
 
     # Test loading and validation
-    config = RocketTrainingConfig.for_estes_c6()
+    config = RocketTrainingConfig.for_estes_alpha()
     issues = config.validate()
 
     print("\nConfiguration validation:")
@@ -471,14 +501,21 @@ if __name__ == "__main__":
         for issue in issues:
             print(f"  {issue}")
     else:
-        print("  ✓ All checks passed")
+        print("  All checks passed")
 
-    print(f"\nTWR calculation:")
-    motor_specs = config.motor.get_specs_dict()
-    total_mass = config.physics.dry_mass + motor_specs['propellant_mass']
-    twr = motor_specs['average_thrust'] / (total_mass * 9.81)
-    print(f"  Motor: {config.motor.name}")
-    print(f"  Dry mass: {config.physics.dry_mass*1000:.1f}g")
-    print(f"  Total mass: {total_mass*1000:.1f}g")
-    print(f"  Average thrust: {motor_specs['average_thrust']:.1f}N")
-    print(f"  TWR: {twr:.2f}")
+    # Load airframe for display
+    try:
+        airframe = config.physics.resolve_airframe()
+        motor_specs = config.motor.get_specs_dict()
+        total_mass = airframe.dry_mass + motor_specs['propellant_mass']
+        twr = motor_specs['average_thrust'] / (total_mass * 9.81)
+
+        print(f"\nTWR calculation:")
+        print(f"  Airframe: {airframe.name}")
+        print(f"  Motor: {config.motor.name}")
+        print(f"  Dry mass: {airframe.dry_mass*1000:.1f}g")
+        print(f"  Total mass: {total_mass*1000:.1f}g")
+        print(f"  Average thrust: {motor_specs['average_thrust']:.1f}N")
+        print(f"  TWR: {twr:.2f}")
+    except Exception as e:
+        print(f"\nCould not load airframe: {e}")

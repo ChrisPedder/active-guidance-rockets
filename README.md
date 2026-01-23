@@ -6,6 +6,12 @@ Reinforcement learning for active spin control of model rockets using control su
 
 This project trains RL agents to stabilize rocket roll (spin) during flight using small deflectable tabs on the fins. The goal is to maintain stable camera footage from an onboard horizontal camera by minimizing spin rate.
 
+**Key Features:**
+- Import rocket designs from **OpenRocket** (.ork files) for accurate physics
+- Automatic motor configuration from ThrustCurve.org database
+- Physics-based moment of inertia and control effectiveness calculations
+- Progressive difficulty training pipeline
+
 ## Quick Start
 
 ```bash
@@ -24,7 +30,21 @@ uv run python generate_motor_config.py generate estes_c6 --output configs/
 uv run python train_improved.py --config configs/estes_c6_easy.yaml
 
 # 5. Visualize results
-uv run python visualize_spin_agent.py models/best_model.zip --n-episodes 50
+uv run python visualizations/visualize_spin_agent.py models/best_model.zip --n-episodes 50
+```
+
+### Using Your OpenRocket Design
+
+```python
+from airframe import RocketAirframe
+
+# Import your rocket design from OpenRocket
+airframe = RocketAirframe.load("my_rocket.ork")
+print(airframe.summary())
+
+# Use in training (add airframe_file to your config YAML)
+# physics:
+#   airframe_file: "my_rocket.ork"
 ```
 
 ---
@@ -128,6 +148,143 @@ The generator calculates parameters based on motor characteristics:
 
 ---
 
+## Rocket Airframe Definition
+
+The `airframe` module allows you to define rocket geometry separately from training configuration. This enables:
+- **Importing designs from OpenRocket** (.ork files)
+- **Accurate physics** based on actual component geometry
+- **Reusable airframe definitions** across multiple experiments
+
+### Loading from OpenRocket
+
+If you design your rockets in [OpenRocket](https://openrocket.info/), you can import them directly:
+
+```python
+from airframe import RocketAirframe
+
+# Load your OpenRocket design
+airframe = RocketAirframe.load("my_rocket.ork")
+
+# View the imported geometry
+print(airframe.summary())
+# Airframe: My Custom Rocket
+#   Length: 450.0 mm
+#   Diameter: 29.0 mm
+#   Dry mass: 156.3 g
+#   Components: 5
+#   Fins: 4x, span=50.0mm
+```
+
+The parser extracts:
+- Nose cone shape and dimensions
+- Body tube lengths and diameters
+- Fin geometry (trapezoidal fins)
+- Material properties and masses
+- Motor mount dimensions
+
+### Using Airframes in Training
+
+**Airframe is REQUIRED.** Every training config must specify an airframe file:
+
+```yaml
+# configs/my_training_config.yaml
+physics:
+  airframe_file: "configs/airframes/my_rocket.ork"  # REQUIRED (.ork or .yaml)
+
+  # Control tab geometry (applied to fins)
+  tab_chord_fraction: 0.25
+  tab_span_fraction: 0.5
+  max_tab_deflection: 10.0
+
+  # Physics tuning (training-specific)
+  disturbance_scale: 0.0001
+  damping_scale: 1.5
+
+motor:
+  name: "aerotech_f40"
+  # ... motor config
+```
+
+Or create the environment programmatically:
+
+```python
+from airframe import RocketAirframe
+from realistic_spin_rocket import RealisticMotorRocket
+
+# Airframe is REQUIRED as first argument
+airframe = RocketAirframe.load("my_rocket.ork")
+env = RealisticMotorRocket(
+    airframe=airframe,  # REQUIRED
+    motor_config=motor_cfg
+)
+```
+
+### Defining Airframes in YAML
+
+You can also define airframes in YAML (see `configs/airframes/estes_alpha.yaml`):
+
+```yaml
+name: My Custom Rocket
+description: A 29mm minimum diameter rocket
+
+components:
+  - type: NoseCone
+    name: Nose Cone
+    position: 0.0
+    length: 0.10
+    base_diameter: 0.029
+    shape: ogive
+    thickness: 0.002
+    material: Fiberglass
+
+  - type: BodyTube
+    name: Body Tube
+    position: 0.10
+    length: 0.35
+    outer_diameter: 0.029
+    inner_diameter: 0.027
+    material: Fiberglass
+
+  - type: TrapezoidFinSet
+    name: Fins
+    position: 0.35
+    num_fins: 4
+    root_chord: 0.06
+    tip_chord: 0.03
+    span: 0.05
+    thickness: 0.003
+    material: Fiberglass
+```
+
+### Physics from Airframe Geometry
+
+When an airframe is provided, the simulation calculates:
+
+| Property | Calculation |
+|----------|-------------|
+| **Roll Inertia** | Sum of component inertias using parallel axis theorem |
+| **Control Effectiveness** | From fin area, tab size, and moment arm |
+| **Aerodynamic Damping** | From total fin area and geometry |
+| **Disturbance Scaling** | Based on body diameter (volume scaling) |
+
+This gives more accurate physics than the simplified inline parameters.
+
+### Factory Methods
+
+Common airframes are available as factory methods:
+
+```python
+from airframe import RocketAirframe
+
+# Estes Alpha III (24mm, C motors)
+alpha = RocketAirframe.estes_alpha()
+
+# Minimum diameter rocket
+min_d = RocketAirframe.high_power_minimum_diameter(motor_diameter=0.038)
+```
+
+---
+
 ## Complete Workflow
 
 ### Automated Pipeline (Recommended)
@@ -210,10 +367,10 @@ uv run python generate_motor_config.py generate estes_c6 --output configs/
 
 ```bash
 # Single motor profile
-uv run python visualize_motor.py --motor estes_c6 --save motor_c6.png
+uv run python visualizations/visualize_motor.py --motor estes_c6 --save motor_c6.png
 
 # Compare all motors
-uv run python visualize_motor.py --compare estes_c6 aerotech_f40 cesaroni_g79
+uv run python visualizations/visualize_motor.py --compare estes_c6 aerotech_f40 cesaroni_g79
 ```
 
 #### Step 3: Train the Agent
@@ -232,7 +389,7 @@ uv run python train_improved.py --config configs/estes_c6_easy.yaml \
 
 ```bash
 # Run evaluation with visualizations
-uv run python visualize_spin_agent.py models/best_model.zip \
+uv run python visualizations/visualize_spin_agent.py models/best_model.zip \
     --config configs/estes_c6_easy.yaml \
     --n-episodes 100 \
     --save-dir evaluation_results/
@@ -323,17 +480,17 @@ ep_len_mean: 37                     # ❌ Episodes too short
 
 ## Visualization Tools
 
-### Motor Visualization (`visualize_motor.py`)
+### Motor Visualization (`visualizations/visualize_motor.py`)
 
 ```bash
 # View single motor
-uv run python visualize_motor.py --motor aerotech_f40
+uv run python visualizations/visualize_motor.py --motor aerotech_f40
 
 # Compare motors
-uv run python visualize_motor.py --compare estes_c6 aerotech_f40 cesaroni_g79
+uv run python visualizations/visualize_motor.py --compare estes_c6 aerotech_f40 cesaroni_g79
 
 # Save without displaying
-uv run python visualize_motor.py --motor estes_c6 --save motor.png --no-show
+uv run python visualizations/visualize_motor.py --motor estes_c6 --save motor.png --no-show
 ```
 
 **Output plots:**
@@ -342,14 +499,14 @@ uv run python visualize_motor.py --motor estes_c6 --save motor.png --no-show
 - Impulse accumulation
 - Motor specifications table
 
-### Agent Visualization (`visualize_spin_agent.py`)
+### Agent Visualization (`visualizations/visualize_spin_agent.py`)
 
 ```bash
 # Basic evaluation
-uv run python visualize_spin_agent.py models/best_model.zip
+uv run python visualizations/visualize_spin_agent.py models/best_model.zip
 
 # Full evaluation with report
-uv run python visualize_spin_agent.py models/best_model.zip \
+uv run python visualizations/visualize_spin_agent.py models/best_model.zip \
     --config configs/estes_c6_easy.yaml \
     --n-episodes 100 \
     --save-dir results/
@@ -384,11 +541,37 @@ physics:
   max_tab_deflection: 15.0    # Control authority (degrees)
 ```
 
-### Critical Fix: Control Authority Scaling
+### Physics Calculations
 
-**Problem:** The original code had control authority calibrated for large rockets. For small rockets at high velocity, excessive tab deflection creates catastrophic angular acceleration.
+When using an airframe definition (from OpenRocket or YAML), the simulation computes:
 
-**Solution:** The config generator analyzes physics and sets appropriate `max_tab_deflection` for each motor/rocket combination, ensuring random actions from an untrained agent don't immediately terminate episodes.
+**Roll Moment of Inertia:**
+```
+I_total = I_nosecone + I_bodytube + I_fins + I_motor
+
+I_fins = Σ (I_cm + m_fin × d²)  # Parallel axis theorem
+```
+
+**Control Torque:**
+```
+τ_control = 2 × F_tab × r_moment
+F_tab = ½ × Cl × q × A_tab
+Cl = 2π × sin(δ)  # Thin airfoil theory
+```
+
+**Aerodynamic Damping:**
+```
+τ_damping = -C_damp × ω × q / V
+C_damp = A_fins × r_moment²
+```
+
+### Control Authority Scaling
+
+Control authority must be calibrated for rocket size. For small rockets at high velocity, excessive tab deflection creates large angular accelerations.
+
+The config generator analyzes motor physics and sets appropriate `max_tab_deflection` for each motor/rocket combination, ensuring the control authority is appropriate for the rocket's inertia.
+
+When using an airframe, the actual fin geometry determines control effectiveness automatically.
 
 ---
 
@@ -396,39 +579,44 @@ physics:
 
 ```
 active-guidance-rockets/
-├── configs/
-│   ├── estes_c6_easy.yaml
+├── configs/                          # Training configurations
+│   ├── estes_c6.yaml
+│   ├── estes_c6_easy_start.yaml
 │   ├── estes_c6_medium.yaml
-│   ├── estes_c6_full.yaml
 │   ├── aerotech_f40_easy.yaml
-│   └── ...                          # Generated by generate_motor_config.py
-├── spin_stabilized_control_env.py   # Environment with physics fixes
+│   ├── ...                          # Generated by generate_motor_config.py
+│   └── airframes/                   # Airframe definitions
+│       └── estes_alpha.yaml         # Example airframe
+│
+├── airframe/                        # Rocket geometry module
+│   ├── __init__.py
+│   ├── components.py                # NoseCone, BodyTube, TrapezoidFinSet, etc.
+│   ├── airframe.py                  # RocketAirframe class
+│   └── openrocket_parser.py         # .ork file parser (pure Python)
+│
+├── spin_stabilized_control_env.py   # Spin-stabilized rocket environment
 ├── realistic_spin_rocket.py         # Motor integration
 ├── thrustcurve_motor_data.py        # Motor data parsing
 ├── train_improved.py                # Training script
 ├── rocket_config.py                 # Configuration system
-├── diagnose_rocket.py               # Diagnostic tool
+├── motor_loader.py                  # Motor loading utilities
 ├── sweep_hyperparams.py             # Hyperparameter sweeps
 │
-├── generate_motor_config.py         # ★ Motor config generator
-├── visualize_motor.py               # ★ Motor visualization
-├── visualize_spin_agent.py          # ★ Agent evaluation & plots
-├── run_experiment.sh                # ★ Automated pipeline
+├── generate_motor_config.py         # Motor config generator
+├── run_experiment.sh                # Automated pipeline
 │
+├── visualizations/
+│   ├── visualize_motor.py           # Motor visualization
+│   └── visualize_spin_agent.py      # Agent evaluation & plots
+│
+├── models/                          # Trained models
+├── logs/                            # Training logs
 └── experiments/                     # Output directory
     └── {motor}_{difficulty}_{timestamp}/
         ├── config.yaml
         ├── plots/
-        │   ├── motor_profile.png
-        │   └── motor_comparison.png
         ├── evaluation/
-        │   ├── performance_overview_*.png
-        │   ├── best_trajectory_*.png
-        │   └── evaluation_report_*.txt
         ├── logs/
-        │   ├── diagnostics.log
-        │   ├── training.log
-        │   └── evaluation.log
         ├── best_model.zip
         └── SUMMARY.md
 ```
@@ -439,6 +627,8 @@ active-guidance-rockets/
 
 | Symptom | Cause | Solution |
 |---------|-------|----------|
+| "RocketAirframe is required" error | No airframe specified | Add `airframe_file` to config or use `RocketAirframe.load()` |
+| "airframe_file is REQUIRED" error | Config missing airframe | Add `physics.airframe_file: "path/to/rocket.ork"` |
 | Altitude ~6m, spin ~400°/s | Control authority too high | Use `--generate-config` for physics-tuned config |
 | Episodes end in <50 steps | `max_roll_rate` threshold too low | Increase in config or regenerate |
 | Agent never improves | Reward too sparse | Reduce `spin_penalty_scale`, increase `low_spin_threshold` |
@@ -455,15 +645,28 @@ Test that episodes survive with random actions:
 
 # Or manually
 python -c "
+from airframe import RocketAirframe
 from spin_stabilized_control_env import RocketConfig
-from realistic_spin_rocket import RealisticMotorRocket, CommonMotors
+from realistic_spin_rocket import RealisticMotorRocket
 import numpy as np
 
+# Load airframe (REQUIRED)
+airframe = RocketAirframe.estes_alpha()
+
+# Motor config
+motor_config = {
+    'name': 'estes_c6',
+    'manufacturer': 'Estes', 'designation': 'C6',
+    'total_impulse_Ns': 10.0, 'avg_thrust_N': 5.4, 'max_thrust_N': 14.0,
+    'burn_time_s': 1.85, 'propellant_mass_g': 12.3, 'case_mass_g': 12.7,
+    'thrust_curve': {'time_s': [0,0.1,1.85], 'thrust_N': [0,14,0]}
+}
+
 config = RocketConfig(
-    dry_mass=0.1, max_tab_deflection=5.0,
-    damping_scale=2.0, initial_spin_std=5.0, max_roll_rate=720.0
+    max_tab_deflection=5.0, damping_scale=2.0,
+    initial_spin_std=5.0, max_roll_rate=720.0
 )
-env = RealisticMotorRocket(CommonMotors.estes_c6(), config)
+env = RealisticMotorRocket(airframe=airframe, motor_config=motor_config, config=config)
 
 for ep in range(5):
     obs, _ = env.reset()

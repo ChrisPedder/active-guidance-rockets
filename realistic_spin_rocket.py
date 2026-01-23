@@ -1,10 +1,10 @@
 """
 Realistic Motor Rocket
 
-This extends the spin-stabilized environment to use real motor data.
+This extends the spin-stabilized environment to use real motor data
+from ThrustCurve.org with accurate thrust curves.
 
-UPDATED: Now supports loading motors from config files via motor_loader.py
-This enables using ANY motor from ThrustCurve.org without code changes.
+REQUIRES: A RocketAirframe instance must be provided for physics calculations.
 """
 
 import numpy as np
@@ -15,8 +15,9 @@ from spin_stabilized_control_env import (
     SpinStabilizedCameraRocket,
     RocketConfig
 )
+from airframe import RocketAirframe
 
-# Try to import motor_loader for config-based motors (NEW!)
+# Try to import motor_loader for config-based motors
 try:
     from motor_loader import Motor as ConfigMotor
     MOTOR_LOADER_AVAILABLE = True
@@ -32,7 +33,6 @@ except ImportError:
     MOTOR_DATA_AVAILABLE = False
     # Define a simple MotorData class if not available
     from dataclasses import dataclass
-    import numpy as np
     from scipy import interpolate
 
     @dataclass
@@ -77,50 +77,61 @@ except ImportError:
             remaining_prop = self.propellant_mass * (1 - burn_fraction)
             return self.case_mass + remaining_prop
 
+
 class RealisticMotorRocket(SpinStabilizedCameraRocket):
     """
-    Rocket environment using real motor thrust curves with FIXED physics.
+    Rocket environment using real motor thrust curves.
 
-    UPDATED: Now supports loading motors from config files!
+    Requires:
+    - A RocketAirframe defining the rocket geometry
+    - Motor data (either MotorData object or config dict from YAML)
 
-    Two ways to create:
-    1. Traditional: RealisticMotorRocket(motor_data=CommonMotors.estes_c6(), config=...)
-    2. NEW: RealisticMotorRocket(motor_config=config_dict['motor'], config=...)
-
-    The new method works with ANY motor from ThrustCurve.org via generated configs.
+    Example:
+        >>> from airframe import RocketAirframe
+        >>> airframe = RocketAirframe.load('my_rocket.ork')
+        >>> env = RealisticMotorRocket(
+        ...     airframe=airframe,
+        ...     motor_config=motor_cfg
+        ... )
     """
 
     def __init__(
         self,
+        airframe: RocketAirframe,
         motor_data: Optional[MotorData] = None,
+        motor_config: Optional[Dict[str, Any]] = None,
         config: Optional[RocketConfig] = None,
-        motor_config: Optional[Dict[str, Any]] = None  # NEW!
     ):
         """
-        Initialize with real motor data.
+        Initialize with airframe and motor data.
 
         Args:
-            motor_data: Motor specifications (traditional method - backward compatible)
-            config: Rocket configuration (will be updated with motor specs)
-            motor_config: Motor config dict from YAML file (NEW - recommended!)
-                         This is the 'motor' section from your config YAML
+            airframe: RocketAirframe defining rocket geometry (REQUIRED)
+            motor_data: Motor specifications (MotorData object)
+            motor_config: Motor config dict from YAML file
+            config: RocketConfig with simulation parameters
 
-        Example (NEW method - works with any motor!):
-            >>> import yaml
-            >>> with open('configs/aerotech_k550w_easy.yaml') as f:
-            ...     cfg = yaml.safe_load(f)
-            >>> motor_config = cfg['motor']
-            >>> rocket_config = RocketConfig(dry_mass=cfg['physics']['dry_mass'], ...)
-            >>> env = RealisticMotorRocket(motor_config=motor_config, config=rocket_config)
+        Must provide either motor_data OR motor_config.
 
-        Example (traditional method - still works):
-            >>> motor = CommonMotors.estes_c6()
-            >>> env = RealisticMotorRocket(motor_data=motor, config=rocket_config)
+        Example:
+            >>> airframe = RocketAirframe.load('my_rocket.ork')
+            >>> env = RealisticMotorRocket(
+            ...     airframe=airframe,
+            ...     motor_config=motor_cfg
+            ... )
         """
+        if airframe is None:
+            raise ValueError(
+                "RocketAirframe is required. Create one with:\n"
+                "  airframe = RocketAirframe.load('my_rocket.ork')  # From OpenRocket\n"
+                "  airframe = RocketAirframe.estes_alpha()          # Factory method\n"
+                "  airframe = RocketAirframe.load('airframe.yaml')  # From YAML"
+            )
+
         if config is None:
             config = RocketConfig()
 
-        # NEW: Load motor from config if provided
+        # Load motor from config if provided
         if motor_config is not None:
             if not MOTOR_LOADER_AVAILABLE:
                 raise ImportError(
@@ -137,9 +148,9 @@ class RealisticMotorRocket(SpinStabilizedCameraRocket):
             config.burn_time = self.motor.burn_time
             config.average_thrust = self.motor.average_thrust
 
-            print(f"✓ Loaded motor from config: {self.motor.manufacturer} {self.motor.designation}")
+            print(f"✓ Loaded motor: {self.motor.manufacturer} {self.motor.designation}")
 
-        # Traditional: Use provided motor_data
+        # Use provided motor_data
         elif motor_data is not None:
             self.motor = motor_data
             self.motor_case_mass = motor_data.case_mass
@@ -154,8 +165,8 @@ class RealisticMotorRocket(SpinStabilizedCameraRocket):
         else:
             raise ValueError(
                 "Must provide either 'motor_data' or 'motor_config'!\n"
-                "  - Traditional: motor_data=CommonMotors.estes_c6()\n"
-                "  - NEW (recommended): motor_config=config_dict['motor']"
+                "  - motor_data: Pass a MotorData object\n"
+                "  - motor_config: Pass config dict from YAML file"
             )
 
         # Display motor info
@@ -163,8 +174,13 @@ class RealisticMotorRocket(SpinStabilizedCameraRocket):
         print(f"  Burn time: {self.motor.burn_time:.2f}s")
         print(f"  Avg/Max thrust: {self.motor.average_thrust:.1f}N / {self.motor.max_thrust:.1f}N")
 
+        # Display airframe info
+        print(f"✓ Using airframe: {airframe.name}")
+        print(f"    Dry mass: {airframe.dry_mass*1000:.1f}g")
+        print(f"    Diameter: {airframe.body_diameter*1000:.1f}mm")
+
         # Calculate and display TWR
-        total_mass = config.dry_mass + self.motor.propellant_mass
+        total_mass = airframe.dry_mass + self.motor.propellant_mass
         twr = self.motor.average_thrust / (total_mass * 9.81)
         print(f"  Rocket mass: {total_mass*1000:.1f}g")
         print(f"  TWR: {twr:.2f}")
@@ -174,12 +190,12 @@ class RealisticMotorRocket(SpinStabilizedCameraRocket):
         elif twr < 2.0:
             print(f"  ⚠️  WARNING: TWR < 2.0 - marginal performance")
 
-        super().__init__(config)
+        super().__init__(airframe=airframe, config=config)
 
     def _update_propulsion(self) -> Tuple[float, float]:
         """
         Get thrust from real motor curve.
-        Works with both MotorData and ConfigMotor!
+        Works with both MotorData and ConfigMotor.
         """
         if self.time < self.motor.burn_time:
             thrust = self.motor.get_thrust(self.time)
@@ -188,8 +204,8 @@ class RealisticMotorRocket(SpinStabilizedCameraRocket):
             thrust = 0.0
             motor_mass = self.motor_case_mass
 
-        # Total mass = rocket dry mass + current motor mass
-        total_mass = self.config.dry_mass + motor_mass
+        # Total mass = airframe dry mass + current motor mass
+        total_mass = self.airframe.dry_mass + motor_mass
 
         # Update propellant remaining for parent class
         self.propellant_remaining = max(0, motor_mass - self.motor_case_mass)
@@ -197,7 +213,7 @@ class RealisticMotorRocket(SpinStabilizedCameraRocket):
         return thrust, total_mass
 
     def _get_info(self) -> Dict[str, Any]:
-        """Extended info with motor data"""
+        """Extended info with motor data."""
         info = super()._get_info()
 
         # Add motor-specific info
@@ -212,7 +228,6 @@ class RealisticMotorRocket(SpinStabilizedCameraRocket):
         return info
 
 
-# NEW: Helper function to create environment from config file
 def create_environment_from_config(
     config_path: str,
     rank: int = 0
@@ -220,9 +235,8 @@ def create_environment_from_config(
     """
     Create environment from config YAML file.
 
-    This is the RECOMMENDED way to create environments - it automatically
-    loads motor data from the config file, so ANY motor from ThrustCurve.org
-    will work!
+    The config file MUST specify an airframe via the 'airframe_file' key
+    in the physics section.
 
     Args:
         config_path: Path to config YAML file
@@ -231,53 +245,73 @@ def create_environment_from_config(
     Returns:
         Configured RealisticMotorRocket environment
 
+    Config file format:
+        physics:
+          airframe_file: "path/to/rocket.ork"  # REQUIRED
+          tab_chord_fraction: 0.25
+          tab_span_fraction: 0.5
+          max_tab_deflection: 15.0
+          disturbance_scale: 0.0001
+          damping_scale: 1.0
+
+        motor:
+          name: "estes_c6"
+          # ... motor config
+
     Example:
-        >>> # Works with ANY motor!
-        >>> env = create_environment_from_config('configs/aerotech_k550w_easy.yaml')
-        ✓ Loaded motor from config: AeroTech K550W
-          Total impulse: 1539.1 N·s
-          TWR: 5.00
+        >>> env = create_environment_from_config('configs/my_rocket.yaml')
+        ✓ Loaded airframe: My Custom Rocket
+        ✓ Loaded motor: Estes C6
     """
     import yaml
+    import os
 
     with open(config_path, 'r') as f:
         config = yaml.safe_load(f)
 
-    # Extract motor config
+    # Extract configs
     motor_config = config.get('motor', {})
-
-    # Extract physics and environment configs
     physics = config.get('physics', {})
     env_cfg = config.get('environment', {})
 
-    # Create RocketConfig
+    # Load airframe (REQUIRED)
+    airframe_file = physics.get('airframe_file')
+    if not airframe_file:
+        raise ValueError(
+            f"Config file {config_path} must specify 'physics.airframe_file'.\n"
+            "Example:\n"
+            "  physics:\n"
+            "    airframe_file: 'configs/airframes/my_rocket.ork'\n"
+            "\n"
+            "Create an airframe file from OpenRocket (.ork) or define in YAML."
+        )
+
+    # Resolve relative paths relative to config file
+    if not os.path.isabs(airframe_file):
+        config_dir = os.path.dirname(os.path.abspath(config_path))
+        airframe_file = os.path.join(config_dir, airframe_file)
+
+    airframe = RocketAirframe.load(airframe_file)
+
+    # Create RocketConfig with physics tuning parameters
     rocket_config = RocketConfig(
-        dry_mass=physics.get('dry_mass', 0.1),
-        diameter=physics.get('diameter', 0.024),
-        length=physics.get('length', 0.4),
-        num_fins=physics.get('num_fins', 4),
-        fin_span=physics.get('fin_span', 0.04),
-        fin_root_chord=physics.get('fin_root_chord', 0.05),
-        fin_tip_chord=physics.get('fin_tip_chord', 0.025),
         max_tab_deflection=physics.get('max_tab_deflection', 15.0),
         tab_chord_fraction=physics.get('tab_chord_fraction', 0.25),
         tab_span_fraction=physics.get('tab_span_fraction', 0.5),
-        cd_body=physics.get('cd_body', 0.5),
-        cd_fins=physics.get('cd_fins', 0.01),
-        cl_alpha=physics.get('cl_alpha', 2.0),
-        control_effectiveness=physics.get('control_effectiveness', 1.0),
+        num_controlled_fins=physics.get('num_controlled_fins', 2),
         disturbance_scale=physics.get('disturbance_scale', 0.0001),
         damping_scale=physics.get('damping_scale', 1.0),
         initial_spin_std=physics.get('initial_spin_std', 15.0),
         max_roll_rate=physics.get('max_roll_rate', 360.0),
+        max_episode_time=physics.get('max_episode_time', 15.0),
         dt=env_cfg.get('dt', 0.01),
     )
 
-    # Create environment with motor from config
+    # Create environment
     env = RealisticMotorRocket(
-        motor_data=None,  # Don't use traditional motor
+        airframe=airframe,
+        motor_config=motor_config,
         config=rocket_config,
-        motor_config=motor_config  # Use motor from config file
     )
 
     # Seed the environment
@@ -287,60 +321,47 @@ def create_environment_from_config(
     return env
 
 
-# Traditional convenience function (backward compatible)
-def create_environment(
-    motor_name: str = "estes_c6",
-    dry_mass: float = None,
-    **config_kwargs
-) -> RealisticMotorRocket:
-    """
-    Create a rocket environment with specified motor.
-
-    TRADITIONAL METHOD - Still works but limited to hardcoded motors.
-    For new code, use create_environment_from_config() instead!
-
-    Args:
-        motor_name: One of "estes_c6", "aerotech_f40", "cesaroni_g79"
-        dry_mass: Override dry mass (kg). If None, uses recommended mass for motor.
-        **config_kwargs: Additional config overrides
-
-    Returns:
-        Configured environment
-    """
-    # Get motor
-    motors = {
-        "estes_c6": (CommonMotors.estes_c6, 0.100),      # 100g recommended
-        "aerotech_f40": (CommonMotors.aerotech_f40, 0.400),  # 400g recommended
-        "cesaroni_g79": (CommonMotors.cesaroni_g79, 0.800),  # 800g recommended
-    }
-
-    if motor_name not in motors:
-        raise ValueError(f"Unknown motor: {motor_name}. Options: {list(motors.keys())}")
-
-    motor_func, default_mass = motors[motor_name]
-    motor = motor_func()
-
-    # Build config
-    config = RocketConfig(
-        dry_mass=dry_mass if dry_mass is not None else default_mass,
-        **config_kwargs
-    )
-
-    return RealisticMotorRocket(motor_data=motor, config=config)
-
-
 if __name__ == "__main__":
     print("=" * 60)
-    print("Testing Updated Realistic Motor Rocket")
+    print("Testing Realistic Motor Rocket")
     print("=" * 60)
 
-    # Test 1: Traditional method (backward compatible)
-    print("\n--- Test 1: Traditional Method (hardcoded motor) ---")
-    env = create_environment(
-        motor_name="estes_c6",
-        dry_mass=0.100,  # 100g rocket
-        disturbance_scale=0.0001,
+    # Create airframe (required)
+    airframe = RocketAirframe.estes_alpha()
+
+    # Create a simple motor config for testing
+    motor_config = {
+        'name': 'estes_c6',
+        'manufacturer': 'Estes',
+        'designation': 'C6',
+        'total_impulse_Ns': 10.0,
+        'avg_thrust_N': 5.4,
+        'max_thrust_N': 14.0,
+        'burn_time_s': 1.85,
+        'propellant_mass_g': 12.3,
+        'case_mass_g': 12.7,
+        'thrust_curve': {
+            'time_s': [0.0, 0.1, 0.5, 1.0, 1.5, 1.85],
+            'thrust_N': [0.0, 14.0, 6.0, 5.0, 4.0, 0.0]
+        }
+    }
+
+    # Create config
+    config = RocketConfig(
+        max_tab_deflection=15.0,
         initial_spin_std=15.0,
+        disturbance_scale=0.0001,
+    )
+
+    print(f"\nCreating environment with:")
+    print(f"  Airframe: {airframe.name}")
+    print(f"  Motor: {motor_config['designation']}")
+
+    # Create environment
+    env = RealisticMotorRocket(
+        airframe=airframe,
+        motor_config=motor_config,
+        config=config,
     )
 
     print("\n--- Passive flight test (no control) ---")
@@ -365,30 +386,6 @@ if __name__ == "__main__":
     print(f"Duration: {info['time_s']:.2f}s")
     print(f"Final spin: {info['roll_rate_deg_s']:.1f}°/s")
 
-    # Test 2: NEW method with config file (if available)
     print("\n" + "=" * 60)
-    print("--- Test 2: NEW Method (config-based motor) ---")
-
-    import os
-    if os.path.exists('configs/aerotech_k550w_easy.yaml'):
-        print("\nFound config file - testing with K550W motor...")
-        env_config = create_environment_from_config('configs/aerotech_k550w_easy.yaml')
-
-        print("\nRunning quick test...")
-        obs, info = env_config.reset()
-        for step in range(50):
-            action = np.array([0.0])
-            obs, reward, terminated, truncated, info = env_config.step(action)
-            if terminated or truncated:
-                break
-
-        print(f"✓ Config-based motor works! Max altitude: {info['max_altitude_m']:.1f}m")
-    else:
-        print("\nNo config file found for testing.")
-        print("To test config-based motors:")
-        print("  1. Generate a config: python generate_motor_config_fixed.py generate estes_c6")
-        print("  2. Run: python realistic_spin_rocket_updated.py")
-
-    print("\n" + "=" * 60)
-    print("✓ All tests passed!")
+    print("Test complete!")
     print("=" * 60)

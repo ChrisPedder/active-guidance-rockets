@@ -1,0 +1,35 @@
+name: Estes Alpha III
+description: Classic beginner rocket for C6 motors
+components:
+- type: NoseCone
+  name: Nose Cone
+  position: 0.0
+  length: 0.07
+  base_diameter: 0.024
+  shape: ogive
+  thickness: 0.002
+  material: ABS Plastic
+- type: BodyTube
+  name: Body Tube
+  position: 0.07
+  length: 0.24
+  outer_diameter: 0.024
+  inner_diameter: 0.022
+  material: Cardboard
+- type: TrapezoidFinSet
+  name: Fins
+  position: 0.24
+  num_fins: 4
+  root_chord: 0.05
+  tip_chord: 0.025
+  span: 0.04
+  sweep_length: 0.0
+  thickness: 0.002
+  material: Balsa
+- type: MotorMount
+  name: Motor Mount
+  position: 0.24
+  length: 0.07
+  outer_diameter: 0.02
+  inner_diameter: 0.018
+  material: Cardboard
