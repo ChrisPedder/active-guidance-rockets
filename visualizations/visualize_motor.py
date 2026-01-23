@@ -6,39 +6,48 @@ Plots thrust curves, mass profiles, and performance characteristics
 for rocket motors used in training.
 
 Usage:
-    python visualize_motor.py --motor estes_c6
-    python visualize_motor.py --motor aerotech_f40 --save motor_profile.png
-    python visualize_motor.py --compare estes_c6 aerotech_f40 cesaroni_g79
+    python visualizations/visualize_motor.py --motor estes_c6
+    python visualizations/visualize_motor.py --motor aerotech_f40 --save motor_profile.png
+    python visualizations/visualize_motor.py --compare estes_c6 aerotech_f40 cesaroni_g79
 """
+
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import numpy as np
 import matplotlib.pyplot as plt
 import argparse
-from pathlib import Path
+import yaml
+import glob
 
-# Try to import the full motor data module
-try:
-    from thrustcurve_motor_data import MotorData, ThrustCurveParser
-    FULL_MOTOR_DATA = True
-except ImportError:
-    FULL_MOTOR_DATA = False
-
-# Import common motors from our environment
-from realistic_spin_rocket import CommonMotors
+from motor_loader import Motor, load_motor_from_config
 
 
 def get_motor(motor_name: str):
-    """Get motor data by name"""
-    motors = {
-        'estes_c6': CommonMotors.estes_c6,
-        'aerotech_f40': CommonMotors.aerotech_f40,
-        'cesaroni_g79': CommonMotors.cesaroni_g79,
-    }
+    """Get motor data by name from config files"""
+    # Look for config files matching the motor name
+    parent_dir = Path(__file__).parent.parent
+    config_patterns = [
+        parent_dir / f"configs/{motor_name}.yaml",
+        parent_dir / f"configs/{motor_name}_easy.yaml",
+        parent_dir / f"configs/{motor_name}_easy_start.yaml",
+    ]
+
+    for pattern in config_patterns:
+        if pattern.exists():
+            return load_motor_from_config(str(pattern))
+
+    # Try to find any matching config
+    matching = list(parent_dir.glob(f"configs/{motor_name}*.yaml"))
+    if matching:
+        return load_motor_from_config(str(matching[0]))
+
+    raise ValueError(f"No config found for motor: {motor_name}. "
+                    f"Available configs: {list(parent_dir.glob('configs/*.yaml'))}")
     
-    if motor_name.lower() not in motors:
-        raise ValueError(f"Unknown motor: {motor_name}. Available: {list(motors.keys())}")
-    
-    return motors[motor_name.lower()]()
 
 
 def plot_motor_profile(motor, save_path: str = None, show: bool = True):

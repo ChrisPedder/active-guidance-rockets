@@ -6,9 +6,15 @@ This script evaluates a trained agent and creates comprehensive visualizations
 of flight performance, spin control, and camera quality.
 
 Usage:
-    python visualize_spin_agent.py models/best_model.zip --config configs/estes_c6_easy.yaml
-    python visualize_spin_agent.py models/best_model.zip --n-episodes 50 --save-dir results/
+    python visualizations/visualize_spin_agent.py models/best_model.zip --config configs/estes_c6_easy.yaml
+    python visualizations/visualize_spin_agent.py models/best_model.zip --n-episodes 50 --save-dir results/
 """
+
+import sys
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -16,7 +22,6 @@ import seaborn as sns
 from typing import List, Dict, Optional
 from dataclasses import dataclass, field
 from datetime import datetime
-from pathlib import Path
 import argparse
 import yaml
 import os
@@ -28,7 +33,7 @@ from gymnasium import spaces
 
 # Import environment components
 from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
-from realistic_spin_rocket import RealisticMotorRocket, CommonMotors
+from realistic_spin_rocket import RealisticMotorRocket
 
 
 @dataclass
@@ -106,8 +111,8 @@ class SpinAgentEvaluator:
         """Create environment matching training config"""
         if self.config:
             physics = self.config.get('physics', {})
-            motor_name = self.config.get('motor', {}).get('name', 'estes_c6')
-            
+            motor_config = self.config.get('motor', {})
+
             rocket_config = RocketConfig(
                 dry_mass=physics.get('dry_mass', 0.1),
                 diameter=physics.get('diameter', 0.024),
@@ -119,21 +124,14 @@ class SpinAgentEvaluator:
                 max_roll_rate=physics.get('max_roll_rate', 360.0),
                 dt=self.config.get('environment', {}).get('dt', 0.01),
             )
+
+            env = RealisticMotorRocket(motor_config=motor_config, config=rocket_config)
         else:
-            rocket_config = RocketConfig()
-            motor_name = 'estes_c6'
-        
-        # Get motor
-        motors = {
-            'estes_c6': CommonMotors.estes_c6,
-            'aerotech_f40': CommonMotors.aerotech_f40,
-            'cesaroni_g79': CommonMotors.cesaroni_g79,
-        }
-        motor = motors.get(motor_name, CommonMotors.estes_c6)()
-        
-        env = RealisticMotorRocket(motor, rocket_config)
+            raise ValueError("Config file required for visualization. "
+                           "Use --config to specify a config YAML file.")
+
         env = NormalizedActionWrapper(env)
-        
+
         return env
     
     def run_episode(self, episode_id: int, deterministic: bool = True) -> SpinEpisodeData:

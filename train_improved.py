@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Improved PPO Training Script for Rocket Spin Control
+PPO Training Script for Rocket Spin Control
 
-Key improvements over original:
-1. Proper mass/thrust configuration (fixes TWR issue)
-2. Observation normalization
-3. Configurable reward function
-4. Curriculum learning support
-5. Better logging and diagnostics
+Features:
+- Configurable mass/thrust parameters
+- Observation normalization
+- Configurable reward function
+- Curriculum learning support
+- Logging and diagnostics
 
 Usage:
     # Using config file
@@ -47,7 +47,6 @@ from spin_stabilized_control_env import SpinStabilizedCameraRocket
 from spin_stabilized_control_env import RocketConfig as CompositeRocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
 from motor_loader import Motor
-from rocket_boost_control_env import RocketBoostControlEnv, RocketGeometry
 
 
 class ImprovedRewardWrapper(gym.Wrapper):
@@ -395,7 +394,7 @@ def train(config: RocketTrainingConfig):
     config.save(save_dir / "config.yaml")
 
     print(f"\n{'='*70}")
-    print("IMPROVED ROCKET SPIN CONTROL TRAINING")
+    print("ROCKET SPIN CONTROL TRAINING")
     print(f"{'='*70}")
     print(f"Motor: {config.motor.name}")
     print(f"Dry mass: {config.physics.dry_mass*1000:.1f}g")
