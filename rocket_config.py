@@ -365,8 +365,12 @@ class RocketTrainingConfig:
         with open(path, 'r') as f:
             data = yaml.safe_load(f)
 
+        # Handle backward compatibility with old-style physics configs
+        physics_data = data.get('physics', {})
+        physics_config = cls._load_physics_config(physics_data)
+
         return cls(
-            physics=RocketPhysicsConfig(**data.get('physics', {})),
+            physics=physics_config,
             motor=MotorConfig(**data.get('motor', {})),
             environment=EnvironmentConfig(**data.get('environment', {})),
             reward=RewardConfig(**data.get('reward', {})),
@@ -374,6 +378,125 @@ class RocketTrainingConfig:
             curriculum=CurriculumConfig(**data.get('curriculum', {})),
             logging=LoggingConfig(**data.get('logging', {})),
         )
+
+    @classmethod
+    def _load_physics_config(cls, physics_data: Dict[str, Any]) -> RocketPhysicsConfig:
+        """
+        Load physics config with backward compatibility for old-style configs.
+
+        Old configs specified rocket geometry directly (dry_mass, diameter, etc.).
+        New configs use airframe_file to reference a RocketAirframe definition.
+        """
+        # Valid fields for RocketPhysicsConfig
+        valid_fields = {
+            'airframe_file', 'max_tab_deflection', 'tab_chord_fraction',
+            'tab_span_fraction', 'num_controlled_fins', 'cd_body', 'cd_fins',
+            'cl_alpha', 'control_effectiveness', 'disturbance_scale',
+            'damping_scale', 'initial_spin_std', 'max_roll_rate', 'max_episode_time'
+        }
+
+        # Legacy fields that were in old configs (now in airframe)
+        legacy_geometry_fields = {
+            'dry_mass', 'propellant_mass', 'diameter', 'length',
+            'num_fins', 'fin_span', 'fin_root_chord', 'fin_tip_chord'
+        }
+
+        # Check if this is an old-style config
+        has_legacy_fields = any(f in physics_data for f in legacy_geometry_fields)
+        has_airframe = 'airframe_file' in physics_data
+
+        if has_legacy_fields and not has_airframe:
+            # Create a temporary airframe file from legacy config
+            airframe_file = cls._create_legacy_airframe(physics_data)
+            physics_data = dict(physics_data)  # Copy to avoid mutation
+            physics_data['airframe_file'] = airframe_file
+
+        # Filter to only valid fields
+        filtered_data = {k: v for k, v in physics_data.items() if k in valid_fields}
+
+        return RocketPhysicsConfig(**filtered_data)
+
+    @classmethod
+    def _create_legacy_airframe(cls, physics_data: Dict[str, Any]) -> str:
+        """
+        Create a temporary airframe YAML file from legacy physics config.
+
+        Returns path to the created file.
+        """
+        import tempfile
+        import os
+        from pathlib import Path
+
+        # Extract legacy parameters with defaults
+        dry_mass = physics_data.get('dry_mass', 0.1)
+        diameter = physics_data.get('diameter', 0.024)
+        length = physics_data.get('length', 0.4)
+        num_fins = physics_data.get('num_fins', 4)
+        fin_span = physics_data.get('fin_span', 0.04)
+        fin_root_chord = physics_data.get('fin_root_chord', 0.05)
+        fin_tip_chord = physics_data.get('fin_tip_chord', 0.025)
+
+        # Create airframe dict
+        # Distribute mass: 20% nose, 60% body, 20% fins
+        nose_length = 0.07
+        body_length = length - nose_length
+
+        airframe_dict = {
+            'name': 'Legacy Config Airframe',
+            'description': 'Auto-generated from legacy physics config',
+            'components': [
+                {
+                    'type': 'NoseCone',
+                    'name': 'Nose Cone',
+                    'position': 0.0,
+                    'length': nose_length,
+                    'base_diameter': diameter,
+                    'shape': 'ogive',
+                    'thickness': 0.002,
+                    'material': 'ABS Plastic',
+                    'mass_override': dry_mass * 0.15,
+                },
+                {
+                    'type': 'BodyTube',
+                    'name': 'Body Tube',
+                    'position': nose_length,
+                    'length': body_length,
+                    'outer_diameter': diameter,
+                    'inner_diameter': diameter - 0.002,
+                    'material': 'Cardboard',
+                    'mass_override': dry_mass * 0.65,
+                },
+                {
+                    'type': 'TrapezoidFinSet',
+                    'name': 'Fins',
+                    'position': nose_length + body_length - fin_root_chord,
+                    'num_fins': num_fins,
+                    'root_chord': fin_root_chord,
+                    'tip_chord': fin_tip_chord,
+                    'span': fin_span,
+                    'sweep_length': 0.0,
+                    'thickness': 0.002,
+                    'material': 'Balsa',
+                    'mass_override': dry_mass * 0.20,
+                },
+            ]
+        }
+
+        # Write to a temp file that persists for the session
+        # Use a consistent location so repeated loads don't create many files
+        cache_dir = Path(tempfile.gettempdir()) / 'rocket_airframes'
+        cache_dir.mkdir(exist_ok=True)
+
+        # Create a hash-based filename for consistency
+        import hashlib
+        config_str = f"{dry_mass}_{diameter}_{length}_{num_fins}_{fin_span}_{fin_root_chord}_{fin_tip_chord}"
+        config_hash = hashlib.md5(config_str.encode()).hexdigest()[:8]
+        airframe_path = cache_dir / f"legacy_airframe_{config_hash}.yaml"
+
+        with open(airframe_path, 'w') as f:
+            yaml.dump(airframe_dict, f, default_flow_style=False, sort_keys=False)
+
+        return str(airframe_path)
 
     @classmethod
     def for_estes_alpha(cls, airframe_path: str = "configs/airframes/estes_alpha.yaml") -> 'RocketTrainingConfig':

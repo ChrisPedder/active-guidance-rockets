@@ -91,12 +91,12 @@ warn_unreachable = true
 strict_equality = true
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q --strict-markers --cov=rocket_env"
+addopts = "-ra -q --strict-markers"
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 [tool.coverage.run]
-source = ["rocket_env"]
-omit = ["tests/*", "examples/*"]
+source = ["."]
+omit = ["tests/*", "examples/*", ".venv/*", "slides/*"]
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
