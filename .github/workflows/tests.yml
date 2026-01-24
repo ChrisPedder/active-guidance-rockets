@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   test:
@@ -42,15 +43,31 @@ jobs:
       - name: Run tests with coverage (Python 3.12 only)
         if: matrix.python-version == '3.12'
         run: |
-          python -m pytest tests/ --cov=. --cov-report=term-missing --cov-report=xml --cov-fail-under=50
+          python -m pytest tests/ --cov=. --cov-report=term-missing --cov-report=xml --cov-report=html --cov-fail-under=80
 
-      - name: Upload coverage reports
+      - name: Upload coverage reports to Codecov
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v4
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
         continue-on-error: true
+
+      - name: Upload coverage HTML report
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 30
+
+      - name: Add coverage comment to PR
+        if: matrix.python-version == '3.12' && github.event_name == 'pull_request'
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 80
+          MINIMUM_ORANGE: 60
 
   lint:
     runs-on: ubuntu-latest
