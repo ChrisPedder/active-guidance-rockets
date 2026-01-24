@@ -81,17 +81,17 @@ MOTOR OPTIONS:
                               cesaroni_g79
                             Or any motor from ThrustCurve.org with --generate-config
                             (default: estes_c6)
-    
+
     -d, --difficulty LEVEL  Difficulty: easy, medium, full, or all
                             (default: easy)
 
 CONFIG OPTIONS:
     -g, --generate-config   Auto-generate config from motor data if not found
                             Uses generate_motor_config.py to create physics-tuned config
-    
+
     --dry-mass KG           Override rocket dry mass (kg) for config generation
                             If not specified, auto-calculates for TWR ≈ 5
-    
+
     -c, --config FILE       Use specific config file (overrides motor/difficulty)
 
 TRAINING OPTIONS:
@@ -105,25 +105,25 @@ OUTPUT OPTIONS:
     -e, --eval-episodes N   Number of evaluation episodes (default: 50)
     --skip-motor-viz        Skip motor visualization step
     --skip-eval             Skip evaluation step
-    
+
     -h, --help              Show this help message
 
 EXAMPLES:
     # Basic training with built-in motor
     $0 --motor estes_c6 --difficulty easy --timesteps 500000
-    
+
     # Auto-generate config for any motor
     $0 --motor aerotech_h128 --generate-config --timesteps 500000
-    
+
     # Generate config with custom dry mass
     $0 --motor cesaroni_g79 --generate-config --dry-mass 0.9 --timesteps 300000
-    
+
     # Generate all difficulty levels
     $0 --motor aerotech_f40 --generate-config --difficulty all
-    
+
     # Evaluate existing model
     $0 --eval-only --model-path models/best_model.zip --config configs/estes_c6_easy.yaml
-    
+
     # Quick test run
     $0 --motor estes_c6 --difficulty easy --timesteps 50000
 
@@ -141,15 +141,15 @@ MOTOR CONFIG GENERATION:
     - Analyze physics to determine safe training parameters
     - Auto-calculate appropriate tab deflection, damping, timestep
     - Create difficulty-appropriate reward scaling
-    
+
     This ensures configs are properly tuned for each motor's characteristics.
-    
+
     List available offline motors:
       python generate_motor_config.py list-popular
-    
+
     Search ThrustCurve.org (requires 'requests' library):
       python generate_motor_config.py search --impulse-class G
-    
+
     Verify a motor exists:
       python generate_motor_config.py verify "Estes D12"
 
@@ -267,29 +267,29 @@ fi
 if [[ "$CONFIG_EXISTS" == false ]]; then
     if [[ "$GENERATE_CONFIG" == true ]]; then
         print_header "STEP 0: Generating Motor Configuration"
-        
+
         print_step "Verifying motor: $MOTOR"
-        
+
         # Build generation command
         GEN_CMD="uv run python generate_motor_config.py generate $MOTOR_NORMALIZED --output configs/"
-        
+
         if [[ "$DIFFICULTY" != "all" ]]; then
             GEN_CMD="$GEN_CMD --difficulty $DIFFICULTY"
         fi
-        
+
         if [[ -n "$DRY_MASS" ]]; then
             GEN_CMD="$GEN_CMD --dry-mass $DRY_MASS"
         fi
-        
+
         print_step "Running: $GEN_CMD"
         eval $GEN_CMD
-        
+
         # Verify config was created
         if [[ ! -f "$CONFIG_FILE" ]]; then
             print_error "Config generation failed - config file not created"
             exit 1
         fi
-        
+
         print_success "Config generated: $CONFIG_FILE"
     else
         print_error "Config file not found: $CONFIG_FILE"
@@ -358,7 +358,7 @@ echo ""
 # ════════════════════════════════════════════════════════════════
 if [[ "$SKIP_MOTOR_VIZ" == false ]]; then
     print_header "STEP 1: Motor Visualization"
-    
+
     print_step "Generating motor profile..."
     if uv run python visualize_motor.py \
         --motor "$MOTOR_NORMALIZED" \
@@ -368,7 +368,7 @@ if [[ "$SKIP_MOTOR_VIZ" == false ]]; then
     else
         print_info "Motor visualization skipped (motor not in visualize_motor.py database)"
     fi
-    
+
     print_step "Generating motor comparison..."
     if uv run python visualize_motor.py \
         --compare estes_c6 aerotech_f40 cesaroni_g79 \
@@ -376,7 +376,7 @@ if [[ "$SKIP_MOTOR_VIZ" == false ]]; then
         --no-show 2>/dev/null; then
         print_success "Motor comparison saved"
     fi
-    
+
     print_success "Motor visualizations saved to $EXPERIMENT_DIR/plots/"
 else
     echo "Skipping motor visualization..."
@@ -433,7 +433,7 @@ try:
         'aerotech_h128': CommonMotors.aerotech_f40,  # Fallback to similar
         'cesaroni_g79': CommonMotors.cesaroni_g79,
     }
-    
+
     motor_key = '$MOTOR_NORMALIZED'
     if motor_key not in motor_map:
         print(f'\\nNote: Motor {motor_key} not in environment motor database')
@@ -441,7 +441,7 @@ try:
         motor_func = CommonMotors.estes_c6
     else:
         motor_func = motor_map[motor_key]
-    
+
     config = RocketConfig(
         dry_mass=physics.get('dry_mass', 0.1),
         diameter=physics.get('diameter', 0.024),
@@ -452,13 +452,13 @@ try:
         max_roll_rate=physics.get('max_roll_rate', 360.0),
         dt=env_cfg.get('dt', 0.01),
     )
-    
+
     motor = motor_func()
     env = RealisticMotorRocket(motor, config)
-    
+
     print('\\nRandom Action Survival Test')
     print('-' * 50)
-    
+
     # Test random action survival
     survived = 0
     total_steps = []
@@ -478,19 +478,19 @@ try:
         max_alts.append(max_alt)
         if step > 100:
             survived += 1
-    
+
     print(f'Episodes surviving >100 steps: {survived}/10')
     print(f'Average episode length: {np.mean(total_steps):.0f} steps')
     print(f'Average max altitude: {np.mean(max_alts):.1f}m')
     print('-' * 50)
-    
+
     if survived >= 8:
         print('✓ Environment is READY for training')
     elif survived >= 5:
         print('⚠ Environment is MARGINAL - training may be slow')
     else:
         print('✗ Environment needs tuning - reduce max_tab_deflection or increase damping')
-    
+
 except ImportError as e:
     print(f'\\nNote: Could not run full diagnostics: {e}')
     print('Environment modules not available in this context')
@@ -507,27 +507,27 @@ print_success "Diagnostics complete"
 # ════════════════════════════════════════════════════════════════
 if [[ "$SKIP_TRAINING" == false ]]; then
     print_header "STEP 3: Training Agent"
-    
+
     print_step "Starting PPO training with $TIMESTEPS timesteps..."
-    
+
     TRAIN_CMD="uv run python train_improved.py --config $CONFIG_FILE --timesteps $TIMESTEPS --n-envs $N_ENVS"
-    
+
     if [[ -n "$MODEL_PATH" ]]; then
         TRAIN_CMD="$TRAIN_CMD --load-model $MODEL_PATH"
     fi
-    
+
     eval $TRAIN_CMD 2>&1 | tee "$EXPERIMENT_DIR/logs/training.log"
-    
-    # Find the latest model
-    LATEST_MODEL=$(find models -name "best_model.zip" -type f -printf '%T@ %p\n' 2>/dev/null | sort -n | tail -1 | cut -d' ' -f2-)
-    
+
+    # Find the latest model (use ls -t for macOS compatibility instead of find -printf)
+    LATEST_MODEL=$(ls -t models/*/best_model.zip 2>/dev/null | head -1)
+
     if [[ -n "$LATEST_MODEL" ]]; then
         MODEL_PATH="$LATEST_MODEL"
         print_success "Training complete. Model saved to: $MODEL_PATH"
-        
+
         # Copy model to experiment directory
         cp "$MODEL_PATH" "$EXPERIMENT_DIR/"
-        
+
         # Also copy config from model directory if exists
         MODEL_DIR=$(dirname "$MODEL_PATH")
         if [[ -f "$MODEL_DIR/config.yaml" ]]; then
@@ -550,14 +550,14 @@ fi
 # ════════════════════════════════════════════════════════════════
 if [[ "$SKIP_EVAL" == false ]] && [[ -n "$MODEL_PATH" ]]; then
     print_header "STEP 4: Agent Evaluation"
-    
+
     print_step "Running $EVAL_EPISODES evaluation episodes..."
-    
+
     # Use experiment config for evaluation
     EVAL_CONFIG="$EXPERIMENT_DIR/config.yaml"
-    
+
     mkdir -p "$EXPERIMENT_DIR/evaluation"
-    
+
     uv run python visualize_spin_agent.py \
         "$MODEL_PATH" \
         --config "$EVAL_CONFIG" \
@@ -565,7 +565,7 @@ if [[ "$SKIP_EVAL" == false ]] && [[ -n "$MODEL_PATH" ]]; then
         --save-dir "$EXPERIMENT_DIR/evaluation" \
         --no-show \
         2>&1 | tee "$EXPERIMENT_DIR/logs/evaluation.log"
-    
+
     print_success "Evaluation complete"
 else
     echo "Skipping evaluation..."
