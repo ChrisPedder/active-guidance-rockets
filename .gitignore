@@ -15,6 +15,9 @@ experiments/
 sweeps/
 visualization_results/
 
+# Claude code
+.claude/
+
 # Distribution / packaging
 .Python
 build/
