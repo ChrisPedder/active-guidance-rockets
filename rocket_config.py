@@ -33,9 +33,9 @@ class RocketPhysicsConfig:
     REQUIRED: airframe_file must specify path to .ork or .yaml airframe file.
     """
 
-    # === Airframe Reference (REQUIRED) ===
+    # === Airframe Reference (REQUIRED for new configs) ===
     # Path to airframe file (.ork from OpenRocket or .yaml)
-    airframe_file: str = None  # REQUIRED - no default
+    airframe_file: str = None
 
     # Control surfaces - applied to airframe fins
     max_tab_deflection: float = 15.0  # degrees
@@ -55,6 +55,18 @@ class RocketPhysicsConfig:
     initial_spin_std: float = 15.0  # Initial spin disturbance (deg/s std)
     max_roll_rate: float = 720.0  # deg/s - termination threshold
     max_episode_time: float = 15.0  # seconds - max episode duration
+
+    # === Legacy fields (for backward compatibility with old configs) ===
+    # These are populated when loading old-style configs that specify
+    # rocket geometry directly instead of using airframe_file
+    dry_mass: Optional[float] = None
+    propellant_mass: Optional[float] = None
+    diameter: Optional[float] = None
+    length: Optional[float] = None
+    num_fins: Optional[int] = None
+    fin_span: Optional[float] = None
+    fin_root_chord: Optional[float] = None
+    fin_tip_chord: Optional[float] = None
 
     def resolve_airframe(self) -> "RocketAirframe":
         """
@@ -431,8 +443,9 @@ class RocketTrainingConfig:
             physics_data = dict(physics_data)  # Copy to avoid mutation
             physics_data["airframe_file"] = airframe_file
 
-        # Filter to only valid fields
-        filtered_data = {k: v for k, v in physics_data.items() if k in valid_fields}
+        # Include both valid fields and legacy fields for backward compatibility
+        all_valid_fields = valid_fields | legacy_geometry_fields
+        filtered_data = {k: v for k, v in physics_data.items() if k in all_valid_fields}
 
         return RocketPhysicsConfig(**filtered_data)
 

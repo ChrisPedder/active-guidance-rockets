@@ -323,36 +323,51 @@ def create_environment(
         curriculum_stage: If using curriculum, which stage to use
     """
 
-    # Build rocket config from training config
-    # Include patched-specific parameters if using patched environment
-    config_kwargs = dict(
-        dry_mass=config.physics.dry_mass,
-        propellant_mass=config.physics.propellant_mass,
-        diameter=config.physics.diameter,
-        length=config.physics.length,
-        num_fins=config.physics.num_fins,
-        fin_span=config.physics.fin_span,
+    # Load airframe from config (handles both new-style and legacy configs)
+    airframe = config.physics.resolve_airframe()
+
+    # Build RocketConfig with simulation/physics tuning parameters only
+    # (geometry comes from airframe)
+    rocket_config = CompositeRocketConfig(
         max_tab_deflection=config.physics.max_tab_deflection,
         tab_chord_fraction=config.physics.tab_chord_fraction,
         tab_span_fraction=config.physics.tab_span_fraction,
-        # === PHYSICS FIX PARAMETERS (already present) ===
+        num_controlled_fins=getattr(config.physics, "num_controlled_fins", 2),
         disturbance_scale=getattr(config.physics, "disturbance_scale", 0.0001),
         initial_spin_std=getattr(config.physics, "initial_spin_std", 15.0),
         damping_scale=getattr(config.physics, "damping_scale", 2.0),
-        # === NEW: EPISODE TERMINATION PARAMETERS ===
         max_roll_rate=getattr(config.physics, "max_roll_rate", 720.0),
-        max_episode_time=getattr(config.environment, "max_episode_time", 15.0),
+        max_episode_time=getattr(config.physics, "max_episode_time", 15.0),
         dt=getattr(config.environment, "dt", 0.01),
     )
 
-    rocket_config = CompositeRocketConfig(**config_kwargs)
+    # Build motor config dict from MotorConfig dataclass
+    motor_config_dict = {
+        "name": config.motor.name,
+        "manufacturer": config.motor.manufacturer,
+        "designation": config.motor.designation,
+        "diameter_mm": config.motor.diameter_mm,
+        "length_mm": config.motor.length_mm,
+        "total_mass_g": config.motor.total_mass_g,
+        "propellant_mass_g": config.motor.propellant_mass_g,
+        "case_mass_g": config.motor.case_mass_g,
+        "impulse_class": config.motor.impulse_class,
+        "total_impulse_Ns": config.motor.total_impulse_Ns,
+        "avg_thrust_N": config.motor.avg_thrust_N,
+        "max_thrust_N": config.motor.max_thrust_N,
+        "burn_time_s": config.motor.burn_time_s,
+        "thrust_curve": config.motor.thrust_curve,
+        "thrust_multiplier": config.motor.thrust_multiplier,
+    }
+    # Remove None values
+    motor_config_dict = {k: v for k, v in motor_config_dict.items() if v is not None}
 
-    # Get motor from config using motor_loader
-    # Convert MotorConfig to Motor object
-    motor = config.motor.to_motor()
-
-    # Create base environment
-    env = RealisticMotorRocket(motor, rocket_config)
+    # Create base environment with airframe and motor
+    env = RealisticMotorRocket(
+        airframe=airframe,
+        motor_config=motor_config_dict,
+        config=rocket_config,
+    )
 
     print(f"Environment class: {type(env).__name__}")
     print(f"Disturbance scale in config: {rocket_config.disturbance_scale}")

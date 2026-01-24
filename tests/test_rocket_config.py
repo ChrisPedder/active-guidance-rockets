@@ -304,3 +304,34 @@ components:
 
         # Should use the specified airframe file, not create a new one
         assert physics_config.airframe_file == str(airframe_file)
+
+    def test_legacy_fields_accessible_after_load(self, legacy_physics_config):
+        """Test that legacy fields (dry_mass, diameter, etc.) are accessible after loading."""
+        from rocket_config import RocketTrainingConfig
+
+        physics_config = RocketTrainingConfig._load_physics_config(
+            legacy_physics_config
+        )
+
+        # These fields should be populated from the legacy config
+        assert physics_config.dry_mass == legacy_physics_config["dry_mass"]
+        assert (
+            physics_config.propellant_mass == legacy_physics_config["propellant_mass"]
+        )
+        assert physics_config.diameter == legacy_physics_config["diameter"]
+        assert physics_config.length == legacy_physics_config["length"]
+        assert physics_config.num_fins == legacy_physics_config["num_fins"]
+        assert physics_config.fin_span == legacy_physics_config["fin_span"]
+        assert physics_config.fin_root_chord == legacy_physics_config["fin_root_chord"]
+        assert physics_config.fin_tip_chord == legacy_physics_config["fin_tip_chord"]
+
+    def test_legacy_fields_from_yaml_file(self, sample_training_config_yaml):
+        """Test that legacy fields are accessible when loading a YAML config file."""
+        from rocket_config import load_config
+
+        config = load_config(sample_training_config_yaml)
+
+        # Legacy fields should be available on physics config
+        assert config.physics.dry_mass == 0.1
+        assert config.physics.diameter == 0.024
+        assert config.physics.length == 0.4
