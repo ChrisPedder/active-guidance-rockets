@@ -1,6 +1,7 @@
 """
 Tests for rocket_config.py - configuration loading and validation.
 """
+
 import pytest
 import tempfile
 from pathlib import Path
@@ -55,7 +56,7 @@ class TestMotorConfig:
 
         config = MotorConfig(**sample_motor_config)
 
-        assert config.name == 'test_motor'
+        assert config.name == "test_motor"
         assert config.avg_thrust_N == 5.0
         assert config.burn_time_s == 2.0
 
@@ -66,7 +67,7 @@ class TestMotorConfig:
         config = MotorConfig(**sample_motor_config)
         motor = config.to_motor()
 
-        assert motor.name == 'test_motor'
+        assert motor.name == "test_motor"
         assert motor.average_thrust == 5.0
         assert motor.burn_time == 2.0
 
@@ -77,10 +78,10 @@ class TestMotorConfig:
         config = MotorConfig(**sample_motor_config)
         specs = config.get_specs_dict()
 
-        assert 'average_thrust' in specs
-        assert 'max_thrust' in specs
-        assert 'burn_time' in specs
-        assert specs['average_thrust'] == 5.0
+        assert "average_thrust" in specs
+        assert "max_thrust" in specs
+        assert "burn_time" in specs
+        assert specs["average_thrust"] == 5.0
 
 
 class TestEnvironmentConfig:
@@ -151,10 +152,10 @@ class TestRocketTrainingConfig:
         config = RocketTrainingConfig()
         d = config.to_dict()
 
-        assert 'physics' in d
-        assert 'motor' in d
-        assert 'environment' in d
-        assert 'ppo' in d
+        assert "physics" in d
+        assert "motor" in d
+        assert "environment" in d
+        assert "ppo" in d
 
     def test_save_and_load(self, tmp_path):
         """Test saving and loading config."""
@@ -168,20 +169,21 @@ class TestRocketTrainingConfig:
 
         # Write a minimal valid config
         import yaml
+
         config_dict = {
-            'physics': {},
-            'motor': {'name': 'test'},
-            'environment': {
-                'dt': 0.02,
-                'initial_spin_rate_range': [-30.0, 30.0],
-                'initial_tilt_range': [-5.0, 5.0],
+            "physics": {},
+            "motor": {"name": "test"},
+            "environment": {
+                "dt": 0.02,
+                "initial_spin_rate_range": [-30.0, 30.0],
+                "initial_tilt_range": [-5.0, 5.0],
             },
-            'reward': {},
-            'ppo': {'learning_rate': 0.001},
-            'curriculum': {},
-            'logging': {},
+            "reward": {},
+            "ppo": {"learning_rate": 0.001},
+            "curriculum": {},
+            "logging": {},
         }
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             yaml.dump(config_dict, f)
 
         loaded = RocketTrainingConfig.load(str(config_path))
@@ -201,29 +203,31 @@ class TestRocketTrainingConfig:
         assert config.physics.max_tab_deflection == 15.0
         assert config.physics.disturbance_scale == 0.0001
 
-    def test_load_new_style_config(self, tmp_path, new_style_physics_config, sample_motor_config):
+    def test_load_new_style_config(
+        self, tmp_path, new_style_physics_config, sample_motor_config
+    ):
         """Test loading a new-style config with airframe_file."""
         import yaml
         from rocket_config import load_config
 
         config_dict = {
-            'physics': new_style_physics_config,
-            'motor': sample_motor_config,
-            'environment': {},
-            'reward': {},
-            'ppo': {},
-            'curriculum': {},
-            'logging': {},
+            "physics": new_style_physics_config,
+            "motor": sample_motor_config,
+            "environment": {},
+            "reward": {},
+            "ppo": {},
+            "curriculum": {},
+            "logging": {},
         }
 
         config_path = tmp_path / "new_style_config.yaml"
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             yaml.dump(config_dict, f)
 
         config = load_config(str(config_path))
 
         # Should use the specified airframe file
-        assert config.physics.airframe_file == new_style_physics_config['airframe_file']
+        assert config.physics.airframe_file == new_style_physics_config["airframe_file"]
 
 
 class TestBackwardCompatibility:
@@ -233,7 +237,9 @@ class TestBackwardCompatibility:
         """Test that legacy config creates temporary airframe."""
         from rocket_config import RocketTrainingConfig
 
-        physics_config = RocketTrainingConfig._load_physics_config(legacy_physics_config)
+        physics_config = RocketTrainingConfig._load_physics_config(
+            legacy_physics_config
+        )
 
         assert physics_config.airframe_file is not None
         assert Path(physics_config.airframe_file).exists()
@@ -243,22 +249,26 @@ class TestBackwardCompatibility:
         from rocket_config import RocketTrainingConfig
         from airframe import RocketAirframe
 
-        physics_config = RocketTrainingConfig._load_physics_config(legacy_physics_config)
+        physics_config = RocketTrainingConfig._load_physics_config(
+            legacy_physics_config
+        )
         airframe = RocketAirframe.load(physics_config.airframe_file)
 
         # Mass should be close to the specified dry_mass
-        assert abs(airframe.dry_mass - legacy_physics_config['dry_mass']) < 0.01
+        assert abs(airframe.dry_mass - legacy_physics_config["dry_mass"]) < 0.01
 
     def test_legacy_airframe_has_correct_dimensions(self, legacy_physics_config):
         """Test that created airframe has correct dimensions."""
         from rocket_config import RocketTrainingConfig
         from airframe import RocketAirframe
 
-        physics_config = RocketTrainingConfig._load_physics_config(legacy_physics_config)
+        physics_config = RocketTrainingConfig._load_physics_config(
+            legacy_physics_config
+        )
         airframe = RocketAirframe.load(physics_config.airframe_file)
 
         # Body diameter should match
-        assert abs(airframe.body_diameter - legacy_physics_config['diameter']) < 0.001
+        assert abs(airframe.body_diameter - legacy_physics_config["diameter"]) < 0.001
 
     def test_mixed_config_prefers_new_fields(self, tmp_path):
         """Test that when both old and new fields exist, airframe_file is used."""
@@ -284,10 +294,10 @@ components:
 
         # Create config with both old and new style
         physics_data = {
-            'airframe_file': str(airframe_file),
-            'dry_mass': 0.1,  # This should be ignored
-            'diameter': 0.024,  # This should be ignored
-            'max_tab_deflection': 15.0,
+            "airframe_file": str(airframe_file),
+            "dry_mass": 0.1,  # This should be ignored
+            "diameter": 0.024,  # This should be ignored
+            "max_tab_deflection": 15.0,
         }
 
         physics_config = RocketTrainingConfig._load_physics_config(physics_data)

@@ -1,6 +1,7 @@
 """
 Tests for train_improved module - training script utilities and wrappers.
 """
+
 import pytest
 import numpy as np
 import gymnasium as gym
@@ -39,9 +40,9 @@ class TestImprovedRewardWrapper:
                 terminated = self.step_count >= 100
                 truncated = False
                 info = {
-                    'altitude_m': self.altitude,
-                    'roll_rate_deg_s': 10.0,
-                    'phase': 'boost',
+                    "altitude_m": self.altitude,
+                    "roll_rate_deg_s": 10.0,
+                    "phase": "boost",
                 }
                 return obs, reward, terminated, truncated, info
 
@@ -52,12 +53,12 @@ class TestImprovedRewardWrapper:
         from train_improved import ImprovedRewardWrapper
 
         reward_config = {
-            'altitude_reward_scale': 0.01,
-            'spin_penalty_scale': -0.1,
-            'low_spin_threshold': 10.0,
-            'low_spin_bonus': 1.0,
-            'control_effort_penalty': -0.01,
-            'control_smoothness_penalty': -0.05,
+            "altitude_reward_scale": 0.01,
+            "spin_penalty_scale": -0.1,
+            "low_spin_threshold": 10.0,
+            "low_spin_bonus": 1.0,
+            "control_effort_penalty": -0.01,
+            "control_smoothness_penalty": -0.05,
         }
 
         wrapped = ImprovedRewardWrapper(mock_env, reward_config)
@@ -70,7 +71,7 @@ class TestImprovedRewardWrapper:
         """Test wrapper reset."""
         from train_improved import ImprovedRewardWrapper
 
-        reward_config = {'altitude_reward_scale': 0.01}
+        reward_config = {"altitude_reward_scale": 0.01}
         wrapped = ImprovedRewardWrapper(mock_env, reward_config)
 
         obs, info = wrapped.reset()
@@ -84,10 +85,10 @@ class TestImprovedRewardWrapper:
         from train_improved import ImprovedRewardWrapper
 
         reward_config = {
-            'altitude_reward_scale': 0.01,
-            'spin_penalty_scale': -0.1,
-            'low_spin_threshold': 20.0,
-            'low_spin_bonus': 1.0,
+            "altitude_reward_scale": 0.01,
+            "spin_penalty_scale": -0.1,
+            "low_spin_threshold": 20.0,
+            "low_spin_bonus": 1.0,
         }
 
         wrapped = ImprovedRewardWrapper(mock_env, reward_config)
@@ -103,7 +104,7 @@ class TestImprovedRewardWrapper:
         """Test that wrapper tracks previous action."""
         from train_improved import ImprovedRewardWrapper
 
-        reward_config = {'control_smoothness_penalty': -0.05}
+        reward_config = {"control_smoothness_penalty": -0.05}
         wrapped = ImprovedRewardWrapper(mock_env, reward_config)
         wrapped.reset()
 
@@ -140,12 +141,12 @@ class TestImprovedRewardWrapper:
                     0.0,
                     True,  # Always terminate
                     False,
-                    {'altitude_m': 150.0, 'roll_rate_deg_s': 5.0}
+                    {"altitude_m": 150.0, "roll_rate_deg_s": 5.0},
                 )
 
         reward_config = {
-            'success_altitude': 100.0,
-            'success_bonus': 50.0,
+            "success_altitude": 100.0,
+            "success_bonus": 50.0,
         }
 
         env = TerminatingEnv()
@@ -173,9 +174,7 @@ class TestNormalizedActionWrapper:
                 )
                 # Non-normalized action space
                 self.action_space = spaces.Box(
-                    low=np.array([-15.0]),
-                    high=np.array([15.0]),
-                    dtype=np.float32
+                    low=np.array([-15.0]), high=np.array([15.0]), dtype=np.float32
                 )
                 self.last_action = None
 
@@ -184,13 +183,7 @@ class TestNormalizedActionWrapper:
 
             def step(self, action):
                 self.last_action = action
-                return (
-                    np.zeros(10, dtype=np.float32),
-                    0.0,
-                    False,
-                    False,
-                    {}
-                )
+                return (np.zeros(10, dtype=np.float32), 0.0, False, False, {})
 
         return MockEnv()
 
@@ -234,6 +227,7 @@ class TestTrainingMetricsCallback:
     def mock_config(self):
         """Create a mock config for callback."""
         from rocket_config import RocketTrainingConfig
+
         return RocketTrainingConfig()
 
     def test_callback_creation(self, mock_config):
@@ -254,13 +248,15 @@ class TestTrainingMetricsCallback:
 
         # Simulate a completed episode
         callback.locals = {
-            'dones': [True],
-            'infos': [{
-                'episode': {'r': 100.0, 'l': 50},
-                'altitude_m': 75.0,
-                'roll_rate_deg_s': 15.0,
-                'horizontal_camera_quality': 'Good (under 5°/s)',
-            }]
+            "dones": [True],
+            "infos": [
+                {
+                    "episode": {"r": 100.0, "l": 50},
+                    "altitude_m": 75.0,
+                    "roll_rate_deg_s": 15.0,
+                    "horizontal_camera_quality": "Good (under 5°/s)",
+                }
+            ],
         }
 
         result = callback._on_step()
@@ -277,26 +273,29 @@ class TestTrainingMetricsCallback:
         callback = TrainingMetricsCallback(mock_config, verbose=0)
 
         quality_tests = [
-            ('Excellent (under 1°/s)', 4),
-            ('Good (under 5°/s)', 3),
-            ('Fair (under 10°/s)', 2),
-            ('Poor (over 10°/s)', 1),
+            ("Excellent (under 1°/s)", 4),
+            ("Good (under 5°/s)", 3),
+            ("Fair (under 10°/s)", 2),
+            ("Poor (over 10°/s)", 1),
         ]
 
         for quality, expected_score in quality_tests:
             callback.episode_camera_scores = []
             callback.locals = {
-                'dones': [True],
-                'infos': [{
-                    'altitude_m': 50.0,
-                    'roll_rate_deg_s': 5.0,
-                    'horizontal_camera_quality': quality,
-                }]
+                "dones": [True],
+                "infos": [
+                    {
+                        "altitude_m": 50.0,
+                        "roll_rate_deg_s": 5.0,
+                        "horizontal_camera_quality": quality,
+                    }
+                ],
             }
             callback._on_step()
 
-            assert callback.episode_camera_scores[-1] == expected_score, \
-                f"Quality '{quality}' should score {expected_score}"
+            assert (
+                callback.episode_camera_scores[-1] == expected_score
+            ), f"Quality '{quality}' should score {expected_score}"
 
 
 class TestWrapperIntegration:
@@ -334,12 +333,12 @@ class TestWrapperIntegration:
         from train_improved import ImprovedRewardWrapper
 
         reward_config = {
-            'altitude_reward_scale': 0.01,
-            'spin_penalty_scale': -0.1,
-            'low_spin_threshold': 30.0,
-            'low_spin_bonus': 1.0,
-            'control_effort_penalty': -0.01,
-            'control_smoothness_penalty': -0.02,
+            "altitude_reward_scale": 0.01,
+            "spin_penalty_scale": -0.1,
+            "low_spin_threshold": 30.0,
+            "low_spin_bonus": 1.0,
+            "control_effort_penalty": -0.01,
+            "control_smoothness_penalty": -0.02,
         }
 
         wrapped = ImprovedRewardWrapper(real_env, reward_config)
@@ -359,8 +358,8 @@ class TestWrapperIntegration:
         from train_improved import ImprovedRewardWrapper, NormalizedActionWrapper
 
         reward_config = {
-            'altitude_reward_scale': 0.01,
-            'spin_penalty_scale': -0.1,
+            "altitude_reward_scale": 0.01,
+            "spin_penalty_scale": -0.1,
         }
 
         # Stack wrappers
@@ -401,13 +400,13 @@ class TestRewardCalculation:
                     0.0,
                     False,
                     False,
-                    {'altitude_m': 100.0, 'roll_rate_deg_s': 0.0}
+                    {"altitude_m": 100.0, "roll_rate_deg_s": 0.0},
                 )
 
         env = SimpleEnv()
         reward_config = {
-            'altitude_reward_scale': 0.1,
-            'spin_penalty_scale': 0.0,  # No spin penalty for this test
+            "altitude_reward_scale": 0.1,
+            "spin_penalty_scale": 0.0,  # No spin penalty for this test
         }
 
         wrapped = ImprovedRewardWrapper(env, reward_config)
@@ -440,14 +439,14 @@ class TestRewardCalculation:
                     0.0,
                     False,
                     False,
-                    {'altitude_m': 0.0, 'roll_rate_deg_s': 100.0}  # High spin
+                    {"altitude_m": 0.0, "roll_rate_deg_s": 100.0},  # High spin
                 )
 
         env = SpinnyEnv()
         reward_config = {
-            'altitude_reward_scale': 0.0,
-            'spin_penalty_scale': -0.1,  # -0.1 per deg/s
-            'low_spin_threshold': 10.0,
+            "altitude_reward_scale": 0.0,
+            "spin_penalty_scale": -0.1,  # -0.1 per deg/s
+            "low_spin_threshold": 10.0,
         }
 
         wrapped = ImprovedRewardWrapper(env, reward_config)
@@ -481,15 +480,15 @@ class TestRewardCalculation:
                     0.0,
                     False,
                     False,
-                    {'altitude_m': 0.0, 'roll_rate_deg_s': 5.0}  # Low spin
+                    {"altitude_m": 0.0, "roll_rate_deg_s": 5.0},  # Low spin
                 )
 
         env = LowSpinEnv()
         reward_config = {
-            'altitude_reward_scale': 0.0,
-            'spin_penalty_scale': 0.0,
-            'low_spin_threshold': 10.0,
-            'low_spin_bonus': 5.0,
+            "altitude_reward_scale": 0.0,
+            "spin_penalty_scale": 0.0,
+            "low_spin_threshold": 10.0,
+            "low_spin_bonus": 5.0,
         }
 
         wrapped = ImprovedRewardWrapper(env, reward_config)
@@ -522,14 +521,14 @@ class TestRewardCalculation:
                     0.0,
                     True,  # Terminate
                     False,
-                    {'altitude_m': 0.5, 'roll_rate_deg_s': 0.0}  # Low alt = crash
+                    {"altitude_m": 0.5, "roll_rate_deg_s": 0.0},  # Low alt = crash
                 )
 
         env = CrashEnv()
         reward_config = {
-            'altitude_reward_scale': 0.0,
-            'spin_penalty_scale': 0.0,
-            'crash_penalty': -100.0,
+            "altitude_reward_scale": 0.0,
+            "spin_penalty_scale": 0.0,
+            "crash_penalty": -100.0,
         }
 
         wrapped = ImprovedRewardWrapper(env, reward_config)
@@ -563,14 +562,14 @@ class TestRewardCalculation:
                     0.0,
                     False,
                     False,
-                    {'altitude_m': 0.0, 'roll_rate_deg_s': 0.0}
+                    {"altitude_m": 0.0, "roll_rate_deg_s": 0.0},
                 )
 
         env = ControlEnv()
         reward_config = {
-            'altitude_reward_scale': 0.0,
-            'spin_penalty_scale': 0.0,
-            'control_effort_penalty': -1.0,  # Strong penalty
+            "altitude_reward_scale": 0.0,
+            "spin_penalty_scale": 0.0,
+            "control_effort_penalty": -1.0,  # Strong penalty
         }
 
         wrapped = ImprovedRewardWrapper(env, reward_config)
@@ -607,15 +606,15 @@ class TestRewardCalculation:
                     0.0,
                     False,
                     False,
-                    {'altitude_m': 0.0, 'roll_rate_deg_s': 0.0}
+                    {"altitude_m": 0.0, "roll_rate_deg_s": 0.0},
                 )
 
         env = SmoothEnv()
         reward_config = {
-            'altitude_reward_scale': 0.0,
-            'spin_penalty_scale': 0.0,
-            'control_effort_penalty': 0.0,
-            'control_smoothness_penalty': -1.0,  # Strong penalty
+            "altitude_reward_scale": 0.0,
+            "spin_penalty_scale": 0.0,
+            "control_effort_penalty": 0.0,
+            "control_smoothness_penalty": -1.0,  # Strong penalty
         }
 
         wrapped = ImprovedRewardWrapper(env, reward_config)

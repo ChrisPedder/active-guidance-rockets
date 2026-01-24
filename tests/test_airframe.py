@@ -1,6 +1,7 @@
 """
 Tests for airframe module - rocket airframe and components.
 """
+
 import pytest
 import numpy as np
 from pathlib import Path
@@ -63,7 +64,7 @@ class TestNoseCone:
             length=0.07,
             base_diameter=0.024,
             thickness=0.002,
-            material=Material.abs_plastic()
+            material=Material.abs_plastic(),
         )
 
         mass = nc.get_mass()
@@ -107,10 +108,7 @@ class TestBodyTube:
         from airframe import BodyTube
 
         bt = BodyTube(
-            name="Test",
-            position=0.0,
-            outer_diameter=0.024,
-            inner_diameter=0.022
+            name="Test", position=0.0, outer_diameter=0.024, inner_diameter=0.022
         )
 
         assert bt.wall_thickness == pytest.approx(0.001, rel=0.01)
@@ -125,7 +123,7 @@ class TestBodyTube:
             length=0.3,
             outer_diameter=0.024,
             inner_diameter=0.022,
-            material=Material.cardboard()
+            material=Material.cardboard(),
         )
 
         mass = bt.get_mass()
@@ -156,7 +154,7 @@ class TestTrapezoidFinSet:
             num_fins=4,
             root_chord=0.05,
             tip_chord=0.025,
-            span=0.04
+            span=0.04,
         )
 
         # Trapezoid area = 0.5 * (root + tip) * height
@@ -173,7 +171,7 @@ class TestTrapezoidFinSet:
             num_fins=4,
             root_chord=0.05,
             tip_chord=0.025,
-            span=0.04
+            span=0.04,
         )
 
         assert fins.total_fin_area == pytest.approx(4 * fins.fin_area, rel=0.01)
@@ -187,7 +185,7 @@ class TestTrapezoidFinSet:
             position=0.0,
             num_fins=4,
             span=0.04,
-            mass_override=0.01  # 10g total for all fins
+            mass_override=0.01,  # 10g total for all fins
         )
 
         body_radius = 0.012  # 24mm diameter
@@ -202,11 +200,7 @@ class TestTrapezoidFinSet:
         from airframe import TrapezoidFinSet
 
         fins = TrapezoidFinSet(
-            name="Test",
-            position=0.0,
-            num_fins=4,
-            root_chord=0.05,
-            span=0.04
+            name="Test", position=0.0, num_fins=4, root_chord=0.05, span=0.04
         )
 
         body_radius = 0.012
@@ -217,7 +211,7 @@ class TestTrapezoidFinSet:
             dynamic_pressure,
             tab_chord_fraction=0.25,
             tab_span_fraction=0.5,
-            num_controlled_fins=2
+            num_controlled_fins=2,
         )
 
         assert effectiveness > 0
@@ -232,7 +226,7 @@ class TestTrapezoidFinSet:
             num_fins=4,
             span=0.04,
             root_chord=0.05,
-            tip_chord=0.025
+            tip_chord=0.025,
         )
 
         body_radius = 0.012
@@ -253,7 +247,7 @@ class TestMotorMount:
             position=0.0,
             length=0.07,
             outer_diameter=0.020,
-            inner_diameter=0.018
+            inner_diameter=0.018,
         )
 
         mass = mount.get_mass()
@@ -276,12 +270,7 @@ class TestMassObject:
         """Test roll inertia uses radius of gyration."""
         from airframe import MassObject
 
-        obj = MassObject(
-            name="Test",
-            position=0.0,
-            mass=0.1,
-            radius_of_gyration=0.01
-        )
+        obj = MassObject(name="Test", position=0.0, mass=0.1, radius_of_gyration=0.01)
 
         inertia = obj.get_roll_inertia()
         expected = 0.1 * 0.01**2
@@ -355,7 +344,7 @@ class TestRocketAirframe:
         airframe = estes_alpha_airframe
 
         area = airframe.get_frontal_area()
-        expected = np.pi * (0.024/2)**2
+        expected = np.pi * (0.024 / 2) ** 2
         assert area == pytest.approx(expected, rel=0.01)
 
     def test_save_and_load_yaml(self, estes_alpha_airframe, tmp_path):
@@ -367,6 +356,7 @@ class TestRocketAirframe:
         assert yaml_path.exists()
 
         from airframe import RocketAirframe
+
         loaded = RocketAirframe.load_yaml(str(yaml_path))
 
         assert loaded.name == airframe.name

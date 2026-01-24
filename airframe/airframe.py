@@ -4,6 +4,7 @@ RocketAirframe - Complete physical rocket definition.
 Separates geometry and mass properties from training configuration,
 allowing airframes to be defined once and reused across experiments.
 """
+
 from dataclasses import dataclass, field
 from typing import List, Optional, Dict, Any
 from pathlib import Path
@@ -11,8 +12,14 @@ import yaml
 import numpy as np
 
 from .components import (
-    Component, NoseCone, BodyTube, TrapezoidFinSet,
-    MotorMount, MassObject, Material, NoseConeShape
+    Component,
+    NoseCone,
+    BodyTube,
+    TrapezoidFinSet,
+    MotorMount,
+    MassObject,
+    Material,
+    NoseConeShape,
 )
 
 
@@ -30,6 +37,7 @@ class RocketAirframe:
         components: List of components from nose to tail
         source_file: Path to source file if loaded from .ork or .yaml
     """
+
     name: str
     description: str = ""
     components: List[Component] = field(default_factory=list)
@@ -62,7 +70,7 @@ class RocketAirframe:
         if self._total_length is None:
             max_extent = 0.0
             for comp in self.components:
-                if hasattr(comp, 'length'):
+                if hasattr(comp, "length"):
                     extent = comp.position + comp.length
                     max_extent = max(max_extent, extent)
             self._total_length = max_extent if max_extent > 0 else None
@@ -134,7 +142,7 @@ class RocketAirframe:
         dynamic_pressure: float,
         tab_chord_fraction: float = 0.25,
         tab_span_fraction: float = 0.5,
-        num_controlled_fins: int = 2
+        num_controlled_fins: int = 2,
     ) -> float:
         """
         Get roll control torque per radian of tab deflection.
@@ -157,7 +165,7 @@ class RocketAirframe:
             dynamic_pressure,
             tab_chord_fraction,
             tab_span_fraction,
-            num_controlled_fins
+            num_controlled_fins,
         )
 
     def get_aerodynamic_damping_coeff(self) -> float:
@@ -201,60 +209,70 @@ class RocketAirframe:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for serialization"""
         return {
-            'name': self.name,
-            'description': self.description,
-            'components': [self._component_to_dict(c) for c in self.components]
+            "name": self.name,
+            "description": self.description,
+            "components": [self._component_to_dict(c) for c in self.components],
         }
 
     def _component_to_dict(self, comp: Component) -> Dict[str, Any]:
         """Convert a component to dictionary"""
         data = {
-            'type': type(comp).__name__,
-            'name': comp.name,
-            'position': comp.position,
+            "type": type(comp).__name__,
+            "name": comp.name,
+            "position": comp.position,
         }
 
         if comp.mass_override is not None:
-            data['mass_override'] = comp.mass_override
+            data["mass_override"] = comp.mass_override
 
         if isinstance(comp, NoseCone):
-            data.update({
-                'length': comp.length,
-                'base_diameter': comp.base_diameter,
-                'shape': comp.shape.value,
-                'thickness': comp.thickness,
-                'material': comp.material.name,
-            })
+            data.update(
+                {
+                    "length": comp.length,
+                    "base_diameter": comp.base_diameter,
+                    "shape": comp.shape.value,
+                    "thickness": comp.thickness,
+                    "material": comp.material.name,
+                }
+            )
         elif isinstance(comp, BodyTube):
-            data.update({
-                'length': comp.length,
-                'outer_diameter': comp.outer_diameter,
-                'inner_diameter': comp.inner_diameter,
-                'material': comp.material.name,
-            })
+            data.update(
+                {
+                    "length": comp.length,
+                    "outer_diameter": comp.outer_diameter,
+                    "inner_diameter": comp.inner_diameter,
+                    "material": comp.material.name,
+                }
+            )
         elif isinstance(comp, TrapezoidFinSet):
-            data.update({
-                'num_fins': comp.num_fins,
-                'root_chord': comp.root_chord,
-                'tip_chord': comp.tip_chord,
-                'span': comp.span,
-                'sweep_length': comp.sweep_length,
-                'thickness': comp.thickness,
-                'material': comp.material.name,
-            })
+            data.update(
+                {
+                    "num_fins": comp.num_fins,
+                    "root_chord": comp.root_chord,
+                    "tip_chord": comp.tip_chord,
+                    "span": comp.span,
+                    "sweep_length": comp.sweep_length,
+                    "thickness": comp.thickness,
+                    "material": comp.material.name,
+                }
+            )
         elif isinstance(comp, MotorMount):
-            data.update({
-                'length': comp.length,
-                'outer_diameter': comp.outer_diameter,
-                'inner_diameter': comp.inner_diameter,
-                'material': comp.material.name,
-            })
+            data.update(
+                {
+                    "length": comp.length,
+                    "outer_diameter": comp.outer_diameter,
+                    "inner_diameter": comp.inner_diameter,
+                    "material": comp.material.name,
+                }
+            )
         elif isinstance(comp, MassObject):
-            data.update({
-                'mass': comp.mass,
-                'length': comp.length,
-                'radius_of_gyration': comp.radius_of_gyration,
-            })
+            data.update(
+                {
+                    "mass": comp.mass,
+                    "length": comp.length,
+                    "radius_of_gyration": comp.radius_of_gyration,
+                }
+            )
 
         return data
 
@@ -263,18 +281,18 @@ class RocketAirframe:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             yaml.dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
 
     @classmethod
-    def load_yaml(cls, path: str) -> 'RocketAirframe':
+    def load_yaml(cls, path: str) -> "RocketAirframe":
         """Load airframe from YAML file"""
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             data = yaml.safe_load(f)
         return cls._from_dict(data, source_file=str(path))
 
     @classmethod
-    def load(cls, path: str) -> 'RocketAirframe':
+    def load(cls, path: str) -> "RocketAirframe":
         """
         Load airframe from file (auto-detect format).
 
@@ -288,66 +306,69 @@ class RocketAirframe:
         """
         path = Path(path)
 
-        if path.suffix.lower() == '.ork':
+        if path.suffix.lower() == ".ork":
             from .openrocket_parser import OpenRocketParser
+
             return OpenRocketParser.parse(str(path))
-        elif path.suffix.lower() in ('.yaml', '.yml'):
+        elif path.suffix.lower() in (".yaml", ".yml"):
             return cls.load_yaml(str(path))
         else:
             raise ValueError(f"Unsupported airframe file format: {path.suffix}")
 
     @classmethod
-    def _from_dict(cls, data: Dict[str, Any], source_file: str = None) -> 'RocketAirframe':
+    def _from_dict(
+        cls, data: Dict[str, Any], source_file: str = None
+    ) -> "RocketAirframe":
         """Create airframe from dictionary"""
         components = []
 
-        for comp_data in data.get('components', []):
+        for comp_data in data.get("components", []):
             comp_data = dict(comp_data)  # Copy to avoid mutation
-            comp_type = comp_data.pop('type')
+            comp_type = comp_data.pop("type")
 
             # Get material if specified
-            material_name = comp_data.pop('material', None)
+            material_name = comp_data.pop("material", None)
             if material_name:
                 material = Material.from_name(material_name)
             else:
                 material = None
 
-            if comp_type == 'NoseCone':
-                shape_str = comp_data.pop('shape', 'ogive')
+            if comp_type == "NoseCone":
+                shape_str = comp_data.pop("shape", "ogive")
                 shape = NoseConeShape(shape_str)
                 if material:
-                    comp_data['material'] = material
+                    comp_data["material"] = material
                 components.append(NoseCone(**comp_data, shape=shape))
 
-            elif comp_type == 'BodyTube':
+            elif comp_type == "BodyTube":
                 if material:
-                    comp_data['material'] = material
+                    comp_data["material"] = material
                 components.append(BodyTube(**comp_data))
 
-            elif comp_type == 'TrapezoidFinSet':
+            elif comp_type == "TrapezoidFinSet":
                 if material:
-                    comp_data['material'] = material
+                    comp_data["material"] = material
                 components.append(TrapezoidFinSet(**comp_data))
 
-            elif comp_type == 'MotorMount':
+            elif comp_type == "MotorMount":
                 if material:
-                    comp_data['material'] = material
+                    comp_data["material"] = material
                 components.append(MotorMount(**comp_data))
 
-            elif comp_type == 'MassObject':
+            elif comp_type == "MassObject":
                 components.append(MassObject(**comp_data))
 
         return cls(
-            name=data.get('name', 'Unnamed Airframe'),
-            description=data.get('description', ''),
+            name=data.get("name", "Unnamed Airframe"),
+            description=data.get("description", ""),
             components=components,
-            source_file=source_file
+            source_file=source_file,
         )
 
     # Factory methods for common rockets
 
     @classmethod
-    def estes_alpha(cls) -> 'RocketAirframe':
+    def estes_alpha(cls) -> "RocketAirframe":
         """
         Create Estes Alpha III airframe.
 
@@ -365,7 +386,7 @@ class RocketAirframe:
                     base_diameter=0.024,
                     shape=NoseConeShape.OGIVE,
                     thickness=0.002,
-                    material=Material.abs_plastic()
+                    material=Material.abs_plastic(),
                 ),
                 BodyTube(
                     name="Body Tube",
@@ -373,7 +394,7 @@ class RocketAirframe:
                     length=0.24,
                     outer_diameter=0.024,
                     inner_diameter=0.022,
-                    material=Material.cardboard()
+                    material=Material.cardboard(),
                 ),
                 TrapezoidFinSet(
                     name="Fins",
@@ -383,7 +404,7 @@ class RocketAirframe:
                     tip_chord=0.025,
                     span=0.04,
                     thickness=0.002,
-                    material=Material.balsa()
+                    material=Material.balsa(),
                 ),
                 MotorMount(
                     name="Motor Mount",
@@ -391,13 +412,15 @@ class RocketAirframe:
                     length=0.07,
                     outer_diameter=0.020,
                     inner_diameter=0.018,
-                    material=Material.cardboard()
+                    material=Material.cardboard(),
                 ),
-            ]
+            ],
         )
 
     @classmethod
-    def high_power_minimum_diameter(cls, motor_diameter: float = 0.038) -> 'RocketAirframe':
+    def high_power_minimum_diameter(
+        cls, motor_diameter: float = 0.038
+    ) -> "RocketAirframe":
         """
         Create a minimum-diameter high-power rocket.
 
@@ -418,7 +441,7 @@ class RocketAirframe:
                     base_diameter=body_od,
                     shape=NoseConeShape.OGIVE,
                     thickness=0.003,
-                    material=Material.fiberglass()
+                    material=Material.fiberglass(),
                 ),
                 BodyTube(
                     name="Body Tube",
@@ -426,7 +449,7 @@ class RocketAirframe:
                     length=0.60,
                     outer_diameter=body_od,
                     inner_diameter=body_id,
-                    material=Material.fiberglass()
+                    material=Material.fiberglass(),
                 ),
                 TrapezoidFinSet(
                     name="Fins",
@@ -436,7 +459,7 @@ class RocketAirframe:
                     tip_chord=0.05,
                     span=0.06,
                     thickness=0.003,
-                    material=Material.fiberglass()
+                    material=Material.fiberglass(),
                 ),
-            ]
+            ],
         )

@@ -6,6 +6,7 @@ material properties, and methods to calculate mass and moment of inertia.
 
 All dimensions are in SI units (meters, kilograms).
 """
+
 from dataclasses import dataclass, field
 from typing import Optional
 from enum import Enum
@@ -14,6 +15,7 @@ import numpy as np
 
 class NoseConeShape(Enum):
     """Nose cone shape types"""
+
     OGIVE = "ogive"
     CONICAL = "conical"
     ELLIPTICAL = "elliptical"
@@ -24,6 +26,7 @@ class NoseConeShape(Enum):
 
 class FinCrossSection(Enum):
     """Fin cross-section shapes"""
+
     SQUARE = "square"
     ROUNDED = "rounded"
     AIRFOIL = "airfoil"
@@ -33,41 +36,42 @@ class FinCrossSection(Enum):
 @dataclass
 class Material:
     """Material properties for structural components"""
+
     name: str
     density: float  # kg/m^3
 
     @classmethod
-    def balsa(cls) -> 'Material':
+    def balsa(cls) -> "Material":
         return cls("Balsa", 160.0)
 
     @classmethod
-    def plywood_birch(cls) -> 'Material':
+    def plywood_birch(cls) -> "Material":
         return cls("Birch Plywood", 630.0)
 
     @classmethod
-    def fiberglass(cls) -> 'Material':
+    def fiberglass(cls) -> "Material":
         return cls("Fiberglass", 1800.0)
 
     @classmethod
-    def cardboard(cls) -> 'Material':
+    def cardboard(cls) -> "Material":
         return cls("Cardboard", 680.0)
 
     @classmethod
-    def abs_plastic(cls) -> 'Material':
+    def abs_plastic(cls) -> "Material":
         return cls("ABS Plastic", 1050.0)
 
     @classmethod
-    def from_name(cls, name: str) -> 'Material':
+    def from_name(cls, name: str) -> "Material":
         """Get material by name, with fallback to cardboard"""
         materials = {
-            'balsa': cls.balsa(),
-            'birch plywood': cls.plywood_birch(),
-            'plywood': cls.plywood_birch(),
-            'fiberglass': cls.fiberglass(),
-            'cardboard': cls.cardboard(),
-            'abs plastic': cls.abs_plastic(),
-            'abs': cls.abs_plastic(),
-            'plastic': cls.abs_plastic(),
+            "balsa": cls.balsa(),
+            "birch plywood": cls.plywood_birch(),
+            "plywood": cls.plywood_birch(),
+            "fiberglass": cls.fiberglass(),
+            "cardboard": cls.cardboard(),
+            "abs plastic": cls.abs_plastic(),
+            "abs": cls.abs_plastic(),
+            "plastic": cls.abs_plastic(),
         }
         return materials.get(name.lower(), cls.cardboard())
 
@@ -75,6 +79,7 @@ class Material:
 @dataclass
 class Component:
     """Base class for rocket components"""
+
     name: str
     position: float  # Distance from nose tip (m)
     mass_override: Optional[float] = None  # kg, if set overrides calculated mass
@@ -109,6 +114,7 @@ class Component:
 @dataclass
 class NoseCone(Component):
     """Nose cone component"""
+
     length: float = 0.07  # m
     base_diameter: float = 0.024  # m (outer diameter at base)
     shape: NoseConeShape = NoseConeShape.OGIVE
@@ -138,6 +144,7 @@ class NoseCone(Component):
 @dataclass
 class BodyTube(Component):
     """Cylindrical body tube"""
+
     length: float = 0.30  # m
     outer_diameter: float = 0.024  # m
     inner_diameter: float = 0.022  # m
@@ -172,6 +179,7 @@ class TrapezoidFinSet(Component):
 
     Represents a set of identical fins symmetrically arranged around the body.
     """
+
     num_fins: int = 4
     root_chord: float = 0.05  # m
     tip_chord: float = 0.025  # m
@@ -226,7 +234,7 @@ class TrapezoidFinSet(Component):
 
         # Fin's own inertia about its CG (thin plate perpendicular to roll axis)
         # I_cm approximately (1/12) * m * span^2
-        I_cm = (1/12) * single_fin_mass * self.span**2
+        I_cm = (1 / 12) * single_fin_mass * self.span**2
 
         # Total for single fin using parallel axis theorem
         I_single = I_cm + single_fin_mass * d**2
@@ -239,7 +247,7 @@ class TrapezoidFinSet(Component):
         dynamic_pressure: float,
         tab_chord_fraction: float = 0.25,
         tab_span_fraction: float = 0.5,
-        num_controlled_fins: int = 2
+        num_controlled_fins: int = 2,
     ) -> float:
         """
         Calculate roll torque per radian of tab deflection.
@@ -291,6 +299,7 @@ class TrapezoidFinSet(Component):
 @dataclass
 class MotorMount(Component):
     """Motor mount tube (inner tube for holding the motor)"""
+
     length: float = 0.07  # m
     outer_diameter: float = 0.020  # m
     inner_diameter: float = 0.018  # m (motor diameter)
@@ -321,6 +330,7 @@ class MassObject(Component):
 
     Used for components where we know the mass but not detailed geometry.
     """
+
     mass: float = 0.01  # kg
     length: float = 0.02  # m (for CG calculation)
     radius_of_gyration: float = 0.01  # m (for inertia estimation)

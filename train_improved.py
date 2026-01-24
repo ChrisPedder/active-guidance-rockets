@@ -36,7 +36,10 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.callbacks import (
-    BaseCallback, EvalCallback, CallbackList, CheckpointCallback
+    BaseCallback,
+    EvalCallback,
+    CallbackList,
+    CheckpointCallback,
 )
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
@@ -78,8 +81,8 @@ class ImprovedRewardWrapper(gym.Wrapper):
 
         # Store for next step
         self.prev_action = action.copy()
-        self.prev_altitude = info.get('altitude_m', info.get('altitude', 0))
-        self.prev_spin_rate = abs(info.get('roll_rate_deg_s', 0))
+        self.prev_altitude = info.get("altitude_m", info.get("altitude", 0))
+        self.prev_spin_rate = abs(info.get("roll_rate_deg_s", 0))
 
         return obs, reward, terminated, truncated, info
 
@@ -89,39 +92,43 @@ class ImprovedRewardWrapper(gym.Wrapper):
         reward = 0.0
 
         # Get state info
-        altitude = info.get('altitude_m', info.get('altitude', 0))
-        spin_rate = abs(info.get('roll_rate_deg_s', 0))
-        phase = info.get('phase', 'boost')
+        altitude = info.get("altitude_m", info.get("altitude", 0))
+        spin_rate = abs(info.get("roll_rate_deg_s", 0))
+        phase = info.get("phase", "boost")
 
         # 1. Altitude reward (progress toward goal)
-        altitude_reward = altitude * rc.get('altitude_reward_scale', 0.01)
+        altitude_reward = altitude * rc.get("altitude_reward_scale", 0.01)
         reward += altitude_reward
 
         # 2. Spin penalty (penalize high spin rates)
-        spin_penalty = spin_rate * rc.get('spin_penalty_scale', -0.1)
+        spin_penalty = spin_rate * rc.get("spin_penalty_scale", -0.1)
         reward += spin_penalty
 
         # 3. Low spin bonus (bonus for maintaining low spin)
-        threshold = rc.get('low_spin_threshold', 10.0)
+        threshold = rc.get("low_spin_threshold", 10.0)
         if spin_rate < threshold:
-            reward += rc.get('low_spin_bonus', 1.0)
+            reward += rc.get("low_spin_bonus", 1.0)
 
         # 4. Control effort penalty
-        control_penalty = np.sum(np.abs(action)) * rc.get('control_effort_penalty', -0.01)
+        control_penalty = np.sum(np.abs(action)) * rc.get(
+            "control_effort_penalty", -0.01
+        )
         reward += control_penalty
 
         # 5. Control smoothness penalty
         if self.prev_action is not None:
             action_change = np.sum(np.abs(action - self.prev_action))
-            smoothness_penalty = action_change * rc.get('control_smoothness_penalty', -0.05)
+            smoothness_penalty = action_change * rc.get(
+                "control_smoothness_penalty", -0.05
+            )
             reward += smoothness_penalty
 
         # 6. Terminal rewards
         if terminated:
-            if altitude > rc.get('success_altitude', 100.0):
-                reward += rc.get('success_bonus', 100.0)
+            if altitude > rc.get("success_altitude", 100.0):
+                reward += rc.get("success_bonus", 100.0)
             elif altitude < 1.0:  # Crash
-                reward += rc.get('crash_penalty', -50.0)
+                reward += rc.get("crash_penalty", -50.0)
 
         return reward
 
@@ -142,13 +149,15 @@ class NormalizedActionWrapper(gym.ActionWrapper):
         self.action_space = spaces.Box(
             low=-np.ones_like(self.original_low),
             high=np.ones_like(self.original_high),
-            dtype=np.float32
+            dtype=np.float32,
         )
 
     def action(self, action):
         """Scale action from [-1, 1] to original range"""
         # Linear interpolation: [-1, 1] -> [low, high]
-        scaled = self.original_low + (action + 1) * 0.5 * (self.original_high - self.original_low)
+        scaled = self.original_low + (action + 1) * 0.5 * (
+            self.original_high - self.original_low
+        )
         return scaled
 
 
@@ -170,27 +179,29 @@ class TrainingMetricsCallback(BaseCallback):
         self.episode_camera_scores = []
 
     def _on_step(self) -> bool:
-        for i, done in enumerate(self.locals.get('dones', [])):
-            if done and 'infos' in self.locals:
-                info = self.locals['infos'][i]
+        for i, done in enumerate(self.locals.get("dones", [])):
+            if done and "infos" in self.locals:
+                info = self.locals["infos"][i]
                 if info:
                     self.episode_count += 1
 
                     # Track metrics
-                    if 'episode' in info:
-                        self.episode_rewards.append(info['episode'].get('r', 0))
-                        self.episode_lengths.append(info['episode'].get('l', 0))
+                    if "episode" in info:
+                        self.episode_rewards.append(info["episode"].get("r", 0))
+                        self.episode_lengths.append(info["episode"].get("l", 0))
 
-                    self.episode_altitudes.append(info.get('altitude_m', info.get('altitude', 0)))
-                    self.episode_spin_rates.append(abs(info.get('roll_rate_deg_s', 0)))
+                    self.episode_altitudes.append(
+                        info.get("altitude_m", info.get("altitude", 0))
+                    )
+                    self.episode_spin_rates.append(abs(info.get("roll_rate_deg_s", 0)))
 
                     # Camera quality
-                    quality = info.get('horizontal_camera_quality', '')
-                    if 'Excellent' in quality:
+                    quality = info.get("horizontal_camera_quality", "")
+                    if "Excellent" in quality:
                         self.episode_camera_scores.append(4)
-                    elif 'Good' in quality:
+                    elif "Good" in quality:
                         self.episode_camera_scores.append(3)
-                    elif 'Fair' in quality:
+                    elif "Fair" in quality:
                         self.episode_camera_scores.append(2)
                     else:
                         self.episode_camera_scores.append(1)
@@ -215,9 +226,15 @@ class TrainingMetricsCallback(BaseCallback):
         recent_altitudes = self.episode_altitudes[-n:]
         recent_spins = self.episode_spin_rates[-n:]
 
-        print(f"Rewards (last {n}): {np.mean(recent_rewards):.1f} ± {np.std(recent_rewards):.1f}")
-        print(f"Max Altitude: {np.mean(recent_altitudes):.1f} ± {np.std(recent_altitudes):.1f} m")
-        print(f"Final Spin Rate: {np.mean(recent_spins):.1f} ± {np.std(recent_spins):.1f} °/s")
+        print(
+            f"Rewards (last {n}): {np.mean(recent_rewards):.1f} ± {np.std(recent_rewards):.1f}"
+        )
+        print(
+            f"Max Altitude: {np.mean(recent_altitudes):.1f} ± {np.std(recent_altitudes):.1f} m"
+        )
+        print(
+            f"Final Spin Rate: {np.mean(recent_spins):.1f} ± {np.std(recent_spins):.1f} °/s"
+        )
 
         # Success metrics
         high_alt = sum(1 for a in recent_altitudes if a > 50) / n * 100
@@ -237,7 +254,9 @@ class CurriculumCallback(BaseCallback):
     Callback for curriculum learning - gradually increasing difficulty.
     """
 
-    def __init__(self, config: RocketTrainingConfig, env_factory: Callable, verbose: int = 0):
+    def __init__(
+        self, config: RocketTrainingConfig, env_factory: Callable, verbose: int = 0
+    ):
         super().__init__(verbose)
         self.config = config
         self.env_factory = env_factory
@@ -249,14 +268,17 @@ class CurriculumCallback(BaseCallback):
             return True
 
         # Track episode rewards
-        for i, done in enumerate(self.locals.get('dones', [])):
-            if done and 'infos' in self.locals:
-                info = self.locals['infos'][i]
-                if info and 'episode' in info:
-                    self.stage_episode_rewards.append(info['episode'].get('r', 0))
+        for i, done in enumerate(self.locals.get("dones", [])):
+            if done and "infos" in self.locals:
+                info = self.locals["infos"][i]
+                if info and "episode" in info:
+                    self.stage_episode_rewards.append(info["episode"].get("r", 0))
 
         # Check for stage advancement
-        if len(self.stage_episode_rewards) >= self.config.curriculum.episodes_to_evaluate:
+        if (
+            len(self.stage_episode_rewards)
+            >= self.config.curriculum.episodes_to_evaluate
+        ):
             self._check_advancement()
 
         return True
@@ -267,11 +289,13 @@ class CurriculumCallback(BaseCallback):
             return
 
         current = stages[self.current_stage]
-        target = current.get('target_reward', 0)
+        target = current.get("target_reward", 0)
         threshold = self.config.curriculum.advancement_threshold
 
         # Check if we've met the advancement criteria
-        recent = self.stage_episode_rewards[-self.config.curriculum.episodes_to_evaluate:]
+        recent = self.stage_episode_rewards[
+            -self.config.curriculum.episodes_to_evaluate :
+        ]
         success_rate = sum(1 for r in recent if r >= target) / len(recent)
 
         if success_rate >= threshold:
@@ -288,9 +312,7 @@ class CurriculumCallback(BaseCallback):
 
 
 def create_environment(
-    config: RocketTrainingConfig,
-    seed: int = None,
-    curriculum_stage: int = None
+    config: RocketTrainingConfig, seed: int = None, curriculum_stage: int = None
 ) -> gym.Env:
     """
     Create environment based on configuration.
@@ -314,13 +336,13 @@ def create_environment(
         tab_chord_fraction=config.physics.tab_chord_fraction,
         tab_span_fraction=config.physics.tab_span_fraction,
         # === PHYSICS FIX PARAMETERS (already present) ===
-        disturbance_scale=getattr(config.physics, 'disturbance_scale', 0.0001),
-        initial_spin_std=getattr(config.physics, 'initial_spin_std', 15.0),
-        damping_scale=getattr(config.physics, 'damping_scale', 2.0),
+        disturbance_scale=getattr(config.physics, "disturbance_scale", 0.0001),
+        initial_spin_std=getattr(config.physics, "initial_spin_std", 15.0),
+        damping_scale=getattr(config.physics, "damping_scale", 2.0),
         # === NEW: EPISODE TERMINATION PARAMETERS ===
-        max_roll_rate=getattr(config.physics, 'max_roll_rate', 720.0),
-        max_episode_time=getattr(config.environment, 'max_episode_time', 15.0),
-        dt=getattr(config.environment, 'dt', 0.01),
+        max_roll_rate=getattr(config.physics, "max_roll_rate", 720.0),
+        max_episode_time=getattr(config.environment, "max_episode_time", 15.0),
+        dt=getattr(config.environment, "dt", 0.01),
     )
 
     rocket_config = CompositeRocketConfig(**config_kwargs)
@@ -335,8 +357,10 @@ def create_environment(
     print(f"Environment class: {type(env).__name__}")
     print(f"Disturbance scale in config: {rocket_config.disturbance_scale}")
     # Check if the env actually has/uses this parameter
-    if hasattr(env, 'config'):
-        print(f"Env config disturbance_scale: {getattr(env.config, 'disturbance_scale', 'NOT FOUND')}")
+    if hasattr(env, "config"):
+        print(
+            f"Env config disturbance_scale: {getattr(env.config, 'disturbance_scale', 'NOT FOUND')}"
+        )
 
     # Apply wrappers
     # 1. Normalize actions to [-1, 1]
@@ -344,15 +368,15 @@ def create_environment(
 
     # 2. Custom reward function
     reward_dict = {
-        'altitude_reward_scale': config.reward.altitude_reward_scale,
-        'spin_penalty_scale': config.reward.spin_penalty_scale,
-        'low_spin_bonus': config.reward.low_spin_bonus,
-        'low_spin_threshold': config.reward.low_spin_threshold,
-        'control_effort_penalty': config.reward.control_effort_penalty,
-        'control_smoothness_penalty': config.reward.control_smoothness_penalty,
-        'success_bonus': config.reward.success_bonus,
-        'crash_penalty': config.reward.crash_penalty,
-        'success_altitude': config.environment.max_altitude,
+        "altitude_reward_scale": config.reward.altitude_reward_scale,
+        "spin_penalty_scale": config.reward.spin_penalty_scale,
+        "low_spin_bonus": config.reward.low_spin_bonus,
+        "low_spin_threshold": config.reward.low_spin_threshold,
+        "control_effort_penalty": config.reward.control_effort_penalty,
+        "control_smoothness_penalty": config.reward.control_smoothness_penalty,
+        "success_bonus": config.reward.success_bonus,
+        "crash_penalty": config.reward.crash_penalty,
+        "success_altitude": config.environment.max_altitude,
     }
     env = ImprovedRewardWrapper(env, reward_dict)
 
@@ -372,13 +396,13 @@ def train(config: RocketTrainingConfig):
         for issue in issues:
             print(f"  {issue}")
 
-        critical = [i for i in issues if 'CRITICAL' in i]
+        critical = [i for i in issues if "CRITICAL" in i]
         if critical:
             print("\n❌ Cannot proceed with critical issues. Please fix configuration.")
             return None
 
         response = input("\nContinue anyway? (y/N): ")
-        if response.lower() != 'y':
+        if response.lower() != "y":
             return None
 
     # Setup directories
@@ -434,16 +458,13 @@ def train(config: RocketTrainingConfig):
 
     # Setup policy network
     activation_fn = {
-        'relu': torch.nn.ReLU,
-        'tanh': torch.nn.Tanh,
-        'elu': torch.nn.ELU,
+        "relu": torch.nn.ReLU,
+        "tanh": torch.nn.Tanh,
+        "elu": torch.nn.ELU,
     }.get(config.ppo.activation, torch.nn.Tanh)
 
     policy_kwargs = dict(
-        net_arch=dict(
-            pi=config.ppo.policy_net_arch,
-            vf=config.ppo.value_net_arch
-        ),
+        net_arch=dict(pi=config.ppo.policy_net_arch, vf=config.ppo.value_net_arch),
         activation_fn=activation_fn,
     )
 
@@ -519,7 +540,9 @@ def train(config: RocketTrainingConfig):
     print(f"Final model: {final_path}.zip")
     print(f"Best model: {save_dir}/best_model.zip")
     print(f"\nTo evaluate:")
-    print(f"  python evaluate_rocket.py --model {save_dir}/best_model.zip --config {save_dir}/config.yaml")
+    print(
+        f"  python evaluate_rocket.py --model {save_dir}/best_model.zip --config {save_dir}/config.yaml"
+    )
     print(f"\nTo view tensorboard:")
     print(f"  tensorboard --logdir {log_dir}")
     print(f"{'='*70}\n")
@@ -548,12 +571,15 @@ Examples:
 
   # Create default config files
   python train_improved.py --create-configs
-        """
+        """,
     )
 
     parser.add_argument("--config", type=str, help="Path to config YAML file")
-    parser.add_argument("--create-configs", action="store_true",
-                       help="Create default config files and exit")
+    parser.add_argument(
+        "--create-configs",
+        action="store_true",
+        help="Create default config files and exit",
+    )
 
     # Config overrides
     parser.add_argument("--dry-mass", type=float, help="Override dry mass (kg)")
@@ -567,6 +593,7 @@ Examples:
 
     if args.create_configs:
         from rocket_config import create_default_configs
+
         create_default_configs()
         return
 

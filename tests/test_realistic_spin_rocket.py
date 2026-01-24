@@ -1,6 +1,7 @@
 """
 Tests for realistic_spin_rocket module - realistic motor rocket environment.
 """
+
 import pytest
 import numpy as np
 import tempfile
@@ -14,25 +15,26 @@ class TestRealisticMotorRocket:
     def sample_motor_config(self):
         """Sample motor configuration."""
         return {
-            'name': 'estes_c6',
-            'manufacturer': 'Estes',
-            'designation': 'C6',
-            'total_impulse_Ns': 10.0,
-            'avg_thrust_N': 5.4,
-            'max_thrust_N': 14.0,
-            'burn_time_s': 1.85,
-            'propellant_mass_g': 12.3,
-            'case_mass_g': 12.7,
-            'thrust_curve': {
-                'time_s': [0.0, 0.1, 0.5, 1.0, 1.5, 1.85],
-                'thrust_N': [0.0, 14.0, 6.0, 5.0, 4.0, 0.0]
-            }
+            "name": "estes_c6",
+            "manufacturer": "Estes",
+            "designation": "C6",
+            "total_impulse_Ns": 10.0,
+            "avg_thrust_N": 5.4,
+            "max_thrust_N": 14.0,
+            "burn_time_s": 1.85,
+            "propellant_mass_g": 12.3,
+            "case_mass_g": 12.7,
+            "thrust_curve": {
+                "time_s": [0.0, 0.1, 0.5, 1.0, 1.5, 1.85],
+                "thrust_N": [0.0, 14.0, 6.0, 5.0, 4.0, 0.0],
+            },
         }
 
     @pytest.fixture
     def airframe(self):
         """Get an Estes Alpha III airframe."""
         from airframe import RocketAirframe
+
         return RocketAirframe.estes_alpha()
 
     def test_realistic_motor_rocket_creation(self, airframe, sample_motor_config):
@@ -73,7 +75,7 @@ class TestRealisticMotorRocket:
 
         assert obs is not None
         assert info is not None
-        assert 'roll_rate_deg_s' in info
+        assert "roll_rate_deg_s" in info
 
     def test_environment_step(self, airframe, sample_motor_config):
         """Test environment step."""
@@ -121,7 +123,7 @@ class TestRealisticMotorRocket:
                 break
 
         # Altitude should increase during burn
-        assert info['altitude_m'] >= 0
+        assert info["altitude_m"] >= 0
 
     def test_motor_info_in_step(self, airframe, sample_motor_config):
         """Test that motor info is included in step info."""
@@ -139,9 +141,9 @@ class TestRealisticMotorRocket:
         env.reset()
         obs, reward, terminated, truncated, info = env.step(np.array([0.0]))
 
-        assert 'motor' in info
-        assert 'current_thrust_N' in info
-        assert 'propellant_remaining_g' in info
+        assert "motor" in info
+        assert "current_thrust_N" in info
+        assert "propellant_remaining_g" in info
 
     def test_propellant_consumption(self, airframe, sample_motor_config):
         """Test that propellant is consumed during burn."""
@@ -160,7 +162,7 @@ class TestRealisticMotorRocket:
 
         # Get initial propellant
         _, _, _, _, info = env.step(np.array([0.0]))
-        initial_prop = info['propellant_remaining_g']
+        initial_prop = info["propellant_remaining_g"]
 
         # Run many steps
         for _ in range(100):
@@ -169,7 +171,7 @@ class TestRealisticMotorRocket:
                 break
 
         # Propellant should be consumed
-        final_prop = info['propellant_remaining_g']
+        final_prop = info["propellant_remaining_g"]
         assert final_prop <= initial_prop
 
     def test_missing_airframe_error(self, sample_motor_config):
@@ -201,6 +203,7 @@ class TestRealisticMotorRocketWithMotorData:
     def airframe(self):
         """Get an Estes Alpha III airframe."""
         from airframe import RocketAirframe
+
         return RocketAirframe.estes_alpha()
 
     def test_create_with_motor_data(self, airframe):
@@ -214,7 +217,7 @@ class TestRealisticMotorRocketWithMotorData:
             manufacturer="Test",
             designation="T1",
             diameter=18.0,  # mm
-            length=70.0,    # mm
+            length=70.0,  # mm
             total_mass=24.0,  # g
             propellant_mass=12.0,  # g
             case_mass=12.0,  # g
@@ -286,33 +289,33 @@ components:
         airframe_file.write_text(airframe_content)
 
         config = {
-            'physics': {
-                'airframe_file': str(airframe_file),
-                'max_tab_deflection': 15.0,
-                'disturbance_scale': 0.0001,
+            "physics": {
+                "airframe_file": str(airframe_file),
+                "max_tab_deflection": 15.0,
+                "disturbance_scale": 0.0001,
             },
-            'motor': {
-                'name': 'test_motor',
-                'manufacturer': 'Test',
-                'designation': 'T1',
-                'total_impulse_Ns': 10.0,
-                'avg_thrust_N': 5.0,
-                'max_thrust_N': 10.0,
-                'burn_time_s': 2.0,
-                'propellant_mass_g': 12.0,
-                'case_mass_g': 12.0,
-                'thrust_curve': {
-                    'time_s': [0.0, 0.5, 1.0, 2.0],
-                    'thrust_N': [0.0, 10.0, 5.0, 0.0]
-                }
+            "motor": {
+                "name": "test_motor",
+                "manufacturer": "Test",
+                "designation": "T1",
+                "total_impulse_Ns": 10.0,
+                "avg_thrust_N": 5.0,
+                "max_thrust_N": 10.0,
+                "burn_time_s": 2.0,
+                "propellant_mass_g": 12.0,
+                "case_mass_g": 12.0,
+                "thrust_curve": {
+                    "time_s": [0.0, 0.5, 1.0, 2.0],
+                    "thrust_N": [0.0, 10.0, 5.0, 0.0],
+                },
             },
-            'environment': {
-                'dt': 0.01,
-            }
+            "environment": {
+                "dt": 0.01,
+            },
         }
 
         config_file = tmp_path / "test_config.yaml"
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             yaml.dump(config, f)
 
         return str(config_file)
@@ -333,29 +336,26 @@ components:
         from realistic_spin_rocket import create_environment_from_config
 
         config = {
-            'physics': {
+            "physics": {
                 # Missing airframe_file
-                'max_tab_deflection': 15.0,
+                "max_tab_deflection": 15.0,
             },
-            'motor': {
-                'name': 'test_motor',
-                'manufacturer': 'Test',
-                'designation': 'T1',
-                'total_impulse_Ns': 10.0,
-                'avg_thrust_N': 5.0,
-                'max_thrust_N': 10.0,
-                'burn_time_s': 2.0,
-                'propellant_mass_g': 12.0,
-                'case_mass_g': 12.0,
-                'thrust_curve': {
-                    'time_s': [0.0, 2.0],
-                    'thrust_N': [10.0, 0.0]
-                }
+            "motor": {
+                "name": "test_motor",
+                "manufacturer": "Test",
+                "designation": "T1",
+                "total_impulse_Ns": 10.0,
+                "avg_thrust_N": 5.0,
+                "max_thrust_N": 10.0,
+                "burn_time_s": 2.0,
+                "propellant_mass_g": 12.0,
+                "case_mass_g": 12.0,
+                "thrust_curve": {"time_s": [0.0, 2.0], "thrust_N": [10.0, 0.0]},
             },
         }
 
         config_file = tmp_path / "no_airframe_config.yaml"
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             yaml.dump(config, f)
 
         with pytest.raises(ValueError, match="must specify.*airframe_file"):
@@ -375,19 +375,19 @@ class TestRealisticMotorRocketPhysics:
         airframe = RocketAirframe.estes_alpha()
 
         motor_config = {
-            'name': 'test',
-            'manufacturer': 'Test',
-            'designation': 'T1',
-            'total_impulse_Ns': 10.0,
-            'avg_thrust_N': 5.0,
-            'max_thrust_N': 10.0,
-            'burn_time_s': 2.0,
-            'propellant_mass_g': 12.0,
-            'case_mass_g': 12.0,
-            'thrust_curve': {
-                'time_s': [0.0, 0.5, 1.5, 2.0],
-                'thrust_N': [0.0, 10.0, 5.0, 0.0]
-            }
+            "name": "test",
+            "manufacturer": "Test",
+            "designation": "T1",
+            "total_impulse_Ns": 10.0,
+            "avg_thrust_N": 5.0,
+            "max_thrust_N": 10.0,
+            "burn_time_s": 2.0,
+            "propellant_mass_g": 12.0,
+            "case_mass_g": 12.0,
+            "thrust_curve": {
+                "time_s": [0.0, 0.5, 1.5, 2.0],
+                "thrust_N": [0.0, 10.0, 5.0, 0.0],
+            },
         }
 
         config = RocketConfig(dt=0.01)
@@ -411,8 +411,8 @@ class TestRealisticMotorRocketPhysics:
             obs, reward, terminated, truncated, info = env.step(action)
             step_count += 1
 
-            if info['altitude_m'] > max_altitude:
-                max_altitude = info['altitude_m']
+            if info["altitude_m"] > max_altitude:
+                max_altitude = info["altitude_m"]
 
             if terminated or truncated:
                 break
@@ -428,7 +428,7 @@ class TestRealisticMotorRocketPhysics:
         positive_spins = []
         for _ in range(20):
             obs, _, terminated, truncated, info = env.step(np.array([1.0]))
-            positive_spins.append(info['roll_rate_deg_s'])
+            positive_spins.append(info["roll_rate_deg_s"])
             if terminated or truncated:
                 break
 
@@ -438,7 +438,7 @@ class TestRealisticMotorRocketPhysics:
         negative_spins = []
         for _ in range(20):
             obs, _, terminated, truncated, info = env.step(np.array([-1.0]))
-            negative_spins.append(info['roll_rate_deg_s'])
+            negative_spins.append(info["roll_rate_deg_s"])
             if terminated or truncated:
                 break
 
@@ -538,6 +538,7 @@ class TestRealisticMotorRocketTWR:
     def airframe(self):
         """Get an Estes Alpha III airframe."""
         from airframe import RocketAirframe
+
         return RocketAirframe.estes_alpha()
 
     def test_normal_twr(self, airframe, capsys):
@@ -547,19 +548,16 @@ class TestRealisticMotorRocketTWR:
 
         # Normal motor config with good TWR
         motor_config = {
-            'name': 'test',
-            'manufacturer': 'Test',
-            'designation': 'T1',
-            'total_impulse_Ns': 10.0,
-            'avg_thrust_N': 10.0,  # Good thrust
-            'max_thrust_N': 15.0,
-            'burn_time_s': 1.0,
-            'propellant_mass_g': 10.0,
-            'case_mass_g': 10.0,
-            'thrust_curve': {
-                'time_s': [0.0, 0.5, 1.0],
-                'thrust_N': [0.0, 15.0, 0.0]
-            }
+            "name": "test",
+            "manufacturer": "Test",
+            "designation": "T1",
+            "total_impulse_Ns": 10.0,
+            "avg_thrust_N": 10.0,  # Good thrust
+            "max_thrust_N": 15.0,
+            "burn_time_s": 1.0,
+            "propellant_mass_g": 10.0,
+            "case_mass_g": 10.0,
+            "thrust_curve": {"time_s": [0.0, 0.5, 1.0], "thrust_N": [0.0, 15.0, 0.0]},
         }
 
         config = RocketConfig()
@@ -588,19 +586,19 @@ class TestRealisticMotorRocketUpdatePropulsion:
         airframe = RocketAirframe.estes_alpha()
 
         motor_config = {
-            'name': 'test',
-            'manufacturer': 'Test',
-            'designation': 'T1',
-            'total_impulse_Ns': 10.0,
-            'avg_thrust_N': 5.0,
-            'max_thrust_N': 10.0,
-            'burn_time_s': 2.0,
-            'propellant_mass_g': 12.0,
-            'case_mass_g': 12.0,
-            'thrust_curve': {
-                'time_s': [0.0, 0.5, 1.5, 2.0],
-                'thrust_N': [0.0, 10.0, 5.0, 0.0]
-            }
+            "name": "test",
+            "manufacturer": "Test",
+            "designation": "T1",
+            "total_impulse_Ns": 10.0,
+            "avg_thrust_N": 5.0,
+            "max_thrust_N": 10.0,
+            "burn_time_s": 2.0,
+            "propellant_mass_g": 12.0,
+            "case_mass_g": 12.0,
+            "thrust_curve": {
+                "time_s": [0.0, 0.5, 1.5, 2.0],
+                "thrust_N": [0.0, 10.0, 5.0, 0.0],
+            },
         }
 
         config = RocketConfig(dt=0.01)
@@ -630,4 +628,6 @@ class TestRealisticMotorRocketUpdatePropulsion:
 
         assert thrust == 0  # No thrust
         # Mass should be airframe + case mass
-        assert mass == pytest.approx(env.airframe.dry_mass + env.motor_case_mass, rel=0.01)
+        assert mass == pytest.approx(
+            env.airframe.dry_mass + env.motor_case_mass, rel=0.01
+        )

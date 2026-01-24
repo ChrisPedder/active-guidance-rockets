@@ -1,6 +1,7 @@
 """
 Tests for spin_stabilized_control_env.py - Gymnasium environment.
 """
+
 import pytest
 import numpy as np
 
@@ -80,8 +81,8 @@ class TestSpinStabilizedCameraRocket:
 
         assert obs.shape == (10,)
         assert isinstance(info, dict)
-        assert 'altitude_m' in info
-        assert info['altitude_m'] == 0.0
+        assert "altitude_m" in info
+        assert info["altitude_m"] == 0.0
 
     def test_reset_with_seed(self, estes_alpha_airframe):
         """Test that reset returns valid observation."""
@@ -173,7 +174,9 @@ class TestSpinStabilizedCameraRocket:
         """Test that episode truncates at max time."""
         from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
 
-        config = RocketConfig(max_episode_time=0.5, max_roll_rate=10000.0)  # Short episode
+        config = RocketConfig(
+            max_episode_time=0.5, max_roll_rate=10000.0
+        )  # Short episode
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe, config=config)
         env.reset()
 
@@ -193,7 +196,9 @@ class TestSpinStabilizedCameraRocket:
         env.reset()
 
         for _ in range(100):
-            obs, _, terminated, truncated, _ = env.step(np.array([np.random.uniform(-1, 1)]))
+            obs, _, terminated, truncated, _ = env.step(
+                np.array([np.random.uniform(-1, 1)])
+            )
 
             # Check all observations are within bounds
             assert all(obs >= env.observation_space.low), f"Obs below low: {obs}"
@@ -210,8 +215,13 @@ class TestSpinStabilizedCameraRocket:
         _, info = env.reset()
 
         required_keys = [
-            'altitude_m', 'vertical_velocity_ms', 'roll_rate_deg_s',
-            'time_s', 'phase', 'mass_kg', 'airframe'
+            "altitude_m",
+            "vertical_velocity_ms",
+            "roll_rate_deg_s",
+            "time_s",
+            "phase",
+            "mass_kg",
+            "airframe",
         ]
 
         for key in required_keys:
@@ -376,10 +386,10 @@ class TestGymnasiumCompliance:
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
 
         # Check required attributes
-        assert hasattr(env, 'action_space')
-        assert hasattr(env, 'observation_space')
-        assert hasattr(env, 'reset')
-        assert hasattr(env, 'step')
+        assert hasattr(env, "action_space")
+        assert hasattr(env, "observation_space")
+        assert hasattr(env, "reset")
+        assert hasattr(env, "step")
 
         # Check spaces are valid
         assert env.action_space is not None

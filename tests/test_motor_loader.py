@@ -1,6 +1,7 @@
 """
 Tests for motor_loader.py - motor data loading and calculations.
 """
+
 import pytest
 import numpy as np
 import tempfile
@@ -17,9 +18,9 @@ class TestMotor:
 
         motor = Motor(sample_motor_config)
 
-        assert motor.name == 'test_motor'
-        assert motor.manufacturer == 'Test'
-        assert motor.designation == 'T100'
+        assert motor.name == "test_motor"
+        assert motor.manufacturer == "Test"
+        assert motor.designation == "T100"
 
     def test_si_unit_conversion(self, sample_motor_config):
         """Test that units are converted to SI."""
@@ -112,7 +113,7 @@ class TestMotor:
 
         # With 2x multiplier
         config_2x = dict(sample_motor_config)
-        config_2x['thrust_multiplier'] = 2.0
+        config_2x["thrust_multiplier"] = 2.0
         motor_2x = Motor(config_2x)
         thrust_2x = motor_2x.get_thrust(0.5)
 
@@ -125,9 +126,9 @@ class TestMotor:
         motor = Motor(sample_motor_config)
         repr_str = repr(motor)
 
-        assert 'Test' in repr_str
-        assert 'T100' in repr_str
-        assert 'C-class' in repr_str
+        assert "Test" in repr_str
+        assert "T100" in repr_str
+        assert "C-class" in repr_str
 
     def test_mass_flow_rate(self, sample_motor_config):
         """Test mass flow rate calculation."""
@@ -151,15 +152,15 @@ class TestLoadMotorFromConfig:
         """Test loading motor from YAML config file."""
         from motor_loader import load_motor_from_config
 
-        config = {'motor': sample_motor_config}
+        config = {"motor": sample_motor_config}
         config_path = tmp_path / "config.yaml"
 
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             yaml.dump(config, f)
 
         motor = load_motor_from_config(str(config_path))
 
-        assert motor.name == 'test_motor'
+        assert motor.name == "test_motor"
         assert motor.burn_time == 2.0
 
 
@@ -170,10 +171,10 @@ class TestLoadMotorFromDict:
         """Test loading motor from config dict."""
         from motor_loader import load_motor_from_dict
 
-        config = {'motor': sample_motor_config}
+        config = {"motor": sample_motor_config}
         motor = load_motor_from_dict(config)
 
-        assert motor.name == 'test_motor'
+        assert motor.name == "test_motor"
 
 
 class TestMotorDefaults:
@@ -184,23 +185,20 @@ class TestMotorDefaults:
         from motor_loader import Motor
 
         minimal_config = {
-            'name': 'minimal',
-            'thrust_curve': {
-                'time_s': [0, 1],
-                'thrust_N': [0, 10]
-            }
+            "name": "minimal",
+            "thrust_curve": {"time_s": [0, 1], "thrust_N": [0, 10]},
         }
 
         motor = Motor(minimal_config)
 
-        assert motor.name == 'minimal'
-        assert motor.manufacturer == 'Unknown'
+        assert motor.name == "minimal"
+        assert motor.manufacturer == "Unknown"
 
     def test_missing_thrust_curve(self):
         """Test motor with missing thrust curve."""
         from motor_loader import Motor
 
-        config = {'name': 'no_curve'}
+        config = {"name": "no_curve"}
         motor = Motor(config)
 
         # Should return 0 thrust
@@ -232,7 +230,9 @@ class TestMotorPhysics:
         for t in np.linspace(0, motor.burn_time, 20):
             thrust = motor.get_thrust(t)
             assert thrust >= 0
-            assert thrust <= motor.max_thrust * motor.thrust_multiplier * 1.1  # Allow 10% margin
+            assert (
+                thrust <= motor.max_thrust * motor.thrust_multiplier * 1.1
+            )  # Allow 10% margin
 
 
 class TestRealMotorConfigs:
@@ -250,7 +250,7 @@ class TestRealMotorConfigs:
         motor = load_motor_from_config(str(config_path))
 
         # Estes C6 specs
-        assert motor.impulse_class == 'C'
+        assert motor.impulse_class == "C"
         assert 5.0 < motor.total_impulse < 15.0  # C class is 5-10 Ns
         assert motor.burn_time > 0
         assert motor.burn_time < 5.0  # Reasonable upper bound

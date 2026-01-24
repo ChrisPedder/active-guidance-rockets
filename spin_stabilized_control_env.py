@@ -37,29 +37,30 @@ class RocketConfig:
     - Simulation settings (timestep, termination thresholds)
     - Motor parameters (overridden when using RealisticMotorRocket)
     """
+
     # === Control Tab Geometry ===
-    tab_chord_fraction: float = 0.25      # Fraction of fin chord that is tab
-    tab_span_fraction: float = 0.5        # Fraction of fin span with tab
-    max_tab_deflection: float = 15.0      # Maximum deflection (degrees)
-    num_controlled_fins: int = 2          # Number of fins with active tabs
+    tab_chord_fraction: float = 0.25  # Fraction of fin chord that is tab
+    tab_span_fraction: float = 0.5  # Fraction of fin span with tab
+    max_tab_deflection: float = 15.0  # Maximum deflection (degrees)
+    num_controlled_fins: int = 2  # Number of fins with active tabs
 
     # === Physics Tuning ===
-    disturbance_scale: float = 0.0001     # Random torque magnitude scaling
-    damping_scale: float = 1.0            # Multiplier for aerodynamic damping
-    initial_spin_std: float = 15.0        # Initial spin disturbance (deg/s std)
+    disturbance_scale: float = 0.0001  # Random torque magnitude scaling
+    damping_scale: float = 1.0  # Multiplier for aerodynamic damping
+    initial_spin_std: float = 15.0  # Initial spin disturbance (deg/s std)
 
     # === Motor (defaults for simple thrust model) ===
     # These are overridden when using RealisticMotorRocket with real motor data
-    average_thrust: float = 5.4           # N - Estes C6 average
-    burn_time: float = 1.85               # s
-    propellant_mass: float = 0.012        # kg
-    thrust_curve: str = "neutral"         # "neutral", "progressive", "regressive"
+    average_thrust: float = 5.4  # N - Estes C6 average
+    burn_time: float = 1.85  # s
+    propellant_mass: float = 0.012  # kg
+    thrust_curve: str = "neutral"  # "neutral", "progressive", "regressive"
 
     # === Simulation ===
-    dt: float = 0.01                      # Time step (100 Hz)
-    max_altitude: float = 500.0           # m - for observation normalization
-    max_roll_rate: float = 360.0          # deg/s - termination threshold
-    max_episode_time: float = 15.0        # seconds
+    dt: float = 0.01  # Time step (100 Hz)
+    max_altitude: float = 500.0  # m - for observation normalization
+    max_roll_rate: float = 360.0  # deg/s - termination threshold
+    max_episode_time: float = 15.0  # seconds
 
 
 class SpinStabilizedCameraRocket(gym.Env):
@@ -74,7 +75,7 @@ class SpinStabilizedCameraRocket(gym.Env):
         config: RocketConfig with simulation and physics tuning parameters
     """
 
-    metadata = {'render_modes': ['human']}
+    metadata = {"render_modes": ["human"]}
 
     def __init__(self, airframe: RocketAirframe, config: RocketConfig = None):
         super().__init__()
@@ -91,37 +92,41 @@ class SpinStabilizedCameraRocket(gym.Env):
         self.config = config or RocketConfig()
 
         # Action space: normalized tab deflection [-1, 1]
-        self.action_space = spaces.Box(
-            low=-1.0, high=1.0, shape=(1,), dtype=np.float32
-        )
+        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
 
         # Observation space
         self.observation_space = spaces.Box(
-            low=np.array([
-                0.0,       # altitude (m)
-                -100.0,    # vertical velocity (m/s)
-                -np.pi,    # roll angle (rad)
-                -np.deg2rad(self.config.max_roll_rate),  # roll rate (rad/s)
-                -50.0,     # roll acceleration (rad/s²)
-                0.0,       # dynamic pressure (Pa)
-                0.0,       # time (s)
-                0.0,       # thrust fraction
-                -1.0,      # last action
-                0.0,       # camera shake
-            ], dtype=np.float32),
-            high=np.array([
-                self.config.max_altitude,
-                100.0,
-                np.pi,
-                np.deg2rad(self.config.max_roll_rate),
-                50.0,
-                3000.0,
-                self.config.max_episode_time,
-                1.0,
-                1.0,
-                50.0,
-            ], dtype=np.float32),
-            dtype=np.float32
+            low=np.array(
+                [
+                    0.0,  # altitude (m)
+                    -100.0,  # vertical velocity (m/s)
+                    -np.pi,  # roll angle (rad)
+                    -np.deg2rad(self.config.max_roll_rate),  # roll rate (rad/s)
+                    -50.0,  # roll acceleration (rad/s²)
+                    0.0,  # dynamic pressure (Pa)
+                    0.0,  # time (s)
+                    0.0,  # thrust fraction
+                    -1.0,  # last action
+                    0.0,  # camera shake
+                ],
+                dtype=np.float32,
+            ),
+            high=np.array(
+                [
+                    self.config.max_altitude,
+                    100.0,
+                    np.pi,
+                    np.deg2rad(self.config.max_roll_rate),
+                    50.0,
+                    3000.0,
+                    self.config.max_episode_time,
+                    1.0,
+                    1.0,
+                    50.0,
+                ],
+                dtype=np.float32,
+            ),
+            dtype=np.float32,
         )
 
         self.reset()
@@ -160,7 +165,9 @@ class SpinStabilizedCameraRocket(gym.Env):
         # Process action
         self.previous_action = self.last_action
         self.last_action = float(np.clip(action[0], -1.0, 1.0))
-        self.tab_deflection = self.last_action * np.deg2rad(self.config.max_tab_deflection)
+        self.tab_deflection = self.last_action * np.deg2rad(
+            self.config.max_tab_deflection
+        )
 
         dt = self.config.dt
         self.time += dt
@@ -234,7 +241,7 @@ class SpinStabilizedCameraRocket(gym.Env):
                 dynamic_pressure,
                 tab_chord_fraction=self.config.tab_chord_fraction,
                 tab_span_fraction=self.config.tab_span_fraction,
-                num_controlled_fins=self.config.num_controlled_fins
+                num_controlled_fins=self.config.num_controlled_fins,
             )
             control_torque = effectiveness * self.tab_deflection
 
@@ -245,11 +252,18 @@ class SpinStabilizedCameraRocket(gym.Env):
             # Aerodynamic damping from airframe
             damping_coef = self.airframe.get_aerodynamic_damping_coeff()
             damping_coef *= self.config.damping_scale
-            damping_torque = -damping_coef * self.roll_rate * dynamic_pressure / max(self.vertical_velocity, 1.0)
+            damping_torque = (
+                -damping_coef
+                * self.roll_rate
+                * dynamic_pressure
+                / max(self.vertical_velocity, 1.0)
+            )
 
             # Disturbance scaled by airframe diameter (volume scaling)
-            size_factor = (self.airframe.body_diameter / 0.054)**3
-            disturbance_std = self.config.disturbance_scale * np.sqrt(dynamic_pressure) * size_factor
+            size_factor = (self.airframe.body_diameter / 0.054) ** 3
+            disturbance_std = (
+                self.config.disturbance_scale * np.sqrt(dynamic_pressure) * size_factor
+            )
             disturbance = np.random.normal(0, disturbance_std)
 
         return control_torque + damping_torque + disturbance
@@ -306,9 +320,9 @@ class SpinStabilizedCameraRocket(gym.Env):
         if roll_rate_deg < 5:
             reward += 10.0  # Excellent
         elif roll_rate_deg < 15:
-            reward += 5.0   # Good
+            reward += 5.0  # Good
         elif roll_rate_deg < 30:
-            reward += 2.0   # Acceptable
+            reward += 2.0  # Acceptable
         else:
             reward -= roll_rate_deg * 0.05  # Penalty
 
@@ -342,8 +356,10 @@ class SpinStabilizedCameraRocket(gym.Env):
             return True
 
         # Past apogee and descending
-        if (self.altitude < self.max_altitude_reached - 30 and
-            self.time > self.config.burn_time + 1.0):
+        if (
+            self.altitude < self.max_altitude_reached - 30
+            and self.time > self.config.burn_time + 1.0
+        ):
             return True
 
         return False
@@ -351,24 +367,33 @@ class SpinStabilizedCameraRocket(gym.Env):
     def _get_observation(self) -> np.ndarray:
         """Get observation vector."""
         rho = self._get_air_density()
-        q = 0.5 * rho * max(self.vertical_velocity, 0)**2
+        q = 0.5 * rho * max(self.vertical_velocity, 0) ** 2
 
-        thrust_frac = max(0, (self.config.burn_time - self.time) / self.config.burn_time)
+        thrust_frac = max(
+            0, (self.config.burn_time - self.time) / self.config.burn_time
+        )
 
-        recent_shake = np.mean(self.camera_shake_history[-10:]) if self.camera_shake_history else 0.0
+        recent_shake = (
+            np.mean(self.camera_shake_history[-10:])
+            if self.camera_shake_history
+            else 0.0
+        )
 
-        obs = np.array([
-            self.altitude,
-            self.vertical_velocity,
-            self.roll_angle,
-            self.roll_rate,
-            self.roll_acceleration,
-            q,
-            self.time,
-            thrust_frac,
-            self.last_action,
-            recent_shake,
-        ], dtype=np.float32)
+        obs = np.array(
+            [
+                self.altitude,
+                self.vertical_velocity,
+                self.roll_angle,
+                self.roll_rate,
+                self.roll_acceleration,
+                q,
+                self.time,
+                thrust_frac,
+                self.last_action,
+                recent_shake,
+            ],
+            dtype=np.float32,
+        )
 
         return np.clip(obs, self.observation_space.low, self.observation_space.high)
 
@@ -386,27 +411,31 @@ class SpinStabilizedCameraRocket(gym.Env):
             h_quality = "Poor - Severe blur"
 
         return {
-            'altitude_m': self.altitude,
-            'vertical_velocity_ms': self.vertical_velocity,
-            'roll_rate_deg_s': np.rad2deg(self.roll_rate),
-            'roll_total_rotations': self.total_rotation / (2 * np.pi),
-            'tab_deflection_deg': np.rad2deg(self.tab_deflection),
-            'time_s': self.time,
-            'phase': 'boost' if self.time < self.config.burn_time else 'coast',
-            'mass_kg': self.airframe.dry_mass + self.propellant_remaining,
-            'camera_shake': self.camera_shake_history[-1] if self.camera_shake_history else 0,
-            'max_altitude_m': self.max_altitude_reached,
-            'horizontal_camera_quality': h_quality,
-            'downward_camera_quality': h_quality,
-            'airframe': self.airframe.name,
+            "altitude_m": self.altitude,
+            "vertical_velocity_ms": self.vertical_velocity,
+            "roll_rate_deg_s": np.rad2deg(self.roll_rate),
+            "roll_total_rotations": self.total_rotation / (2 * np.pi),
+            "tab_deflection_deg": np.rad2deg(self.tab_deflection),
+            "time_s": self.time,
+            "phase": "boost" if self.time < self.config.burn_time else "coast",
+            "mass_kg": self.airframe.dry_mass + self.propellant_remaining,
+            "camera_shake": (
+                self.camera_shake_history[-1] if self.camera_shake_history else 0
+            ),
+            "max_altitude_m": self.max_altitude_reached,
+            "horizontal_camera_quality": h_quality,
+            "downward_camera_quality": h_quality,
+            "airframe": self.airframe.name,
         }
 
-    def render(self, mode='human'):
-        if mode == 'human':
+    def render(self, mode="human"):
+        if mode == "human":
             info = self._get_info()
-            print(f"T={self.time:.2f}s | Alt={self.altitude:.1f}m | "
-                  f"Roll={info['roll_rate_deg_s']:.1f}°/s | "
-                  f"Phase={info['phase']} | Quality={info['horizontal_camera_quality']}")
+            print(
+                f"T={self.time:.2f}s | Alt={self.altitude:.1f}m | "
+                f"Roll={info['roll_rate_deg_s']:.1f}°/s | "
+                f"Phase={info['phase']} | Quality={info['horizontal_camera_quality']}"
+            )
 
 
 # Test the environment
@@ -443,16 +472,20 @@ if __name__ == "__main__":
         obs, reward, terminated, truncated, info = env.step(action)
 
         if step % 20 == 0 or terminated or truncated:
-            print(f"Step {step:3d}: alt={info['altitude_m']:6.1f}m, "
-                  f"roll={info['roll_rate_deg_s']:7.1f}°/s, "
-                  f"phase={info['phase']}")
+            print(
+                f"Step {step:3d}: alt={info['altitude_m']:6.1f}m, "
+                f"roll={info['roll_rate_deg_s']:7.1f}°/s, "
+                f"phase={info['phase']}"
+            )
 
         if terminated or truncated:
             print(f"\n*** Episode ended at step {step} ***")
             break
 
-    print(f"\nFinal: altitude={info['altitude_m']:.1f}m, "
-          f"max_alt={info['max_altitude_m']:.1f}m")
+    print(
+        f"\nFinal: altitude={info['altitude_m']:.1f}m, "
+        f"max_alt={info['max_altitude_m']:.1f}m"
+    )
     print(f"Camera quality: {info['horizontal_camera_quality']}")
 
     # Test with simple P-controller
@@ -470,8 +503,10 @@ if __name__ == "__main__":
         total_reward += reward
 
         if step % 50 == 0:
-            print(f"Step {step:3d}: alt={info['altitude_m']:6.1f}m, "
-                  f"roll={info['roll_rate_deg_s']:6.1f}°/s, reward={reward:.2f}")
+            print(
+                f"Step {step:3d}: alt={info['altitude_m']:6.1f}m, "
+                f"roll={info['roll_rate_deg_s']:6.1f}°/s, reward={reward:.2f}"
+            )
 
         if terminated or truncated:
             break

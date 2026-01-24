@@ -1,6 +1,7 @@
 """
 Tests for generate_motor_config module - motor config generation and ThrustCurve API.
 """
+
 import pytest
 import numpy as np
 import tempfile
@@ -96,17 +97,17 @@ class TestMotorData:
 
         # Test different impulse classes
         test_cases = [
-            (2.0, 'A'),
-            (4.0, 'B'),
-            (8.0, 'C'),
-            (15.0, 'D'),
-            (35.0, 'E'),
-            (70.0, 'F'),
-            (150.0, 'G'),
-            (300.0, 'H'),
-            (600.0, 'I'),
-            (1000.0, 'J'),
-            (1500.0, 'K+'),
+            (2.0, "A"),
+            (4.0, "B"),
+            (8.0, "C"),
+            (15.0, "D"),
+            (35.0, "E"),
+            (70.0, "F"),
+            (150.0, "G"),
+            (300.0, "H"),
+            (600.0, "I"),
+            (1000.0, "J"),
+            (1500.0, "K+"),
         ]
 
         for impulse, expected_class in test_cases:
@@ -127,7 +128,9 @@ class TestMotorData:
                 time_points=np.array([0.0, 1.0]),
                 thrust_points=np.array([impulse, 0.0]),
             )
-            assert motor.impulse_class == expected_class, f"Impulse {impulse} should be {expected_class}"
+            assert (
+                motor.impulse_class == expected_class
+            ), f"Impulse {impulse} should be {expected_class}"
 
     def test_get_thrust(self):
         """Test thrust interpolation."""
@@ -295,7 +298,11 @@ class TestConfigGeneration:
 
     def test_generate_config(self):
         """Test generate_config function."""
-        from generate_motor_config import MotorData, analyze_motor_physics, generate_config
+        from generate_motor_config import (
+            MotorData,
+            analyze_motor_physics,
+            generate_config,
+        )
 
         motor = MotorData(
             motor_id="test",
@@ -333,7 +340,11 @@ class TestConfigGeneration:
 
     def test_generate_config_difficulty_levels(self):
         """Test config generation for different difficulty levels."""
-        from generate_motor_config import MotorData, analyze_motor_physics, generate_config
+        from generate_motor_config import (
+            MotorData,
+            analyze_motor_physics,
+            generate_config,
+        )
 
         motor = MotorData(
             motor_id="test",
@@ -453,7 +464,10 @@ class TestSaveConfig:
     def test_save_config(self, tmp_path):
         """Test saving config to file."""
         from generate_motor_config import (
-            MotorData, analyze_motor_physics, generate_config, save_config
+            MotorData,
+            analyze_motor_physics,
+            generate_config,
+            save_config,
         )
 
         motor = MotorData(
@@ -484,6 +498,7 @@ class TestSaveConfig:
 
         # Read and verify
         import yaml
+
         with open(filepath) as f:
             content = f.read()
             # Should have header comments
@@ -514,8 +529,8 @@ class TestGenerateMotorConfigs:
 class TestThrustCurveAPI:
     """Tests for ThrustCurve API (mocked)."""
 
-    @patch('generate_motor_config.REQUESTS_AVAILABLE', True)
-    @patch('generate_motor_config.requests')
+    @patch("generate_motor_config.REQUESTS_AVAILABLE", True)
+    @patch("generate_motor_config.requests")
     def test_search_motors(self, mock_requests):
         """Test motor search with mocked API."""
         from generate_motor_config import ThrustCurveAPI
@@ -548,7 +563,7 @@ class TestThrustCurveAPI:
         mock_session.get.return_value = mock_response
         mock_session.headers = Mock()
 
-        with patch.object(ThrustCurveAPI, '__init__', lambda x: None):
+        with patch.object(ThrustCurveAPI, "__init__", lambda x: None):
             api = ThrustCurveAPI()
             api.base_url = "https://www.thrustcurve.org/api/v1"
             api.session = mock_session
@@ -559,8 +574,8 @@ class TestThrustCurveAPI:
             assert results[0].manufacturer == "Estes"
             assert results[0].designation == "C6"
 
-    @patch('generate_motor_config.REQUESTS_AVAILABLE', True)
-    @patch('generate_motor_config.requests')
+    @patch("generate_motor_config.REQUESTS_AVAILABLE", True)
+    @patch("generate_motor_config.requests")
     def test_verify_motor(self, mock_requests):
         """Test motor verification with mocked API."""
         from generate_motor_config import ThrustCurveAPI
@@ -593,7 +608,7 @@ class TestThrustCurveAPI:
         mock_session.get.return_value = mock_response
         mock_session.headers = Mock()
 
-        with patch.object(ThrustCurveAPI, '__init__', lambda x: None):
+        with patch.object(ThrustCurveAPI, "__init__", lambda x: None):
             api = ThrustCurveAPI()
             api.base_url = "https://www.thrustcurve.org/api/v1"
             api.session = mock_session
@@ -619,22 +634,22 @@ class TestCLICommands:
         assert "Popular Motors" in captured.out
         assert "estes_c6" in captured.out
 
-    @patch('generate_motor_config.REQUESTS_AVAILABLE', False)
+    @patch("generate_motor_config.REQUESTS_AVAILABLE", False)
     def test_cmd_search_without_requests(self, capsys):
         """Test search command when requests is not available."""
         from generate_motor_config import cmd_search
         from argparse import Namespace
 
         args = Namespace(
-            query="C6",
-            manufacturer=None,
-            impulse_class=None,
-            max_results=20
+            query="C6", manufacturer=None, impulse_class=None, max_results=20
         )
         cmd_search(args)
 
         captured = capsys.readouterr()
-        assert "requires 'requests'" in captured.out or "Available offline motors" in captured.out
+        assert (
+            "requires 'requests'" in captured.out
+            or "Available offline motors" in captured.out
+        )
 
     def test_cmd_verify_offline(self, capsys):
         """Test verify command with offline motor."""
@@ -718,7 +733,11 @@ class TestPhysicsAnalysisEdgeCases:
 
     def test_motor_sizes(self):
         """Test physics analysis for different motor sizes."""
-        from generate_motor_config import MotorData, analyze_motor_physics, generate_config
+        from generate_motor_config import (
+            MotorData,
+            analyze_motor_physics,
+            generate_config,
+        )
 
         # Small motor (18mm)
         small_motor = MotorData(
@@ -766,4 +785,6 @@ class TestPhysicsAnalysisEdgeCases:
         large_config = generate_config(large_motor, large_physics, difficulty="easy")
 
         # Larger motor should have larger fin dimensions
-        assert large_config["physics"]["fin_span"] >= small_config["physics"]["fin_span"]
+        assert (
+            large_config["physics"]["fin_span"] >= small_config["physics"]["fin_span"]
+        )

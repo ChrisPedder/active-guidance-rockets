@@ -39,6 +39,7 @@ from scipy import interpolate, integrate
 # ThrustCurve.org API
 try:
     import requests
+
     REQUESTS_AVAILABLE = True
 except ImportError:
     REQUESTS_AVAILABLE = False
@@ -55,68 +56,118 @@ THRUSTCURVE_API_BASE = "https://www.thrustcurve.org/api/v1"
 # Popular/common motors for quick reference
 POPULAR_MOTORS = {
     # Low Power (A-D)
-    "estes_a8": {"manufacturer": "Estes", "designation": "A8", "common_name": "Estes A8"},
-    "estes_b6": {"manufacturer": "Estes", "designation": "B6", "common_name": "Estes B6"},
-    "estes_c6": {"manufacturer": "Estes", "designation": "C6", "common_name": "Estes C6"},
-    "estes_d12": {"manufacturer": "Estes", "designation": "D12", "common_name": "Estes D12"},
-
+    "estes_a8": {
+        "manufacturer": "Estes",
+        "designation": "A8",
+        "common_name": "Estes A8",
+    },
+    "estes_b6": {
+        "manufacturer": "Estes",
+        "designation": "B6",
+        "common_name": "Estes B6",
+    },
+    "estes_c6": {
+        "manufacturer": "Estes",
+        "designation": "C6",
+        "common_name": "Estes C6",
+    },
+    "estes_d12": {
+        "manufacturer": "Estes",
+        "designation": "D12",
+        "common_name": "Estes D12",
+    },
     # Mid Power (E-G)
-    "aerotech_e30": {"manufacturer": "AeroTech", "designation": "E30", "common_name": "Aerotech E30"},
-    "aerotech_f40": {"manufacturer": "AeroTech", "designation": "F40", "common_name": "Aerotech F40"},
-    "aerotech_f52": {"manufacturer": "AeroTech", "designation": "F52", "common_name": "Aerotech F52"},
-    "aerotech_g80": {"manufacturer": "AeroTech", "designation": "G80", "common_name": "Aerotech G80"},
-    "cesaroni_g79": {"manufacturer": "Cesaroni", "designation": "G79", "common_name": "Cesaroni G79"},
-
+    "aerotech_e30": {
+        "manufacturer": "AeroTech",
+        "designation": "E30",
+        "common_name": "Aerotech E30",
+    },
+    "aerotech_f40": {
+        "manufacturer": "AeroTech",
+        "designation": "F40",
+        "common_name": "Aerotech F40",
+    },
+    "aerotech_f52": {
+        "manufacturer": "AeroTech",
+        "designation": "F52",
+        "common_name": "Aerotech F52",
+    },
+    "aerotech_g80": {
+        "manufacturer": "AeroTech",
+        "designation": "G80",
+        "common_name": "Aerotech G80",
+    },
+    "cesaroni_g79": {
+        "manufacturer": "Cesaroni",
+        "designation": "G79",
+        "common_name": "Cesaroni G79",
+    },
     # High Power (H+)
-    "aerotech_h128": {"manufacturer": "AeroTech", "designation": "H128", "common_name": "Aerotech H128"},
-    "cesaroni_h133": {"manufacturer": "Cesaroni", "designation": "H133", "common_name": "Cesaroni H133"},
-    "aerotech_i284": {"manufacturer": "AeroTech", "designation": "I284", "common_name": "Aerotech I284"},
+    "aerotech_h128": {
+        "manufacturer": "AeroTech",
+        "designation": "H128",
+        "common_name": "Aerotech H128",
+    },
+    "cesaroni_h133": {
+        "manufacturer": "Cesaroni",
+        "designation": "H133",
+        "common_name": "Cesaroni H133",
+    },
+    "aerotech_i284": {
+        "manufacturer": "AeroTech",
+        "designation": "I284",
+        "common_name": "Aerotech I284",
+    },
 }
 
 
 @dataclass
 class MotorSearchResult:
     """Result from motor search"""
+
     motor_id: str
     manufacturer: str
     designation: str
     common_name: str
     diameter: float  # mm
-    length: float    # mm
+    length: float  # mm
     impulse_class: str
     total_impulse: float  # N·s
-    avg_thrust: float     # N
-    max_thrust: float     # N
-    burn_time: float      # s
-    total_mass: float     # g
-    prop_mass: float      # g
+    avg_thrust: float  # N
+    max_thrust: float  # N
+    burn_time: float  # s
+    total_mass: float  # g
+    prop_mass: float  # g
 
     def __str__(self):
-        return (f"{self.manufacturer} {self.designation} "
-                f"({self.impulse_class}-class, {self.total_impulse:.1f} N·s, "
-                f"{self.avg_thrust:.1f}N avg, {self.diameter:.0f}mm)")
+        return (
+            f"{self.manufacturer} {self.designation} "
+            f"({self.impulse_class}-class, {self.total_impulse:.1f} N·s, "
+            f"{self.avg_thrust:.1f}N avg, {self.diameter:.0f}mm)"
+        )
 
 
 @dataclass
 class MotorData:
     """Complete motor data with thrust curve"""
+
     motor_id: str
     manufacturer: str
     designation: str
     common_name: str
 
     # Physical properties
-    diameter: float       # m (converted from mm)
-    length: float         # m (converted from mm)
-    total_mass: float     # kg (converted from g)
+    diameter: float  # m (converted from mm)
+    length: float  # m (converted from mm)
+    total_mass: float  # kg (converted from g)
     propellant_mass: float  # kg
-    case_mass: float      # kg
+    case_mass: float  # kg
 
     # Performance
     total_impulse: float  # N·s
-    burn_time: float      # s
-    average_thrust: float # N
-    max_thrust: float     # N
+    burn_time: float  # s
+    average_thrust: float  # N
+    max_thrust: float  # N
 
     # Thrust curve
     time_points: np.ndarray
@@ -130,27 +181,27 @@ class MotorData:
         # Calculate impulse class
         impulse = self.total_impulse
         if impulse <= 2.5:
-            self.impulse_class = 'A'
+            self.impulse_class = "A"
         elif impulse <= 5:
-            self.impulse_class = 'B'
+            self.impulse_class = "B"
         elif impulse <= 10:
-            self.impulse_class = 'C'
+            self.impulse_class = "C"
         elif impulse <= 20:
-            self.impulse_class = 'D'
+            self.impulse_class = "D"
         elif impulse <= 40:
-            self.impulse_class = 'E'
+            self.impulse_class = "E"
         elif impulse <= 80:
-            self.impulse_class = 'F'
+            self.impulse_class = "F"
         elif impulse <= 160:
-            self.impulse_class = 'G'
+            self.impulse_class = "G"
         elif impulse <= 320:
-            self.impulse_class = 'H'
+            self.impulse_class = "H"
         elif impulse <= 640:
-            self.impulse_class = 'I'
+            self.impulse_class = "I"
         elif impulse <= 1280:
-            self.impulse_class = 'J'
+            self.impulse_class = "J"
         else:
-            self.impulse_class = 'K+'
+            self.impulse_class = "K+"
 
         # Calculate specific impulse
         if self.propellant_mass > 0:
@@ -160,9 +211,9 @@ class MotorData:
         self.thrust_interpolator = interpolate.interp1d(
             self.time_points,
             self.thrust_points,
-            kind='linear',
+            kind="linear",
             bounds_error=False,
-            fill_value=0.0
+            fill_value=0.0,
         )
 
     def get_thrust(self, time: float) -> float:
@@ -191,9 +242,9 @@ class ThrustCurveAPI:
             raise RuntimeError("requests library required for API access")
         self.base_url = THRUSTCURVE_API_BASE
         self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'RocketSpinControl/1.0 (RL Training Config Generator)'
-        })
+        self.session.headers.update(
+            {"User-Agent": "RocketSpinControl/1.0 (RL Training Config Generator)"}
+        )
 
     def search_motors(
         self,
@@ -204,7 +255,7 @@ class ThrustCurveAPI:
         impulse_class: str = None,
         diameter: float = None,
         max_results: int = 20,
-        availability: str = None
+        availability: str = None,
     ) -> List[MotorSearchResult]:
         """
         Search for motors matching criteria.
@@ -286,7 +337,9 @@ class ThrustCurveAPI:
 
         return results
 
-    def get_motor_data(self, motor_id: str, search_result: Optional[MotorSearchResult] = None) -> Optional[MotorData]:
+    def get_motor_data(
+        self, motor_id: str, search_result: Optional[MotorSearchResult] = None
+    ) -> Optional[MotorData]:
         """
         Download complete motor data including thrust curve.
 
@@ -303,7 +356,7 @@ class ThrustCurveAPI:
         # Request with motorId and data=samples to get parsed thrust curve
         params = {
             "motorId": motor_id,  # FIXED: camelCase
-            "data": "samples"     # Request parsed samples
+            "data": "samples",  # Request parsed samples
         }
 
         try:
@@ -340,7 +393,7 @@ class ThrustCurveAPI:
             designation = search_result.designation
             common_name = search_result.common_name
             diameter = search_result.diameter  # mm
-            length = search_result.length      # mm
+            length = search_result.length  # mm
             total_mass_g = search_result.total_mass
             prop_mass_g = search_result.prop_mass
             total_impulse = search_result.total_impulse
@@ -354,7 +407,7 @@ class ThrustCurveAPI:
             designation = motor.get("designation", "Unknown")
             common_name = motor.get("commonName", designation)
             diameter = motor.get("diameter", 18)  # mm
-            length = motor.get("length", 70)      # mm
+            length = motor.get("length", 70)  # mm
             total_mass_g = motor.get("totalWeightG", 0)
             prop_mass_g = motor.get("propWeightG", 0)
             total_impulse = motor.get("totImpulseNs", 0)
@@ -376,7 +429,9 @@ class ThrustCurveAPI:
             print("         Creating synthetic curve from performance data")
             # Create synthetic curve from metadata
             time_points = np.array([0, 0.05, 0.1, burn_time * 0.8, burn_time])
-            thrust_points = np.array([0, max_thrust, average_thrust * 1.1, average_thrust * 0.9, 0])
+            thrust_points = np.array(
+                [0, max_thrust, average_thrust * 1.1, average_thrust * 0.9, 0]
+            )
 
         # Build MotorData
         return MotorData(
@@ -385,7 +440,7 @@ class ThrustCurveAPI:
             designation=designation,
             common_name=common_name,
             diameter=diameter / 1000,  # mm to m
-            length=length / 1000,      # mm to m
+            length=length / 1000,  # mm to m
             total_mass=total_mass_g / 1000,  # g to kg
             propellant_mass=prop_mass_g / 1000,
             case_mass=case_mass_g / 1000,
@@ -419,16 +474,11 @@ class ThrustCurveAPI:
         # Search with parsed criteria or just query
         if manufacturer and designation:
             results = self.search_motors(
-                manufacturer=manufacturer,
-                designation=designation,
-                max_results=5
+                manufacturer=manufacturer, designation=designation, max_results=5
             )
         else:
             # Search by common name
-            results = self.search_motors(
-                common_name=query,
-                max_results=5
-            )
+            results = self.search_motors(common_name=query, max_results=5)
 
         if not results:
             # Try a broader search with just the query
@@ -440,7 +490,11 @@ class ThrustCurveAPI:
         # Try to find exact match
         query_lower = query.lower().replace(" ", "").replace("-", "")
         for result in results:
-            name = f"{result.manufacturer}{result.designation}".lower().replace(" ", "").replace("-", "")
+            name = (
+                f"{result.manufacturer}{result.designation}".lower()
+                .replace(" ", "")
+                .replace("-", "")
+            )
             if query_lower == name:
                 return True, result
 
@@ -452,18 +506,20 @@ class ThrustCurveAPI:
 # Physics-Based Config Generation
 # ============================================================================
 
+
 @dataclass
 class PhysicsAnalysis:
     """Results of physics analysis for a motor/rocket combination"""
+
     motor: MotorData
-    dry_mass: float           # kg
-    total_mass: float         # kg
-    twr: float                # thrust-to-weight ratio
-    roll_inertia: float       # kg·m²
+    dry_mass: float  # kg
+    total_mass: float  # kg
+    twr: float  # thrust-to-weight ratio
+    roll_inertia: float  # kg·m²
 
     # Control analysis at typical dynamic pressure
     control_accel_per_degree: float  # °/s² per degree of tab deflection
-    disturbance_accel_std: float     # °/s² std from disturbance
+    disturbance_accel_std: float  # °/s² std from disturbance
 
     # Recommended parameters
     recommended_tab_deflection: float
@@ -526,7 +582,7 @@ def analyze_motor_physics(
     tube_inertia = 0.2 * total_mass * radius**2
 
     # Internal components (80% at half radius)
-    internal_inertia = 0.5 * 0.8 * total_mass * (radius * 0.5)**2
+    internal_inertia = 0.5 * 0.8 * total_mass * (radius * 0.5) ** 2
 
     # Fins
     fin_thickness = 0.002
@@ -541,7 +597,7 @@ def analyze_motor_physics(
     # Use q at peak velocity (roughly when rocket reaches max speed)
     # Estimate max velocity from impulse and mass
     estimated_max_velocity = motor.total_impulse / total_mass
-    q_typical = 0.5 * 1.225 * (estimated_max_velocity * 0.7)**2  # 70% of max
+    q_typical = 0.5 * 1.225 * (estimated_max_velocity * 0.7) ** 2  # 70% of max
     q_typical = max(q_typical, 500)  # At least 500 Pa
 
     # Control torque per degree of deflection
@@ -556,7 +612,7 @@ def analyze_motor_physics(
     control_accel_per_deg = np.rad2deg(control_torque_per_deg / roll_inertia)
 
     # Disturbance
-    size_factor = (diameter / 0.054)**3
+    size_factor = (diameter / 0.054) ** 3
     disturbance_torque_std = disturbance_scale * np.sqrt(q_typical) * size_factor
     disturbance_accel_std = np.rad2deg(disturbance_torque_std / roll_inertia)
 
@@ -576,7 +632,7 @@ def analyze_motor_physics(
     target_per_step = 50  # °/s
     max_safe_deflection = target_per_step / (control_accel_per_deg * dt)
     max_safe_deflection = min(max_safe_deflection, 15.0)  # Cap at 15°
-    max_safe_deflection = max(max_safe_deflection, 1.0)   # Min 1°
+    max_safe_deflection = max(max_safe_deflection, 1.0)  # Min 1°
 
     # Round to nice values
     if max_safe_deflection > 10:
@@ -617,7 +673,9 @@ def analyze_motor_physics(
     simulated_spin = initial_spin_std
     for _ in range(100):
         random_action = np.random.uniform(-1, 1)
-        spin_change = random_action * recommended_deflection * control_accel_per_deg * dt
+        spin_change = (
+            random_action * recommended_deflection * control_accel_per_deg * dt
+        )
         simulated_spin += spin_change
         if abs(simulated_spin) > max_roll_rate:
             random_action_safe = False
@@ -647,6 +705,7 @@ def analyze_motor_physics(
 # ============================================================================
 # Config Generation
 # ============================================================================
+
 
 def generate_config(
     motor: MotorData,
@@ -723,13 +782,19 @@ def generate_config(
         max_altitude = 800
 
     # Motor name for config
-    motor_name = f"{motor.manufacturer}_{motor.designation}".lower().replace(" ", "_").replace("-", "_")
+    motor_name = (
+        f"{motor.manufacturer}_{motor.designation}".lower()
+        .replace(" ", "_")
+        .replace("-", "_")
+    )
 
     config = {
         "physics": {
             "dry_mass": round(physics.dry_mass, 4),
             "propellant_mass": round(motor.propellant_mass, 4),
-            "diameter": round(motor.diameter * 1.1, 4),  # Rocket slightly larger than motor
+            "diameter": round(
+                motor.diameter * 1.1, 4
+            ),  # Rocket slightly larger than motor
             "length": rocket_length,
             "num_fins": 4,
             "fin_span": fin_span,
@@ -752,33 +817,30 @@ def generate_config(
             "manufacturer": motor.manufacturer,
             "designation": motor.designation,
             "thrust_multiplier": 1.0,
-
             # Complete motor specifications
             "diameter_mm": round(motor.diameter * 1000, 1),
             "length_mm": round(motor.length * 1000, 1),
             "total_mass_g": round(motor.total_mass * 1000, 1),
             "propellant_mass_g": round(motor.propellant_mass * 1000, 1),
             "case_mass_g": round(motor.case_mass * 1000, 1),
-
             # Performance data
             "impulse_class": motor.impulse_class,
             "total_impulse_Ns": round(motor.total_impulse, 1),
             "avg_thrust_N": round(motor.average_thrust, 1),
             "max_thrust_N": round(motor.max_thrust, 1),
             "burn_time_s": round(motor.burn_time, 3),
-
             # Thrust curve data - the actual data downloaded from ThrustCurve!
             "thrust_curve": {
                 "time_s": motor.time_points.tolist(),  # Convert numpy array to list
                 "thrust_N": motor.thrust_points.tolist(),
-            }
+            },
         },
         "environment": {
             "dt": physics.recommended_dt,
             "max_episode_steps": 500,
             "initial_spin_rate_range": [
                 -round(initial_spin_std * 2, 1),
-                round(initial_spin_std * 2, 1)
+                round(initial_spin_std * 2, 1),
             ],
             "initial_tilt_range": [-5.0, 5.0],
             "enable_wind": wind_enabled,
@@ -793,18 +855,34 @@ def generate_config(
         },
         "reward": {
             "altitude_reward_scale": altitude_reward_scale,
-            "spin_penalty_scale": -0.05 if difficulty == "easy" else -0.08 if difficulty == "medium" else -0.1,
+            "spin_penalty_scale": (
+                -0.05
+                if difficulty == "easy"
+                else -0.08 if difficulty == "medium" else -0.1
+            ),
             "low_spin_bonus": 1.0,
-            "low_spin_threshold": 30.0 if difficulty == "easy" else 20.0 if difficulty == "medium" else 10.0,
+            "low_spin_threshold": (
+                30.0
+                if difficulty == "easy"
+                else 20.0 if difficulty == "medium" else 10.0
+            ),
             "control_effort_penalty": -0.005,
             "control_smoothness_penalty": -0.02,
             "success_bonus": 100.0,
-            "crash_penalty": -20.0 if difficulty == "easy" else -30.0 if difficulty == "medium" else -50.0,
+            "crash_penalty": (
+                -20.0
+                if difficulty == "easy"
+                else -30.0 if difficulty == "medium" else -50.0
+            ),
             "use_potential_shaping": difficulty == "full",
             "gamma": 0.99,
         },
         "ppo": {
-            "learning_rate": 0.0003 if difficulty == "easy" else 0.0002 if difficulty == "medium" else 0.0001,
+            "learning_rate": (
+                0.0003
+                if difficulty == "easy"
+                else 0.0002 if difficulty == "medium" else 0.0001
+            ),
             "n_steps": 2048,
             "batch_size": 64,
             "n_epochs": 10,
@@ -812,7 +890,11 @@ def generate_config(
             "gae_lambda": 0.95,
             "clip_range": 0.2 if difficulty != "full" else 0.15,
             "clip_range_vf": None,
-            "ent_coef": 0.01 if difficulty == "easy" else 0.008 if difficulty == "medium" else 0.005,
+            "ent_coef": (
+                0.01
+                if difficulty == "easy"
+                else 0.008 if difficulty == "medium" else 0.005
+            ),
             "vf_coef": 0.5,
             "max_grad_norm": 0.5,
             "normalize_advantage": True,
@@ -825,11 +907,33 @@ def generate_config(
         },
         "curriculum": {
             "enabled": difficulty == "full",
-            "stages": [] if difficulty != "full" else [
-                {"name": "warmup", "initial_spin_range": [-20, 20], "wind_enabled": True, "max_wind_speed": 3.0, "target_reward": 50},
-                {"name": "moderate", "initial_spin_range": [-30, 30], "wind_enabled": True, "max_wind_speed": 4.0, "target_reward": 100},
-                {"name": "full", "initial_spin_range": [-40, 40], "wind_enabled": True, "max_wind_speed": 5.0, "target_reward": 150},
-            ],
+            "stages": (
+                []
+                if difficulty != "full"
+                else [
+                    {
+                        "name": "warmup",
+                        "initial_spin_range": [-20, 20],
+                        "wind_enabled": True,
+                        "max_wind_speed": 3.0,
+                        "target_reward": 50,
+                    },
+                    {
+                        "name": "moderate",
+                        "initial_spin_range": [-30, 30],
+                        "wind_enabled": True,
+                        "max_wind_speed": 4.0,
+                        "target_reward": 100,
+                    },
+                    {
+                        "name": "full",
+                        "initial_spin_range": [-40, 40],
+                        "wind_enabled": True,
+                        "max_wind_speed": 5.0,
+                        "target_reward": 150,
+                    },
+                ]
+            ),
             "episodes_to_evaluate": 100,
             "advancement_threshold": 0.8,
         },
@@ -868,7 +972,13 @@ def convert_numpy_types(obj):
         return obj
 
 
-def save_config(config: Dict, filepath: str, motor: MotorData, physics: PhysicsAnalysis, difficulty: str):
+def save_config(
+    config: Dict,
+    filepath: str,
+    motor: MotorData,
+    physics: PhysicsAnalysis,
+    difficulty: str,
+):
     """Save config to YAML file with header comments"""
 
     # Convert numpy types to native Python types
@@ -898,7 +1008,7 @@ def save_config(config: Dict, filepath: str, motor: MotorData, physics: PhysicsA
 
     Path(filepath).parent.mkdir(parents=True, exist_ok=True)
 
-    with open(filepath, 'w') as f:
+    with open(filepath, "w") as f:
         f.write(header)
         yaml.dump(config_clean, f, default_flow_style=False, sort_keys=False)
 
@@ -950,7 +1060,9 @@ def generate_motor_configs(
     print(f"  Initial Spin Std: {physics.recommended_initial_spin_std:.1f}°/s")
     print(f"  Max Roll Rate: {physics.recommended_max_roll_rate:.0f}°/s")
     print(f"  Timestep: {physics.recommended_dt} s")
-    print(f"  Random Action Safe: {'✓ Yes' if physics.random_action_safe else '⚠ Needs tuning'}")
+    print(
+        f"  Random Action Safe: {'✓ Yes' if physics.random_action_safe else '⚠ Needs tuning'}"
+    )
 
     for note in physics.notes:
         print(f"  Note: {note}")
@@ -958,7 +1070,11 @@ def generate_motor_configs(
     # Generate configs
     print(f"\nGenerating configs:")
 
-    motor_name = f"{motor.manufacturer}_{motor.designation}".lower().replace(" ", "_").replace("-", "_")
+    motor_name = (
+        f"{motor.manufacturer}_{motor.designation}".lower()
+        .replace(" ", "_")
+        .replace("-", "_")
+    )
     filepaths = {}
 
     for difficulty in difficulties:
@@ -973,6 +1089,7 @@ def generate_motor_configs(
 # ============================================================================
 # Offline Motor Database (for when API is unavailable)
 # ============================================================================
+
 
 def get_offline_motor(motor_key: str) -> Optional[MotorData]:
     """Get motor data from offline database"""
@@ -1079,7 +1196,9 @@ def get_offline_motor(motor_key: str) -> Optional[MotorData]:
             average_thrust=79.0,
             max_thrust=110.0,
             time_points=np.array([0.0, 0.02, 0.1, 0.3, 0.6, 0.9, 1.2, 1.5, 1.6]),
-            thrust_points=np.array([0.0, 110.0, 95.0, 85.0, 80.0, 75.0, 70.0, 45.0, 0.0]),
+            thrust_points=np.array(
+                [0.0, 110.0, 95.0, 85.0, 80.0, 75.0, 70.0, 45.0, 0.0]
+            ),
         ),
         "aerotech_h128": MotorData(
             motor_id="offline_aerotech_h128",
@@ -1110,10 +1229,13 @@ def get_offline_motor(motor_key: str) -> Optional[MotorData]:
 # CLI Interface
 # ============================================================================
 
+
 def cmd_search(args):
     """Search for motors"""
     if not REQUESTS_AVAILABLE:
-        print("API search requires 'requests' library. Install with: pip install requests")
+        print(
+            "API search requires 'requests' library. Install with: pip install requests"
+        )
         print("\nAvailable offline motors:")
         for key, info in POPULAR_MOTORS.items():
             print(f"  {info['common_name']}")
@@ -1122,10 +1244,18 @@ def cmd_search(args):
     api = ThrustCurveAPI()
 
     results = api.search_motors(
-        query=args.query if hasattr(args, 'query') and args.query else None,
-        manufacturer=args.manufacturer if hasattr(args, 'manufacturer') and args.manufacturer else None,
-        impulse_class=args.impulse_class if hasattr(args, 'impulse_class') and args.impulse_class else None,
-        max_results=args.max_results if hasattr(args, 'max_results') else 20,
+        query=args.query if hasattr(args, "query") and args.query else None,
+        manufacturer=(
+            args.manufacturer
+            if hasattr(args, "manufacturer") and args.manufacturer
+            else None
+        ),
+        impulse_class=(
+            args.impulse_class
+            if hasattr(args, "impulse_class") and args.impulse_class
+            else None
+        ),
+        max_results=args.max_results if hasattr(args, "max_results") else 20,
     )
 
     if not results:
@@ -1133,12 +1263,16 @@ def cmd_search(args):
         return
 
     print(f"\nFound {len(results)} motors:\n")
-    print(f"{'ID':<25} {'Manufacturer':<15} {'Designation':<10} {'Class':<5} {'Impulse':<10} {'Avg Thrust':<10}")
+    print(
+        f"{'ID':<25} {'Manufacturer':<15} {'Designation':<10} {'Class':<5} {'Impulse':<10} {'Avg Thrust':<10}"
+    )
     print("-" * 90)
 
     for r in results:
-        print(f"{r.motor_id:<25} {r.manufacturer:<15} {r.designation:<10} {r.impulse_class:<5} "
-              f"{r.total_impulse:>6.1f} N·s  {r.avg_thrust:>6.1f} N")
+        print(
+            f"{r.motor_id:<25} {r.manufacturer:<15} {r.designation:<10} {r.impulse_class:<5} "
+            f"{r.total_impulse:>6.1f} N·s  {r.avg_thrust:>6.1f} N"
+        )
 
 
 def cmd_list_popular(args):
@@ -1166,7 +1300,9 @@ def cmd_verify(args):
         print(f"✓ Motor found (offline): {offline.manufacturer} {offline.designation}")
         print(f"  Class: {offline.impulse_class}")
         print(f"  Impulse: {offline.total_impulse:.1f} N·s")
-        print(f"  Thrust: {offline.average_thrust:.1f} N avg, {offline.max_thrust:.1f} N max")
+        print(
+            f"  Thrust: {offline.average_thrust:.1f} N avg, {offline.max_thrust:.1f} N max"
+        )
         return
 
     # Try API
@@ -1192,8 +1328,9 @@ def cmd_generate(args):
     motor = None
 
     # Check if this looks like a motor ID (24-character hex string)
-    is_motor_id = (len(motor_query) == 24 and
-                   all(c in '0123456789abcdef' for c in motor_query.lower()))
+    is_motor_id = len(motor_query) == 24 and all(
+        c in "0123456789abcdef" for c in motor_query.lower()
+    )
 
     if is_motor_id and REQUESTS_AVAILABLE:
         # Direct motor ID - fetch directly (no search metadata available)
@@ -1244,7 +1381,9 @@ def cmd_generate(args):
 
     print("\nNext steps:")
     print(f"  1. Review and adjust parameters if needed")
-    print(f"  2. Run training: uv run python train_improved.py --config {list(filepaths.values())[0]}")
+    print(
+        f"  2. Run training: uv run python train_improved.py --config {list(filepaths.values())[0]}"
+    )
 
 
 def main():
@@ -1268,7 +1407,7 @@ Examples:
     python generate_motor_config.py generate estes_c6
     python generate_motor_config.py generate aerotech_f40 --output configs/
     python generate_motor_config.py generate cesaroni_g79 --difficulty easy --dry-mass 0.8
-        """
+        """,
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -1277,8 +1416,12 @@ Examples:
     search_parser = subparsers.add_parser("search", help="Search for motors")
     search_parser.add_argument("query", nargs="?", help="Search query")
     search_parser.add_argument("--manufacturer", "-m", help="Filter by manufacturer")
-    search_parser.add_argument("--impulse-class", "-c", help="Filter by impulse class (A-O)")
-    search_parser.add_argument("--max-results", "-n", type=int, default=20, help="Max results")
+    search_parser.add_argument(
+        "--impulse-class", "-c", help="Filter by impulse class (A-O)"
+    )
+    search_parser.add_argument(
+        "--max-results", "-n", type=int, default=20, help="Max results"
+    )
 
     # List popular command
     list_parser = subparsers.add_parser("list-popular", help="List popular motors")
@@ -1289,11 +1432,19 @@ Examples:
 
     # Generate command
     gen_parser = subparsers.add_parser("generate", help="Generate config files")
-    gen_parser.add_argument("motor", help="Motor name or key (e.g., 'estes_c6', 'Aerotech F40')")
-    gen_parser.add_argument("--output", "-o", default="configs", help="Output directory")
-    gen_parser.add_argument("--difficulty", "-d", default="all",
-                           choices=["easy", "medium", "full", "all"],
-                           help="Difficulty level(s) to generate")
+    gen_parser.add_argument(
+        "motor", help="Motor name or key (e.g., 'estes_c6', 'Aerotech F40')"
+    )
+    gen_parser.add_argument(
+        "--output", "-o", default="configs", help="Output directory"
+    )
+    gen_parser.add_argument(
+        "--difficulty",
+        "-d",
+        default="all",
+        choices=["easy", "medium", "full", "all"],
+        help="Difficulty level(s) to generate",
+    )
     gen_parser.add_argument("--dry-mass", type=float, help="Override dry mass (kg)")
 
     args = parser.parse_args()

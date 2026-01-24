@@ -11,15 +11,13 @@ import numpy as np
 from typing import Tuple, Dict, Any, Optional
 from scipy import integrate
 
-from spin_stabilized_control_env import (
-    SpinStabilizedCameraRocket,
-    RocketConfig
-)
+from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
 from airframe import RocketAirframe
 
 # Try to import motor_loader for config-based motors
 try:
     from motor_loader import Motor as ConfigMotor
+
     MOTOR_LOADER_AVAILABLE = True
 except ImportError:
     MOTOR_LOADER_AVAILABLE = False
@@ -28,6 +26,7 @@ except ImportError:
 # Try to import motor data classes
 try:
     from thrustcurve_motor_data import MotorData
+
     MOTOR_DATA_AVAILABLE = True
 except ImportError:
     MOTOR_DATA_AVAILABLE = False
@@ -40,7 +39,7 @@ except ImportError:
         manufacturer: str
         designation: str
         diameter: float  # mm
-        length: float    # mm
+        length: float  # mm
         total_mass: float  # g
         propellant_mass: float  # g
         case_mass: float  # g (computed as total - propellant)
@@ -56,15 +55,18 @@ except ImportError:
         def __post_init__(self):
             # Convert to SI units
             self.diameter = self.diameter / 1000  # mm to m
-            self.length = self.length / 1000      # mm to m
+            self.length = self.length / 1000  # mm to m
             self.total_mass = self.total_mass / 1000  # g to kg
             self.propellant_mass = self.propellant_mass / 1000
             self.case_mass = self.case_mass / 1000
 
             # Create interpolation function
             self._thrust_interp = interpolate.interp1d(
-                self.time_points, self.thrust_points,
-                kind='linear', bounds_error=False, fill_value=0.0
+                self.time_points,
+                self.thrust_points,
+                kind="linear",
+                bounds_error=False,
+                fill_value=0.0,
             )
 
         def get_thrust(self, time: float) -> float:
@@ -172,7 +174,9 @@ class RealisticMotorRocket(SpinStabilizedCameraRocket):
         # Display motor info
         print(f"  Total impulse: {self.motor.total_impulse:.1f} N·s")
         print(f"  Burn time: {self.motor.burn_time:.2f}s")
-        print(f"  Avg/Max thrust: {self.motor.average_thrust:.1f}N / {self.motor.max_thrust:.1f}N")
+        print(
+            f"  Avg/Max thrust: {self.motor.average_thrust:.1f}N / {self.motor.max_thrust:.1f}N"
+        )
 
         # Display airframe info
         print(f"✓ Using airframe: {airframe.name}")
@@ -217,20 +221,23 @@ class RealisticMotorRocket(SpinStabilizedCameraRocket):
         info = super()._get_info()
 
         # Add motor-specific info
-        current_thrust = self.motor.get_thrust(self.time) if self.time < self.motor.burn_time else 0
+        current_thrust = (
+            self.motor.get_thrust(self.time) if self.time < self.motor.burn_time else 0
+        )
 
-        info.update({
-            'motor': f"{self.motor.manufacturer} {self.motor.designation}",
-            'current_thrust_N': current_thrust,
-            'propellant_remaining_g': self.propellant_remaining * 1000,
-        })
+        info.update(
+            {
+                "motor": f"{self.motor.manufacturer} {self.motor.designation}",
+                "current_thrust_N": current_thrust,
+                "propellant_remaining_g": self.propellant_remaining * 1000,
+            }
+        )
 
         return info
 
 
 def create_environment_from_config(
-    config_path: str,
-    rank: int = 0
+    config_path: str, rank: int = 0
 ) -> RealisticMotorRocket:
     """
     Create environment from config YAML file.
@@ -266,16 +273,16 @@ def create_environment_from_config(
     import yaml
     import os
 
-    with open(config_path, 'r') as f:
+    with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
     # Extract configs
-    motor_config = config.get('motor', {})
-    physics = config.get('physics', {})
-    env_cfg = config.get('environment', {})
+    motor_config = config.get("motor", {})
+    physics = config.get("physics", {})
+    env_cfg = config.get("environment", {})
 
     # Load airframe (REQUIRED)
-    airframe_file = physics.get('airframe_file')
+    airframe_file = physics.get("airframe_file")
     if not airframe_file:
         raise ValueError(
             f"Config file {config_path} must specify 'physics.airframe_file'.\n"
@@ -295,16 +302,16 @@ def create_environment_from_config(
 
     # Create RocketConfig with physics tuning parameters
     rocket_config = RocketConfig(
-        max_tab_deflection=physics.get('max_tab_deflection', 15.0),
-        tab_chord_fraction=physics.get('tab_chord_fraction', 0.25),
-        tab_span_fraction=physics.get('tab_span_fraction', 0.5),
-        num_controlled_fins=physics.get('num_controlled_fins', 2),
-        disturbance_scale=physics.get('disturbance_scale', 0.0001),
-        damping_scale=physics.get('damping_scale', 1.0),
-        initial_spin_std=physics.get('initial_spin_std', 15.0),
-        max_roll_rate=physics.get('max_roll_rate', 360.0),
-        max_episode_time=physics.get('max_episode_time', 15.0),
-        dt=env_cfg.get('dt', 0.01),
+        max_tab_deflection=physics.get("max_tab_deflection", 15.0),
+        tab_chord_fraction=physics.get("tab_chord_fraction", 0.25),
+        tab_span_fraction=physics.get("tab_span_fraction", 0.5),
+        num_controlled_fins=physics.get("num_controlled_fins", 2),
+        disturbance_scale=physics.get("disturbance_scale", 0.0001),
+        damping_scale=physics.get("damping_scale", 1.0),
+        initial_spin_std=physics.get("initial_spin_std", 15.0),
+        max_roll_rate=physics.get("max_roll_rate", 360.0),
+        max_episode_time=physics.get("max_episode_time", 15.0),
+        dt=env_cfg.get("dt", 0.01),
     )
 
     # Create environment
@@ -331,19 +338,19 @@ if __name__ == "__main__":
 
     # Create a simple motor config for testing
     motor_config = {
-        'name': 'estes_c6',
-        'manufacturer': 'Estes',
-        'designation': 'C6',
-        'total_impulse_Ns': 10.0,
-        'avg_thrust_N': 5.4,
-        'max_thrust_N': 14.0,
-        'burn_time_s': 1.85,
-        'propellant_mass_g': 12.3,
-        'case_mass_g': 12.7,
-        'thrust_curve': {
-            'time_s': [0.0, 0.1, 0.5, 1.0, 1.5, 1.85],
-            'thrust_N': [0.0, 14.0, 6.0, 5.0, 4.0, 0.0]
-        }
+        "name": "estes_c6",
+        "manufacturer": "Estes",
+        "designation": "C6",
+        "total_impulse_Ns": 10.0,
+        "avg_thrust_N": 5.4,
+        "max_thrust_N": 14.0,
+        "burn_time_s": 1.85,
+        "propellant_mass_g": 12.3,
+        "case_mass_g": 12.7,
+        "thrust_curve": {
+            "time_s": [0.0, 0.1, 0.5, 1.0, 1.5, 1.85],
+            "thrust_N": [0.0, 14.0, 6.0, 5.0, 4.0, 0.0],
+        },
     }
 
     # Create config
@@ -372,12 +379,14 @@ if __name__ == "__main__":
     for step in range(300):
         action = np.array([0.0])
         obs, reward, terminated, truncated, info = env.step(action)
-        max_alt = max(max_alt, info['altitude_m'])
+        max_alt = max(max_alt, info["altitude_m"])
 
         if step % 30 == 0:
-            print(f"T={info['time_s']:.2f}s: alt={info['altitude_m']:.1f}m, "
-                  f"roll={info['roll_rate_deg_s']:.1f}°/s, "
-                  f"thrust={info['current_thrust_N']:.1f}N")
+            print(
+                f"T={info['time_s']:.2f}s: alt={info['altitude_m']:.1f}m, "
+                f"roll={info['roll_rate_deg_s']:.1f}°/s, "
+                f"thrust={info['current_thrust_N']:.1f}N"
+            )
 
         if terminated or truncated:
             break

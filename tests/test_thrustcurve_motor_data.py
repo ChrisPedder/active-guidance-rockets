@@ -1,6 +1,7 @@
 """
 Tests for thrustcurve_motor_data module - motor data classes and thrust curve parsing.
 """
+
 import pytest
 import numpy as np
 import tempfile
@@ -162,7 +163,7 @@ class TestMotorData:
         )
 
         # Computed impulse should exist
-        assert hasattr(motor, 'computed_impulse')
+        assert hasattr(motor, "computed_impulse")
         assert motor.computed_impulse > 0
 
     def test_exhaust_velocity_calculation(self):

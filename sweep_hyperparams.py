@@ -32,7 +32,9 @@ import json
 from rocket_config import RocketTrainingConfig, MotorConfig
 
 
-def generate_sweep_configs(sweep_type: str, base_config: RocketTrainingConfig) -> List[Dict[str, Any]]:
+def generate_sweep_configs(
+    sweep_type: str, base_config: RocketTrainingConfig
+) -> List[Dict[str, Any]]:
     """Generate configurations for different sweep types"""
 
     sweeps = []
@@ -40,28 +42,32 @@ def generate_sweep_configs(sweep_type: str, base_config: RocketTrainingConfig) -
     if sweep_type == "physics":
         # Sweep mass configurations to find optimal TWR
         motor_specs = MotorConfig.get_motor_specs(base_config.motor.name)
-        avg_thrust = motor_specs['average_thrust']
+        avg_thrust = motor_specs["average_thrust"]
         g = 9.81
 
         # Generate masses for TWR from 2.0 to 6.0
         for target_twr in [2.0, 2.5, 3.0, 3.5, 4.0, 5.0, 6.0]:
-            dry_mass = (avg_thrust / (target_twr * g)) - motor_specs['propellant_mass']
+            dry_mass = (avg_thrust / (target_twr * g)) - motor_specs["propellant_mass"]
             if dry_mass > 0.02:  # Minimum realistic mass
-                sweeps.append({
-                    'name': f"twr_{target_twr:.1f}",
-                    'physics.dry_mass': dry_mass,
-                    'description': f"TWR={target_twr:.1f}, mass={dry_mass*1000:.1f}g"
-                })
+                sweeps.append(
+                    {
+                        "name": f"twr_{target_twr:.1f}",
+                        "physics.dry_mass": dry_mass,
+                        "description": f"TWR={target_twr:.1f}, mass={dry_mass*1000:.1f}g",
+                    }
+                )
 
         # Also sweep control authority
         for tab_deflection in [10.0, 15.0, 20.0, 25.0]:
             for tab_fraction in [0.2, 0.3, 0.4]:
-                sweeps.append({
-                    'name': f"tab_{tab_deflection:.0f}deg_{tab_fraction:.1f}frac",
-                    'physics.max_tab_deflection': tab_deflection,
-                    'physics.tab_chord_fraction': tab_fraction,
-                    'description': f"Tab deflection {tab_deflection}°, chord fraction {tab_fraction}"
-                })
+                sweeps.append(
+                    {
+                        "name": f"tab_{tab_deflection:.0f}deg_{tab_fraction:.1f}frac",
+                        "physics.max_tab_deflection": tab_deflection,
+                        "physics.tab_chord_fraction": tab_fraction,
+                        "description": f"Tab deflection {tab_deflection}°, chord fraction {tab_fraction}",
+                    }
+                )
 
     elif sweep_type == "reward":
         # Sweep reward function weights
@@ -70,22 +76,26 @@ def generate_sweep_configs(sweep_type: str, base_config: RocketTrainingConfig) -
 
         for spin_scale in spin_scales:
             for alt_scale in altitude_scales:
-                sweeps.append({
-                    'name': f"spin{abs(spin_scale):.2f}_alt{alt_scale:.3f}",
-                    'reward.spin_penalty_scale': spin_scale,
-                    'reward.altitude_reward_scale': alt_scale,
-                    'description': f"Spin penalty {spin_scale}, altitude reward {alt_scale}"
-                })
+                sweeps.append(
+                    {
+                        "name": f"spin{abs(spin_scale):.2f}_alt{alt_scale:.3f}",
+                        "reward.spin_penalty_scale": spin_scale,
+                        "reward.altitude_reward_scale": alt_scale,
+                        "description": f"Spin penalty {spin_scale}, altitude reward {alt_scale}",
+                    }
+                )
 
         # Also sweep low-spin bonus
         for bonus in [0.0, 0.5, 1.0, 2.0]:
             for threshold in [5.0, 10.0, 20.0]:
-                sweeps.append({
-                    'name': f"bonus{bonus:.1f}_thresh{threshold:.0f}",
-                    'reward.low_spin_bonus': bonus,
-                    'reward.low_spin_threshold': threshold,
-                    'description': f"Low spin bonus {bonus} at threshold {threshold}°/s"
-                })
+                sweeps.append(
+                    {
+                        "name": f"bonus{bonus:.1f}_thresh{threshold:.0f}",
+                        "reward.low_spin_bonus": bonus,
+                        "reward.low_spin_threshold": threshold,
+                        "description": f"Low spin bonus {bonus} at threshold {threshold}°/s",
+                    }
+                )
 
     elif sweep_type == "ppo":
         # Sweep PPO hyperparameters
@@ -96,13 +106,15 @@ def generate_sweep_configs(sweep_type: str, base_config: RocketTrainingConfig) -
         for lr in learning_rates:
             for clip in clip_ranges:
                 for batch in batch_sizes:
-                    sweeps.append({
-                        'name': f"lr{lr:.0e}_clip{clip:.1f}_batch{batch}",
-                        'ppo.learning_rate': lr,
-                        'ppo.clip_range': clip,
-                        'ppo.batch_size': batch,
-                        'description': f"LR={lr:.0e}, clip={clip}, batch={batch}"
-                    })
+                    sweeps.append(
+                        {
+                            "name": f"lr{lr:.0e}_clip{clip:.1f}_batch{batch}",
+                            "ppo.learning_rate": lr,
+                            "ppo.clip_range": clip,
+                            "ppo.batch_size": batch,
+                            "description": f"LR={lr:.0e}, clip={clip}, batch={batch}",
+                        }
+                    )
 
         # Also sweep network architecture
         architectures = [
@@ -112,36 +124,56 @@ def generate_sweep_configs(sweep_type: str, base_config: RocketTrainingConfig) -
             ([256, 128, 64], "tapered"),
         ]
         for arch, name in architectures:
-            sweeps.append({
-                'name': f"arch_{name}",
-                'ppo.policy_net_arch': arch,
-                'ppo.value_net_arch': arch,
-                'description': f"Network architecture: {arch}"
-            })
+            sweeps.append(
+                {
+                    "name": f"arch_{name}",
+                    "ppo.policy_net_arch": arch,
+                    "ppo.value_net_arch": arch,
+                    "description": f"Network architecture: {arch}",
+                }
+            )
 
     elif sweep_type == "motors":
         # Sweep across different motors
         motors_and_masses = [
-            ("estes_c6", 0.100),      # 100g for C motor
+            ("estes_c6", 0.100),  # 100g for C motor
             ("aerotech_f40", 0.400),  # 400g for F motor
             ("cesaroni_g79", 0.800),  # 800g for G motor
         ]
         for motor, mass in motors_and_masses:
-            sweeps.append({
-                'name': f"motor_{motor}",
-                'motor.name': motor,
-                'physics.dry_mass': mass,
-                'description': f"Motor: {motor}, mass: {mass*1000:.0f}g"
-            })
+            sweeps.append(
+                {
+                    "name": f"motor_{motor}",
+                    "motor.name": motor,
+                    "physics.dry_mass": mass,
+                    "description": f"Motor: {motor}, mass: {mass*1000:.0f}g",
+                }
+            )
 
     elif sweep_type == "quick":
         # Quick sweep with fewer configs for testing
         sweeps = [
-            {'name': 'baseline', 'description': 'Default configuration'},
-            {'name': 'high_lr', 'ppo.learning_rate': 1e-3, 'description': 'Higher learning rate'},
-            {'name': 'low_lr', 'ppo.learning_rate': 1e-4, 'description': 'Lower learning rate'},
-            {'name': 'more_spin_penalty', 'reward.spin_penalty_scale': -0.2, 'description': 'More spin penalty'},
-            {'name': 'less_spin_penalty', 'reward.spin_penalty_scale': -0.05, 'description': 'Less spin penalty'},
+            {"name": "baseline", "description": "Default configuration"},
+            {
+                "name": "high_lr",
+                "ppo.learning_rate": 1e-3,
+                "description": "Higher learning rate",
+            },
+            {
+                "name": "low_lr",
+                "ppo.learning_rate": 1e-4,
+                "description": "Lower learning rate",
+            },
+            {
+                "name": "more_spin_penalty",
+                "reward.spin_penalty_scale": -0.2,
+                "description": "More spin penalty",
+            },
+            {
+                "name": "less_spin_penalty",
+                "reward.spin_penalty_scale": -0.05,
+                "description": "Less spin penalty",
+            },
         ]
 
     else:
@@ -150,16 +182,19 @@ def generate_sweep_configs(sweep_type: str, base_config: RocketTrainingConfig) -
     return sweeps
 
 
-def apply_config_overrides(base_config: RocketTrainingConfig, overrides: Dict[str, Any]) -> RocketTrainingConfig:
+def apply_config_overrides(
+    base_config: RocketTrainingConfig, overrides: Dict[str, Any]
+) -> RocketTrainingConfig:
     """Apply a dictionary of overrides to a configuration"""
     import copy
+
     config = copy.deepcopy(base_config)
 
     for key, value in overrides.items():
-        if key in ('name', 'description'):
+        if key in ("name", "description"):
             continue
 
-        parts = key.split('.')
+        parts = key.split(".")
         obj = config
         for part in parts[:-1]:
             obj = getattr(obj, part)
@@ -183,12 +218,12 @@ def run_sweep(
 
     # Save sweep configuration
     sweep_info = {
-        'start_time': datetime.now().isoformat(),
-        'num_configs': len(sweep_configs),
-        'configs': sweep_configs,
+        "start_time": datetime.now().isoformat(),
+        "num_configs": len(sweep_configs),
+        "configs": sweep_configs,
     }
 
-    with open(output_path / "sweep_info.json", 'w') as f:
+    with open(output_path / "sweep_info.json", "w") as f:
         json.dump(sweep_info, f, indent=2)
 
     print(f"\n{'='*70}")
@@ -201,8 +236,8 @@ def run_sweep(
     results = []
 
     for i, sweep in enumerate(sweep_configs):
-        name = sweep.get('name', f'config_{i}')
-        description = sweep.get('description', '')
+        name = sweep.get("name", f"config_{i}")
+        description = sweep.get("description", "")
 
         print(f"\n[{i+1}/{len(sweep_configs)}] {name}")
         print(f"  {description}")
@@ -226,30 +261,35 @@ def run_sweep(
         try:
             # Import and run training
             from train_improved import train
+
             config.logging.experiment_name = f"sweep_{name}"
             config.logging.log_dir = str(output_path / "logs")
             config.logging.save_dir = str(output_path / "models")
 
             model = train(config)
 
-            results.append({
-                'name': name,
-                'config': str(config_path),
-                'status': 'success',
-            })
+            results.append(
+                {
+                    "name": name,
+                    "config": str(config_path),
+                    "status": "success",
+                }
+            )
 
         except Exception as e:
             print(f"  ❌ ERROR: {e}")
-            results.append({
-                'name': name,
-                'config': str(config_path),
-                'status': 'error',
-                'error': str(e),
-            })
+            results.append(
+                {
+                    "name": name,
+                    "config": str(config_path),
+                    "status": "error",
+                    "error": str(e),
+                }
+            )
 
     # Save results
     results_file = output_path / "sweep_results.json"
-    with open(results_file, 'w') as f:
+    with open(results_file, "w") as f:
         json.dump(results, f, indent=2)
 
     print(f"\n{'='*70}")
@@ -259,7 +299,7 @@ def run_sweep(
 
     if not dry_run:
         # Print summary
-        successful = sum(1 for r in results if r['status'] == 'success')
+        successful = sum(1 for r in results if r["status"] == "success")
         print(f"Successful: {successful}/{len(results)}")
 
     return results
@@ -267,9 +307,9 @@ def run_sweep(
 
 def load_sweep_from_yaml(path: str) -> List[Dict[str, Any]]:
     """Load sweep configuration from YAML file"""
-    with open(path, 'r') as f:
+    with open(path, "r") as f:
         data = yaml.safe_load(f)
-    return data.get('sweeps', [])
+    return data.get("sweeps", [])
 
 
 def main():
@@ -296,56 +336,78 @@ Examples:
 
   # Custom sweep from file
   python sweep_hyperparams.py --sweep-file my_sweep.yaml
-        """
+        """,
     )
 
-    parser.add_argument("--sweep", type=str,
-                       choices=['physics', 'reward', 'ppo', 'motors', 'quick'],
-                       help="Type of sweep to run")
-    parser.add_argument("--sweep-file", type=str,
-                       help="Custom sweep configuration YAML file")
-    parser.add_argument("--base-config", type=str, default="configs/estes_c6.yaml",
-                       help="Base configuration to modify")
-    parser.add_argument("--output-dir", type=str, default=None,
-                       help="Output directory (default: sweeps/<timestamp>)")
-    parser.add_argument("--dry-run", action="store_true",
-                       help="Show configurations without running training")
-    parser.add_argument("--timesteps", type=int, default=None,
-                       help="Override timesteps for all runs (for testing)")
-    parser.add_argument("--create-example-sweep", action="store_true",
-                       help="Create an example sweep YAML file")
+    parser.add_argument(
+        "--sweep",
+        type=str,
+        choices=["physics", "reward", "ppo", "motors", "quick"],
+        help="Type of sweep to run",
+    )
+    parser.add_argument(
+        "--sweep-file", type=str, help="Custom sweep configuration YAML file"
+    )
+    parser.add_argument(
+        "--base-config",
+        type=str,
+        default="configs/estes_c6.yaml",
+        help="Base configuration to modify",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help="Output directory (default: sweeps/<timestamp>)",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show configurations without running training",
+    )
+    parser.add_argument(
+        "--timesteps",
+        type=int,
+        default=None,
+        help="Override timesteps for all runs (for testing)",
+    )
+    parser.add_argument(
+        "--create-example-sweep",
+        action="store_true",
+        help="Create an example sweep YAML file",
+    )
 
     args = parser.parse_args()
 
     if args.create_example_sweep:
         example = {
-            'description': 'Example custom sweep configuration',
-            'sweeps': [
+            "description": "Example custom sweep configuration",
+            "sweeps": [
                 {
-                    'name': 'baseline',
-                    'description': 'Default configuration',
+                    "name": "baseline",
+                    "description": "Default configuration",
                 },
                 {
-                    'name': 'light_rocket',
-                    'physics.dry_mass': 0.08,
-                    'description': '80g rocket',
+                    "name": "light_rocket",
+                    "physics.dry_mass": 0.08,
+                    "description": "80g rocket",
                 },
                 {
-                    'name': 'heavy_rocket',
-                    'physics.dry_mass': 0.15,
-                    'description': '150g rocket',
+                    "name": "heavy_rocket",
+                    "physics.dry_mass": 0.15,
+                    "description": "150g rocket",
                 },
                 {
-                    'name': 'aggressive_spin_control',
-                    'reward.spin_penalty_scale': -0.3,
-                    'reward.low_spin_bonus': 2.0,
-                    'description': 'Emphasize spin control over altitude',
+                    "name": "aggressive_spin_control",
+                    "reward.spin_penalty_scale": -0.3,
+                    "reward.low_spin_bonus": 2.0,
+                    "description": "Emphasize spin control over altitude",
                 },
-            ]
+            ],
         }
 
         Path("configs").mkdir(exist_ok=True)
-        with open("configs/example_sweep.yaml", 'w') as f:
+        with open("configs/example_sweep.yaml", "w") as f:
             yaml.dump(example, f, default_flow_style=False)
         print("Created configs/example_sweep.yaml")
         return
@@ -359,6 +421,7 @@ Examples:
     if not Path(args.base_config).exists():
         # Create default config if it doesn't exist
         from rocket_config import create_default_configs
+
         create_default_configs()
 
     base_config = RocketTrainingConfig.load(args.base_config)

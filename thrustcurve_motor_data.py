@@ -8,14 +8,16 @@ import re
 from scipy import integrate, interpolate
 import json
 
+
 @dataclass
 class MotorData:
     """Complete motor data from thrustcurve.org"""
+
     # Basic info
     manufacturer: str
     designation: str
     diameter: float  # mm
-    length: float    # mm
+    length: float  # mm
     total_mass: float  # g
     propellant_mass: float  # g
     case_mass: float  # g
@@ -40,27 +42,34 @@ class MotorData:
         """Validate and compute derived values"""
         # Convert to SI units if needed
         self.diameter /= 1000  # mm to m
-        self.length /= 1000    # mm to m
+        self.length /= 1000  # mm to m
         self.total_mass /= 1000  # g to kg
         self.propellant_mass /= 1000  # g to kg
         self.case_mass /= 1000  # g to kg
 
         # Compute actual total impulse from curve if not provided
         if len(self.time_points) > 1:
-            self.computed_impulse = integrate.simpson(self.thrust_points, self.time_points)
+            self.computed_impulse = integrate.simpson(
+                self.thrust_points, self.time_points
+            )
 
             # Verify against stated impulse
-            if abs(self.computed_impulse - self.total_impulse) / self.total_impulse > 0.05:
-                print(f"Warning: Computed impulse ({self.computed_impulse:.1f}) differs from "
-                      f"stated impulse ({self.total_impulse:.1f}) by more than 5%")
+            if (
+                abs(self.computed_impulse - self.total_impulse) / self.total_impulse
+                > 0.05
+            ):
+                print(
+                    f"Warning: Computed impulse ({self.computed_impulse:.1f}) differs from "
+                    f"stated impulse ({self.total_impulse:.1f}) by more than 5%"
+                )
 
         # Create interpolation function for smooth thrust lookup
         self.thrust_interpolator = interpolate.interp1d(
             self.time_points,
             self.thrust_points,
-            kind='linear',
+            kind="linear",
             bounds_error=False,
-            fill_value=0.0
+            fill_value=0.0,
         )
 
         # Calculate mass flow rate profile
@@ -82,9 +91,9 @@ class MotorData:
             self.mass_flow_interpolator = interpolate.interp1d(
                 self.time_points,
                 self.mass_flow_rate,
-                kind='linear',
+                kind="linear",
                 bounds_error=False,
-                fill_value=0.0
+                fill_value=0.0,
             )
         else:
             self.exhaust_velocity = 0
@@ -104,8 +113,7 @@ class MotorData:
             # Integrate mass flow to get propellant consumed
             time_range = np.linspace(0, time, 100)
             mass_consumed = integrate.simpson(
-                [self.mass_flow_interpolator(t) for t in time_range],
-                time_range
+                [self.mass_flow_interpolator(t) for t in time_range], time_range
             )
             return self.total_mass - mass_consumed
 
@@ -117,8 +125,11 @@ class MotorData:
         if self.propellant_mass <= 0:
             return 0.0
 
-        prop_fraction = max(0, (self.propellant_mass - self.get_mass(time) + self.case_mass)
-                           / self.propellant_mass)
+        prop_fraction = max(
+            0,
+            (self.propellant_mass - self.get_mass(time) + self.case_mass)
+            / self.propellant_mass,
+        )
 
         # CG shifts forward as propellant burns from the top
         # Maximum shift is half the propellant grain length
@@ -136,29 +147,29 @@ class ThrustCurveParser:
         Format: <name> <diam> <len> <delays> <prop_mass> <total_mass> <manufacturer>
         Then: time thrust pairs
         """
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             lines = f.readlines()
 
         # Skip comments
-        data_lines = [l.strip() for l in lines if not l.strip().startswith(';')]
+        data_lines = [l.strip() for l in lines if not l.strip().startswith(";")]
 
         # Parse header
         header = data_lines[0].split()
         designation = header[0]
         diameter = float(header[1])  # mm
-        length = float(header[2])    # mm
+        length = float(header[2])  # mm
 
         # Parse delays (could be multiple like "3-5-7-10")
         delays_str = header[3]
-        if delays_str == 'P':
+        if delays_str == "P":
             delays = []
             plugged = True
         else:
-            delays = [float(d) for d in delays_str.split('-') if d]
+            delays = [float(d) for d in delays_str.split("-") if d]
             plugged = False
 
         propellant_mass = float(header[4])  # g
-        total_mass = float(header[5])      # g
+        total_mass = float(header[5])  # g
         manufacturer = header[6] if len(header) > 6 else "Unknown"
 
         # Parse thrust curve
@@ -196,7 +207,7 @@ class ThrustCurveParser:
             time_points=time_array,
             thrust_points=thrust_array,
             delays=delays,
-            plugged=plugged
+            plugged=plugged,
         )
 
     @staticmethod
@@ -206,26 +217,26 @@ class ThrustCurveParser:
         root = tree.getroot()
 
         # Find engine data
-        engine = root.find('.//engine')
+        engine = root.find(".//engine")
         if engine is None:
             raise ValueError("No engine data found in RSE file")
 
         # Extract data
-        manufacturer = engine.find('manufacturer').text
-        designation = engine.find('designation').text
-        diameter = float(engine.find('diameter').text)  # mm
-        length = float(engine.find('length').text)      # mm
-        total_mass = float(engine.find('total-mass').text)  # g
-        prop_mass = float(engine.find('prop-mass').text)    # g
+        manufacturer = engine.find("manufacturer").text
+        designation = engine.find("designation").text
+        diameter = float(engine.find("diameter").text)  # mm
+        length = float(engine.find("length").text)  # mm
+        total_mass = float(engine.find("total-mass").text)  # g
+        prop_mass = float(engine.find("prop-mass").text)  # g
 
         # Get thrust curve data
-        data_points = engine.find('data')
+        data_points = engine.find("data")
         time_points = []
         thrust_points = []
 
-        for sample in data_points.findall('sample'):
-            time_points.append(float(sample.find('time').text))
-            thrust_points.append(float(sample.find('thrust').text))
+        for sample in data_points.findall("sample"):
+            time_points.append(float(sample.find("time").text))
+            thrust_points.append(float(sample.find("thrust").text))
 
         time_array = np.array(time_points)
         thrust_array = np.array(thrust_points)
@@ -249,11 +260,11 @@ class ThrustCurveParser:
             average_thrust=average_thrust,
             max_thrust=max_thrust,
             time_points=time_array,
-            thrust_points=thrust_array
+            thrust_points=thrust_array,
         )
 
     @staticmethod
-    def download_from_thrustcurve(motor_id: str, format: str = 'eng') -> MotorData:
+    def download_from_thrustcurve(motor_id: str, format: str = "eng") -> MotorData:
         """
         Download motor data directly from thrustcurve.org API
 
@@ -268,12 +279,12 @@ class ThrustCurveParser:
 
         # Save temporarily and parse
         temp_file = f"/tmp/{motor_id}.{format}"
-        with open(temp_file, 'w') as f:
+        with open(temp_file, "w") as f:
             f.write(response.text)
 
-        if format == 'eng':
+        if format == "eng":
             return ThrustCurveParser.parse_eng_file(temp_file)
-        elif format == 'rse':
+        elif format == "rse":
             return ThrustCurveParser.parse_rse_file(temp_file)
         else:
             raise ValueError(f"Unsupported format: {format}")

@@ -38,25 +38,25 @@ class RocketPhysicsConfig:
     airframe_file: str = None  # REQUIRED - no default
 
     # Control surfaces - applied to airframe fins
-    max_tab_deflection: float = 15.0   # degrees
-    tab_chord_fraction: float = 0.25   # fraction of fin chord
-    tab_span_fraction: float = 0.5     # fraction of fin span
-    num_controlled_fins: int = 2       # number of fins with active tabs
+    max_tab_deflection: float = 15.0  # degrees
+    tab_chord_fraction: float = 0.25  # fraction of fin chord
+    tab_span_fraction: float = 0.5  # fraction of fin span
+    num_controlled_fins: int = 2  # number of fins with active tabs
 
     # Aerodynamics tuning
-    cd_body: float = 0.5              # Body drag coefficient
-    cd_fins: float = 0.01             # Fin drag coefficient
-    cl_alpha: float = 2.0             # Lift curve slope (per radian)
+    cd_body: float = 0.5  # Body drag coefficient
+    cd_fins: float = 0.01  # Fin drag coefficient
+    cl_alpha: float = 2.0  # Lift curve slope (per radian)
     control_effectiveness: float = 1.0  # Multiplier for control authority
 
     # === Physics Tuning ===
-    disturbance_scale: float = 0.0001    # Random disturbance magnitude
-    damping_scale: float = 1.0           # Multiplier for aerodynamic damping
-    initial_spin_std: float = 15.0       # Initial spin disturbance (deg/s std)
-    max_roll_rate: float = 720.0         # deg/s - termination threshold
-    max_episode_time: float = 15.0       # seconds - max episode duration
+    disturbance_scale: float = 0.0001  # Random disturbance magnitude
+    damping_scale: float = 1.0  # Multiplier for aerodynamic damping
+    initial_spin_std: float = 15.0  # Initial spin disturbance (deg/s std)
+    max_roll_rate: float = 720.0  # deg/s - termination threshold
+    max_episode_time: float = 15.0  # seconds - max episode duration
 
-    def resolve_airframe(self) -> 'RocketAirframe':
+    def resolve_airframe(self) -> "RocketAirframe":
         """
         Load and return the RocketAirframe from the specified file.
 
@@ -81,12 +81,13 @@ class RocketPhysicsConfig:
 
         return RocketAirframe.load(self.airframe_file)
 
+
 @dataclass
 class MotorConfig:
     """Motor selection and configuration"""
 
-    name: str = "estes_c6"           # Motor identifier
-    thrust_multiplier: float = 1.0   # Scale thrust (for testing)
+    name: str = "estes_c6"  # Motor identifier
+    thrust_multiplier: float = 1.0  # Scale thrust (for testing)
 
     # Extended motor specifications (optional, for auto-generated configs)
     manufacturer: Optional[str] = None
@@ -103,7 +104,7 @@ class MotorConfig:
     burn_time_s: Optional[float] = None
     thrust_curve: Optional[Dict[str, List[float]]] = None
 
-    def to_motor(self) -> 'Motor':
+    def to_motor(self) -> "Motor":
         """
         Convert this config to a Motor object from motor_loader.
 
@@ -114,21 +115,21 @@ class MotorConfig:
 
         # Convert dataclass to dict format expected by Motor class
         motor_dict = {
-            'name': self.name,
-            'manufacturer': self.manufacturer,
-            'designation': self.designation,
-            'diameter_mm': self.diameter_mm,
-            'length_mm': self.length_mm,
-            'total_mass_g': self.total_mass_g,
-            'propellant_mass_g': self.propellant_mass_g,
-            'case_mass_g': self.case_mass_g,
-            'impulse_class': self.impulse_class,
-            'total_impulse_Ns': self.total_impulse_Ns,
-            'avg_thrust_N': self.avg_thrust_N,
-            'max_thrust_N': self.max_thrust_N,
-            'burn_time_s': self.burn_time_s,
-            'thrust_curve': self.thrust_curve,
-            'thrust_multiplier': self.thrust_multiplier,
+            "name": self.name,
+            "manufacturer": self.manufacturer,
+            "designation": self.designation,
+            "diameter_mm": self.diameter_mm,
+            "length_mm": self.length_mm,
+            "total_mass_g": self.total_mass_g,
+            "propellant_mass_g": self.propellant_mass_g,
+            "case_mass_g": self.case_mass_g,
+            "impulse_class": self.impulse_class,
+            "total_impulse_Ns": self.total_impulse_Ns,
+            "avg_thrust_N": self.avg_thrust_N,
+            "max_thrust_N": self.max_thrust_N,
+            "burn_time_s": self.burn_time_s,
+            "thrust_curve": self.thrust_curve,
+            "thrust_multiplier": self.thrust_multiplier,
         }
 
         # Remove None values
@@ -147,24 +148,24 @@ class MotorConfig:
         # Use actual config data if available
         if self.avg_thrust_N is not None and self.propellant_mass_g is not None:
             return {
-                'average_thrust': self.avg_thrust_N,
-                'max_thrust': self.max_thrust_N or self.avg_thrust_N * 1.5,
-                'total_impulse': self.total_impulse_Ns or 0,
-                'burn_time': self.burn_time_s or 0,
-                'propellant_mass': self.propellant_mass_g / 1000,  # Convert to kg
-                'case_mass': self.case_mass_g / 1000 if self.case_mass_g else 0,
-                'recommended_mass_range': self._estimate_mass_range(),
+                "average_thrust": self.avg_thrust_N,
+                "max_thrust": self.max_thrust_N or self.avg_thrust_N * 1.5,
+                "total_impulse": self.total_impulse_Ns or 0,
+                "burn_time": self.burn_time_s or 0,
+                "propellant_mass": self.propellant_mass_g / 1000,  # Convert to kg
+                "case_mass": self.case_mass_g / 1000 if self.case_mass_g else 0,
+                "recommended_mass_range": self._estimate_mass_range(),
             }
         else:
             # Fallback: return minimal default values
             return {
-                'average_thrust': 10.0,
-                'max_thrust': 15.0,
-                'total_impulse': 20.0,
-                'burn_time': 2.0,
-                'propellant_mass': 0.02,
-                'case_mass': 0.02,
-                'recommended_mass_range': (0.05, 0.5),
+                "average_thrust": 10.0,
+                "max_thrust": 15.0,
+                "total_impulse": 20.0,
+                "burn_time": 2.0,
+                "propellant_mass": 0.02,
+                "case_mass": 0.02,
+                "recommended_mass_range": (0.05, 0.5),
             }
 
     def _estimate_mass_range(self) -> tuple:
@@ -176,36 +177,37 @@ class MotorConfig:
         # Recommended mass = thrust / (TWR * g)
         g = 9.81
         min_mass = self.avg_thrust_N / (10 * g)  # TWR = 10
-        max_mass = self.avg_thrust_N / (3 * g)   # TWR = 3
+        max_mass = self.avg_thrust_N / (3 * g)  # TWR = 3
 
         return (min_mass, max_mass)
+
 
 @dataclass
 class EnvironmentConfig:
     """Environment simulation parameters"""
 
     # Simulation
-    dt: float = 0.02                  # Time step (seconds) - 50Hz
-    max_episode_steps: int = 500      # Max steps per episode
+    dt: float = 0.02  # Time step (seconds) - 50Hz
+    max_episode_steps: int = 500  # Max steps per episode
 
     # Initial conditions
     initial_spin_rate_range: tuple = (-30.0, 30.0)  # deg/s
-    initial_tilt_range: tuple = (-5.0, 5.0)         # degrees
+    initial_tilt_range: tuple = (-5.0, 5.0)  # degrees
 
     # Wind
     enable_wind: bool = True
-    max_wind_speed: float = 5.0       # m/s
-    max_gust_speed: float = 2.0       # m/s
-    wind_variability: float = 0.5     # How much wind changes
+    max_wind_speed: float = 5.0  # m/s
+    max_gust_speed: float = 2.0  # m/s
+    wind_variability: float = 0.5  # How much wind changes
 
     # Termination conditions
-    max_tilt_angle: float = 45.0      # degrees - terminate if exceeded
-    min_altitude: float = -1.0        # meters - ground level with tolerance
-    max_altitude: float = 500.0       # meters - success threshold
+    max_tilt_angle: float = 45.0  # degrees - terminate if exceeded
+    min_altitude: float = -1.0  # meters - ground level with tolerance
+    max_altitude: float = 500.0  # meters - success threshold
 
     # Observation normalization
     normalize_observations: bool = True
-    obs_clip_value: float = 10.0      # Clip normalized obs to this range
+    obs_clip_value: float = 10.0  # Clip normalized obs to this range
 
 
 @dataclass
@@ -213,24 +215,24 @@ class RewardConfig:
     """Reward function weights and parameters"""
 
     # Primary objectives
-    altitude_reward_scale: float = 0.01     # Reward per meter altitude
-    spin_penalty_scale: float = -0.1        # Penalty per deg/s of spin
+    altitude_reward_scale: float = 0.01  # Reward per meter altitude
+    spin_penalty_scale: float = -0.1  # Penalty per deg/s of spin
 
     # Stability bonuses
-    low_spin_bonus: float = 1.0             # Bonus when spin < threshold
-    low_spin_threshold: float = 10.0        # deg/s
+    low_spin_bonus: float = 1.0  # Bonus when spin < threshold
+    low_spin_threshold: float = 10.0  # deg/s
 
     # Control penalties
-    control_effort_penalty: float = -0.01   # Penalty for large actions
+    control_effort_penalty: float = -0.01  # Penalty for large actions
     control_smoothness_penalty: float = -0.05  # Penalty for action changes
 
     # Terminal rewards
-    success_bonus: float = 100.0            # Bonus for reaching target altitude
-    crash_penalty: float = -50.0            # Penalty for crash
+    success_bonus: float = 100.0  # Bonus for reaching target altitude
+    crash_penalty: float = -50.0  # Penalty for crash
 
     # Reward shaping
-    use_potential_shaping: bool = True      # Use potential-based shaping
-    gamma: float = 0.99                     # Discount for shaping
+    use_potential_shaping: bool = True  # Use potential-based shaping
+    gamma: float = 0.99  # Discount for shaping
 
 
 @dataclass
@@ -239,20 +241,20 @@ class PPOConfig:
 
     # Core hyperparameters
     learning_rate: float = 3e-4
-    n_steps: int = 2048               # Steps per rollout
+    n_steps: int = 2048  # Steps per rollout
     batch_size: int = 64
     n_epochs: int = 10
-    gamma: float = 0.99               # Discount factor
-    gae_lambda: float = 0.95          # GAE lambda
+    gamma: float = 0.99  # Discount factor
+    gae_lambda: float = 0.95  # GAE lambda
 
     # Clipping
     clip_range: float = 0.2
     clip_range_vf: Optional[float] = None  # Value function clip (None = same as policy)
 
     # Regularization
-    ent_coef: float = 0.01            # Entropy coefficient
-    vf_coef: float = 0.5              # Value function coefficient
-    max_grad_norm: float = 0.5        # Gradient clipping
+    ent_coef: float = 0.01  # Entropy coefficient
+    vf_coef: float = 0.5  # Value function coefficient
+    max_grad_norm: float = 0.5  # Gradient clipping
 
     # Advantage normalization
     normalize_advantage: bool = True
@@ -260,12 +262,12 @@ class PPOConfig:
     # Network architecture
     policy_net_arch: List[int] = field(default_factory=lambda: [256, 256])
     value_net_arch: List[int] = field(default_factory=lambda: [256, 256])
-    activation: str = "tanh"          # "relu", "tanh", "elu"
+    activation: str = "tanh"  # "relu", "tanh", "elu"
 
     # Training
     total_timesteps: int = 500_000
-    n_envs: int = 8                   # Parallel environments
-    device: str = "auto"              # "auto", "cpu", "cuda"
+    n_envs: int = 8  # Parallel environments
+    device: str = "auto"  # "auto", "cpu", "cuda"
 
 
 @dataclass
@@ -275,34 +277,36 @@ class CurriculumConfig:
     enabled: bool = True
 
     # Stage definitions (progress through these as training improves)
-    stages: List[Dict[str, Any]] = field(default_factory=lambda: [
-        {
-            "name": "basic",
-            "initial_spin_range": (-10, 10),
-            "wind_enabled": False,
-            "target_reward": 50,
-        },
-        {
-            "name": "moderate_spin",
-            "initial_spin_range": (-30, 30),
-            "wind_enabled": False,
-            "target_reward": 100,
-        },
-        {
-            "name": "with_wind",
-            "initial_spin_range": (-30, 30),
-            "wind_enabled": True,
-            "max_wind_speed": 3.0,
-            "target_reward": 150,
-        },
-        {
-            "name": "full",
-            "initial_spin_range": (-60, 60),
-            "wind_enabled": True,
-            "max_wind_speed": 5.0,
-            "target_reward": 200,
-        }
-    ])
+    stages: List[Dict[str, Any]] = field(
+        default_factory=lambda: [
+            {
+                "name": "basic",
+                "initial_spin_range": (-10, 10),
+                "wind_enabled": False,
+                "target_reward": 50,
+            },
+            {
+                "name": "moderate_spin",
+                "initial_spin_range": (-30, 30),
+                "wind_enabled": False,
+                "target_reward": 100,
+            },
+            {
+                "name": "with_wind",
+                "initial_spin_range": (-30, 30),
+                "wind_enabled": True,
+                "max_wind_speed": 3.0,
+                "target_reward": 150,
+            },
+            {
+                "name": "full",
+                "initial_spin_range": (-60, 60),
+                "wind_enabled": True,
+                "max_wind_speed": 5.0,
+                "target_reward": 200,
+            },
+        ]
+    )
 
     # Advancement criteria
     episodes_to_evaluate: int = 100
@@ -320,15 +324,15 @@ class LoggingConfig:
     tensorboard_log: bool = True
 
     # Checkpointing
-    save_freq: int = 10_000           # Steps between saves
-    keep_checkpoints: int = 5         # Number to keep
+    save_freq: int = 10_000  # Steps between saves
+    keep_checkpoints: int = 5  # Number to keep
 
     # Evaluation
     eval_freq: int = 5_000
     n_eval_episodes: int = 20
 
     # Metrics logging
-    log_episode_freq: int = 10        # Log every N episodes
+    log_episode_freq: int = 10  # Log every N episodes
 
     # Experiment tracking
     experiment_name: str = "rocket_spin_control"
@@ -356,27 +360,27 @@ class RocketTrainingConfig:
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
 
-        with open(path, 'w') as f:
+        with open(path, "w") as f:
             yaml.dump(self.to_dict(), f, default_flow_style=False, sort_keys=False)
 
     @classmethod
-    def load(cls, path: str) -> 'RocketTrainingConfig':
+    def load(cls, path: str) -> "RocketTrainingConfig":
         """Load configuration from YAML file"""
-        with open(path, 'r') as f:
+        with open(path, "r") as f:
             data = yaml.safe_load(f)
 
         # Handle backward compatibility with old-style physics configs
-        physics_data = data.get('physics', {})
+        physics_data = data.get("physics", {})
         physics_config = cls._load_physics_config(physics_data)
 
         return cls(
             physics=physics_config,
-            motor=MotorConfig(**data.get('motor', {})),
-            environment=EnvironmentConfig(**data.get('environment', {})),
-            reward=RewardConfig(**data.get('reward', {})),
-            ppo=PPOConfig(**data.get('ppo', {})),
-            curriculum=CurriculumConfig(**data.get('curriculum', {})),
-            logging=LoggingConfig(**data.get('logging', {})),
+            motor=MotorConfig(**data.get("motor", {})),
+            environment=EnvironmentConfig(**data.get("environment", {})),
+            reward=RewardConfig(**data.get("reward", {})),
+            ppo=PPOConfig(**data.get("ppo", {})),
+            curriculum=CurriculumConfig(**data.get("curriculum", {})),
+            logging=LoggingConfig(**data.get("logging", {})),
         )
 
     @classmethod
@@ -389,27 +393,43 @@ class RocketTrainingConfig:
         """
         # Valid fields for RocketPhysicsConfig
         valid_fields = {
-            'airframe_file', 'max_tab_deflection', 'tab_chord_fraction',
-            'tab_span_fraction', 'num_controlled_fins', 'cd_body', 'cd_fins',
-            'cl_alpha', 'control_effectiveness', 'disturbance_scale',
-            'damping_scale', 'initial_spin_std', 'max_roll_rate', 'max_episode_time'
+            "airframe_file",
+            "max_tab_deflection",
+            "tab_chord_fraction",
+            "tab_span_fraction",
+            "num_controlled_fins",
+            "cd_body",
+            "cd_fins",
+            "cl_alpha",
+            "control_effectiveness",
+            "disturbance_scale",
+            "damping_scale",
+            "initial_spin_std",
+            "max_roll_rate",
+            "max_episode_time",
         }
 
         # Legacy fields that were in old configs (now in airframe)
         legacy_geometry_fields = {
-            'dry_mass', 'propellant_mass', 'diameter', 'length',
-            'num_fins', 'fin_span', 'fin_root_chord', 'fin_tip_chord'
+            "dry_mass",
+            "propellant_mass",
+            "diameter",
+            "length",
+            "num_fins",
+            "fin_span",
+            "fin_root_chord",
+            "fin_tip_chord",
         }
 
         # Check if this is an old-style config
         has_legacy_fields = any(f in physics_data for f in legacy_geometry_fields)
-        has_airframe = 'airframe_file' in physics_data
+        has_airframe = "airframe_file" in physics_data
 
         if has_legacy_fields and not has_airframe:
             # Create a temporary airframe file from legacy config
             airframe_file = cls._create_legacy_airframe(physics_data)
             physics_data = dict(physics_data)  # Copy to avoid mutation
-            physics_data['airframe_file'] = airframe_file
+            physics_data["airframe_file"] = airframe_file
 
         # Filter to only valid fields
         filtered_data = {k: v for k, v in physics_data.items() if k in valid_fields}
@@ -428,13 +448,13 @@ class RocketTrainingConfig:
         from pathlib import Path
 
         # Extract legacy parameters with defaults
-        dry_mass = physics_data.get('dry_mass', 0.1)
-        diameter = physics_data.get('diameter', 0.024)
-        length = physics_data.get('length', 0.4)
-        num_fins = physics_data.get('num_fins', 4)
-        fin_span = physics_data.get('fin_span', 0.04)
-        fin_root_chord = physics_data.get('fin_root_chord', 0.05)
-        fin_tip_chord = physics_data.get('fin_tip_chord', 0.025)
+        dry_mass = physics_data.get("dry_mass", 0.1)
+        diameter = physics_data.get("diameter", 0.024)
+        length = physics_data.get("length", 0.4)
+        num_fins = physics_data.get("num_fins", 4)
+        fin_span = physics_data.get("fin_span", 0.04)
+        fin_root_chord = physics_data.get("fin_root_chord", 0.05)
+        fin_tip_chord = physics_data.get("fin_tip_chord", 0.025)
 
         # Create airframe dict
         # Distribute mass: 20% nose, 60% body, 20% fins
@@ -442,64 +462,67 @@ class RocketTrainingConfig:
         body_length = length - nose_length
 
         airframe_dict = {
-            'name': 'Legacy Config Airframe',
-            'description': 'Auto-generated from legacy physics config',
-            'components': [
+            "name": "Legacy Config Airframe",
+            "description": "Auto-generated from legacy physics config",
+            "components": [
                 {
-                    'type': 'NoseCone',
-                    'name': 'Nose Cone',
-                    'position': 0.0,
-                    'length': nose_length,
-                    'base_diameter': diameter,
-                    'shape': 'ogive',
-                    'thickness': 0.002,
-                    'material': 'ABS Plastic',
-                    'mass_override': dry_mass * 0.15,
+                    "type": "NoseCone",
+                    "name": "Nose Cone",
+                    "position": 0.0,
+                    "length": nose_length,
+                    "base_diameter": diameter,
+                    "shape": "ogive",
+                    "thickness": 0.002,
+                    "material": "ABS Plastic",
+                    "mass_override": dry_mass * 0.15,
                 },
                 {
-                    'type': 'BodyTube',
-                    'name': 'Body Tube',
-                    'position': nose_length,
-                    'length': body_length,
-                    'outer_diameter': diameter,
-                    'inner_diameter': diameter - 0.002,
-                    'material': 'Cardboard',
-                    'mass_override': dry_mass * 0.65,
+                    "type": "BodyTube",
+                    "name": "Body Tube",
+                    "position": nose_length,
+                    "length": body_length,
+                    "outer_diameter": diameter,
+                    "inner_diameter": diameter - 0.002,
+                    "material": "Cardboard",
+                    "mass_override": dry_mass * 0.65,
                 },
                 {
-                    'type': 'TrapezoidFinSet',
-                    'name': 'Fins',
-                    'position': nose_length + body_length - fin_root_chord,
-                    'num_fins': num_fins,
-                    'root_chord': fin_root_chord,
-                    'tip_chord': fin_tip_chord,
-                    'span': fin_span,
-                    'sweep_length': 0.0,
-                    'thickness': 0.002,
-                    'material': 'Balsa',
-                    'mass_override': dry_mass * 0.20,
+                    "type": "TrapezoidFinSet",
+                    "name": "Fins",
+                    "position": nose_length + body_length - fin_root_chord,
+                    "num_fins": num_fins,
+                    "root_chord": fin_root_chord,
+                    "tip_chord": fin_tip_chord,
+                    "span": fin_span,
+                    "sweep_length": 0.0,
+                    "thickness": 0.002,
+                    "material": "Balsa",
+                    "mass_override": dry_mass * 0.20,
                 },
-            ]
+            ],
         }
 
         # Write to a temp file that persists for the session
         # Use a consistent location so repeated loads don't create many files
-        cache_dir = Path(tempfile.gettempdir()) / 'rocket_airframes'
+        cache_dir = Path(tempfile.gettempdir()) / "rocket_airframes"
         cache_dir.mkdir(exist_ok=True)
 
         # Create a hash-based filename for consistency
         import hashlib
+
         config_str = f"{dry_mass}_{diameter}_{length}_{num_fins}_{fin_span}_{fin_root_chord}_{fin_tip_chord}"
         config_hash = hashlib.md5(config_str.encode()).hexdigest()[:8]
         airframe_path = cache_dir / f"legacy_airframe_{config_hash}.yaml"
 
-        with open(airframe_path, 'w') as f:
+        with open(airframe_path, "w") as f:
             yaml.dump(airframe_dict, f, default_flow_style=False, sort_keys=False)
 
         return str(airframe_path)
 
     @classmethod
-    def for_estes_alpha(cls, airframe_path: str = "configs/airframes/estes_alpha.yaml") -> 'RocketTrainingConfig':
+    def for_estes_alpha(
+        cls, airframe_path: str = "configs/airframes/estes_alpha.yaml"
+    ) -> "RocketTrainingConfig":
         """
         Pre-configured settings for Estes Alpha III with C6 motor.
 
@@ -514,16 +537,16 @@ class RocketTrainingConfig:
             ),
             motor=MotorConfig(name="estes_c6"),
             ppo=PPOConfig(
-                learning_rate=1e-4,   # Lower for stability
+                learning_rate=1e-4,  # Lower for stability
                 n_steps=1024,
                 batch_size=32,
                 n_epochs=20,
-                clip_range=0.1,       # Smaller for fine control
+                clip_range=0.1,  # Smaller for fine control
             ),
         )
 
     @classmethod
-    def for_high_power(cls, airframe_path: str) -> 'RocketTrainingConfig':
+    def for_high_power(cls, airframe_path: str) -> "RocketTrainingConfig":
         """
         Pre-configured settings for high power rockets.
 
@@ -563,8 +586,8 @@ class RocketTrainingConfig:
 
         # Check thrust-to-weight ratio
         motor_specs = self.motor.get_specs_dict()
-        total_mass = dry_mass + motor_specs['propellant_mass']
-        twr = motor_specs['average_thrust'] / (total_mass * 9.81)
+        total_mass = dry_mass + motor_specs["propellant_mass"]
+        twr = motor_specs["average_thrust"] / (total_mass * 9.81)
 
         if twr < 1.0:
             issues.append(f"CRITICAL: TWR={twr:.2f} < 1.0 - rocket cannot fly!")
@@ -572,7 +595,7 @@ class RocketTrainingConfig:
             issues.append(f"WARNING: TWR={twr:.2f} is marginal (recommend > 2.0)")
 
         # Check mass is in recommended range
-        rec_range = motor_specs['recommended_mass_range']
+        rec_range = motor_specs["recommended_mass_range"]
         if not (rec_range[0] <= dry_mass <= rec_range[1]):
             issues.append(
                 f"WARNING: dry_mass={dry_mass}kg outside recommended "
@@ -587,6 +610,7 @@ class RocketTrainingConfig:
             )
 
         return issues
+
 
 def load_config(path: str) -> RocketTrainingConfig:
     """Convenience function to load configuration"""
@@ -630,8 +654,8 @@ if __name__ == "__main__":
     try:
         airframe = config.physics.resolve_airframe()
         motor_specs = config.motor.get_specs_dict()
-        total_mass = airframe.dry_mass + motor_specs['propellant_mass']
-        twr = motor_specs['average_thrust'] / (total_mass * 9.81)
+        total_mass = airframe.dry_mass + motor_specs["propellant_mass"]
+        twr = motor_specs["average_thrust"] / (total_mass * 9.81)
 
         print(f"\nTWR calculation:")
         print(f"  Airframe: {airframe.name}")

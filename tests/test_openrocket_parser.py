@@ -1,6 +1,7 @@
 """
 Tests for OpenRocket .ork file parser.
 """
+
 import pytest
 import zipfile
 import tempfile
@@ -14,6 +15,7 @@ class TestOpenRocketParserBasics:
     def test_parser_exists(self):
         """Test that OpenRocketParser class exists."""
         from airframe.openrocket_parser import OpenRocketParser
+
         assert OpenRocketParser is not None
 
     def test_parse_simple_ork(self, tmp_path):
@@ -61,8 +63,8 @@ class TestOpenRocketParserBasics:
         ork_file = tmp_path / "test_rocket.ork"
 
         # Create ZIP file with XML content
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         # Parse the file
         airframe = OpenRocketParser.parse(str(ork_file))
@@ -113,7 +115,7 @@ class TestOpenRocketParserComponents:
         from airframe.openrocket_parser import OpenRocketParser
         from airframe.components import NoseConeShape
 
-        shapes = ['ogive', 'conical', 'ellipsoid', 'parabolic', 'haack']
+        shapes = ["ogive", "conical", "ellipsoid", "parabolic", "haack"]
 
         for shape in shapes:
             xml_content = f"""<?xml version="1.0"?>
@@ -136,8 +138,8 @@ class TestOpenRocketParserComponents:
 </openrocket>
 """
             ork_file = tmp_path / f"shape_{shape}.ork"
-            with zipfile.ZipFile(ork_file, 'w') as zf:
-                zf.writestr('rocket.ork', xml_content)
+            with zipfile.ZipFile(ork_file, "w") as zf:
+                zf.writestr("rocket.ork", xml_content)
 
             airframe = OpenRocketParser.parse(str(ork_file))
             # Should parse without error
@@ -177,13 +179,13 @@ class TestOpenRocketParserComponents:
 </openrocket>
 """
         ork_file = tmp_path / "fins.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
 
         # Find the fin component
-        fins = [c for c in airframe.components if 'Fins' in c.name or 'Fin' in c.name]
+        fins = [c for c in airframe.components if "Fins" in c.name or "Fin" in c.name]
         assert len(fins) >= 1
 
     def test_parse_motor_mount(self, tmp_path):
@@ -218,13 +220,15 @@ class TestOpenRocketParserComponents:
 </openrocket>
 """
         ork_file = tmp_path / "mount.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
 
         # Should find motor mount
-        mounts = [c for c in airframe.components if 'Motor' in c.name or 'Mount' in c.name]
+        mounts = [
+            c for c in airframe.components if "Motor" in c.name or "Mount" in c.name
+        ]
         assert len(mounts) >= 1
 
     def test_parse_mass_component(self, tmp_path):
@@ -258,13 +262,13 @@ class TestOpenRocketParserComponents:
 </openrocket>
 """
         ork_file = tmp_path / "mass.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
 
         # Should find mass component
-        masses = [c for c in airframe.components if 'Payload' in c.name]
+        masses = [c for c in airframe.components if "Payload" in c.name]
         assert len(masses) >= 1
 
 
@@ -409,8 +413,8 @@ class TestOpenRocketParserMaterials:
 </openrocket>
 """
         ork_file = tmp_path / "material.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
         # Should parse without error
@@ -440,8 +444,8 @@ class TestOpenRocketParserMaterials:
 </openrocket>
 """
         ork_file = tmp_path / "density.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
         assert airframe is not None
@@ -474,8 +478,8 @@ class TestOpenRocketParserMassOverride:
 </openrocket>
 """
         ork_file = tmp_path / "override.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
         assert airframe is not None
@@ -496,8 +500,8 @@ class TestOpenRocketParserErrors:
 </openrocket>
 """
         ork_file = tmp_path / "no_rocket.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         with pytest.raises(ValueError, match="Could not find.*rocket.*element"):
             OpenRocketParser.parse(str(ork_file))
@@ -507,8 +511,8 @@ class TestOpenRocketParserErrors:
         from airframe.openrocket_parser import OpenRocketParser
 
         ork_file = tmp_path / "empty.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('readme.txt', 'This is not a rocket file')
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("readme.txt", "This is not a rocket file")
 
         with pytest.raises(ValueError, match="Could not find rocket definition"):
             OpenRocketParser.parse(str(ork_file))
@@ -549,8 +553,8 @@ class TestOpenRocketParserTransition:
 </openrocket>
 """
         ork_file = tmp_path / "transition.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
         assert airframe is not None
@@ -594,8 +598,8 @@ class TestOpenRocketParserNestedStages:
 </openrocket>
 """
         ork_file = tmp_path / "nested.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
         assert airframe is not None
@@ -627,8 +631,8 @@ class TestOpenRocketParserAlternateFormats:
 </openrocket>
 """
         ork_file = tmp_path / "test.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('design.xml', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("design.xml", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
         assert airframe.name == "XML File Test"
@@ -661,8 +665,8 @@ class TestOpenRocketParserAlternateFormats:
 </openrocket>
 """
         ork_file = tmp_path / "radius.ork"
-        with zipfile.ZipFile(ork_file, 'w') as zf:
-            zf.writestr('rocket.ork', xml_content)
+        with zipfile.ZipFile(ork_file, "w") as zf:
+            zf.writestr("rocket.ork", xml_content)
 
         airframe = OpenRocketParser.parse(str(ork_file))
         assert airframe is not None

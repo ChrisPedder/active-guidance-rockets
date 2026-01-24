@@ -1,6 +1,7 @@
 """
 Tests for sweep_hyperparams module - hyperparameter sweep functionality.
 """
+
 import pytest
 import tempfile
 from pathlib import Path
@@ -29,8 +30,8 @@ class TestGenerateSweepConfigs:
 
         assert len(sweeps) > 0
         # Should have spin/altitude sweeps and bonus sweeps
-        spin_sweeps = [s for s in sweeps if 'spin' in s.get('name', '')]
-        bonus_sweeps = [s for s in sweeps if 'bonus' in s.get('name', '')]
+        spin_sweeps = [s for s in sweeps if "spin" in s.get("name", "")]
+        bonus_sweeps = [s for s in sweeps if "bonus" in s.get("name", "")]
 
         assert len(spin_sweeps) > 0, "Should have spin penalty sweep configs"
         assert len(bonus_sweeps) > 0, "Should have bonus sweep configs"
@@ -43,8 +44,8 @@ class TestGenerateSweepConfigs:
 
         assert len(sweeps) > 0
         # Should have LR/clip/batch sweeps and architecture sweeps
-        lr_sweeps = [s for s in sweeps if 'lr' in s.get('name', '')]
-        arch_sweeps = [s for s in sweeps if 'arch' in s.get('name', '')]
+        lr_sweeps = [s for s in sweeps if "lr" in s.get("name", "")]
+        arch_sweeps = [s for s in sweeps if "arch" in s.get("name", "")]
 
         assert len(lr_sweeps) > 0, "Should have learning rate sweep configs"
         assert len(arch_sweeps) > 0, "Should have architecture sweep configs"
@@ -56,7 +57,7 @@ class TestGenerateSweepConfigs:
         sweeps = generate_sweep_configs("motors", base_config)
 
         assert len(sweeps) > 0
-        motor_sweeps = [s for s in sweeps if 'motor' in s.get('name', '')]
+        motor_sweeps = [s for s in sweeps if "motor" in s.get("name", "")]
         assert len(motor_sweeps) > 0, "Should have motor sweep configs"
 
     def test_generate_quick_sweep(self, base_config):
@@ -69,8 +70,8 @@ class TestGenerateSweepConfigs:
         assert len(sweeps) <= 10, "Quick sweep should have few configs"
 
         # Should have baseline
-        names = [s.get('name', '') for s in sweeps]
-        assert 'baseline' in names
+        names = [s.get("name", "") for s in sweeps]
+        assert "baseline" in names
 
     def test_unknown_sweep_type_error(self, base_config):
         """Test that unknown sweep type raises error."""
@@ -87,6 +88,7 @@ class TestApplyConfigOverrides:
     def base_config(self):
         """Create a base config for testing."""
         from rocket_config import RocketTrainingConfig
+
         return RocketTrainingConfig()
 
     def test_apply_single_override(self, base_config):
@@ -94,8 +96,8 @@ class TestApplyConfigOverrides:
         from sweep_hyperparams import apply_config_overrides
 
         overrides = {
-            'name': 'test',
-            'physics.max_tab_deflection': 20.0,
+            "name": "test",
+            "physics.max_tab_deflection": 20.0,
         }
 
         result = apply_config_overrides(base_config, overrides)
@@ -109,10 +111,10 @@ class TestApplyConfigOverrides:
         from sweep_hyperparams import apply_config_overrides
 
         overrides = {
-            'name': 'multi_test',
-            'physics.disturbance_scale': 0.0005,
-            'ppo.learning_rate': 1e-4,
-            'reward.spin_penalty_scale': -0.2,
+            "name": "multi_test",
+            "physics.disturbance_scale": 0.0005,
+            "ppo.learning_rate": 1e-4,
+            "reward.spin_penalty_scale": -0.2,
         }
 
         result = apply_config_overrides(base_config, overrides)
@@ -128,8 +130,8 @@ class TestApplyConfigOverrides:
         original_deflection = base_config.physics.max_tab_deflection
 
         overrides = {
-            'name': 'test_name',
-            'description': 'Test description',
+            "name": "test_name",
+            "description": "Test description",
         }
 
         result = apply_config_overrides(base_config, overrides)
@@ -146,31 +148,31 @@ class TestLoadSweepFromYaml:
         from sweep_hyperparams import load_sweep_from_yaml
 
         sweep_content = {
-            'description': 'Test sweep',
-            'sweeps': [
-                {'name': 'config1', 'physics.dry_mass': 0.1},
-                {'name': 'config2', 'physics.dry_mass': 0.2},
-            ]
+            "description": "Test sweep",
+            "sweeps": [
+                {"name": "config1", "physics.dry_mass": 0.1},
+                {"name": "config2", "physics.dry_mass": 0.2},
+            ],
         }
 
         yaml_file = tmp_path / "test_sweep.yaml"
-        with open(yaml_file, 'w') as f:
+        with open(yaml_file, "w") as f:
             yaml.dump(sweep_content, f)
 
         sweeps = load_sweep_from_yaml(str(yaml_file))
 
         assert len(sweeps) == 2
-        assert sweeps[0]['name'] == 'config1'
-        assert sweeps[1]['name'] == 'config2'
+        assert sweeps[0]["name"] == "config1"
+        assert sweeps[1]["name"] == "config2"
 
     def test_load_yaml_missing_sweeps(self, tmp_path):
         """Test loading YAML without sweeps key."""
         from sweep_hyperparams import load_sweep_from_yaml
 
-        content = {'description': 'No sweeps here'}
+        content = {"description": "No sweeps here"}
 
         yaml_file = tmp_path / "empty.yaml"
-        with open(yaml_file, 'w') as f:
+        with open(yaml_file, "w") as f:
             yaml.dump(content, f)
 
         sweeps = load_sweep_from_yaml(str(yaml_file))
@@ -185,6 +187,7 @@ class TestRunSweepDryRun:
     def base_config(self):
         """Create a base config for testing."""
         from rocket_config import RocketTrainingConfig
+
         return RocketTrainingConfig()
 
     def test_run_sweep_dry_run(self, tmp_path, base_config):
@@ -192,8 +195,8 @@ class TestRunSweepDryRun:
         from sweep_hyperparams import run_sweep
 
         sweep_configs = [
-            {'name': 'test1', 'description': 'First test'},
-            {'name': 'test2', 'description': 'Second test'},
+            {"name": "test1", "description": "First test"},
+            {"name": "test2", "description": "Second test"},
         ]
 
         results = run_sweep(
@@ -212,15 +215,15 @@ class TestRunSweepDryRun:
         with open(tmp_path / "sweep_info.json") as f:
             info = json.load(f)
 
-        assert info['num_configs'] == 2
+        assert info["num_configs"] == 2
 
     def test_run_sweep_creates_config_files(self, tmp_path, base_config):
         """Test that sweep creates config files."""
         from sweep_hyperparams import run_sweep
 
         sweep_configs = [
-            {'name': 'config_a', 'physics.dry_mass': 0.1},
-            {'name': 'config_b', 'physics.dry_mass': 0.2},
+            {"name": "config_a", "physics.dry_mass": 0.1},
+            {"name": "config_b", "physics.dry_mass": 0.2},
         ]
 
         run_sweep(
@@ -242,6 +245,7 @@ class TestSweepConfigContent:
     def base_config(self):
         """Create a base config for testing."""
         from rocket_config import RocketTrainingConfig
+
         return RocketTrainingConfig()
 
     def test_reward_sweep_has_valid_scales(self, base_config):
@@ -251,12 +255,12 @@ class TestSweepConfigContent:
         sweeps = generate_sweep_configs("reward", base_config)
 
         for sweep in sweeps:
-            if 'reward.spin_penalty_scale' in sweep:
-                scale = sweep['reward.spin_penalty_scale']
+            if "reward.spin_penalty_scale" in sweep:
+                scale = sweep["reward.spin_penalty_scale"]
                 assert scale <= 0, f"Spin penalty {scale} should be negative"
 
-            if 'reward.altitude_reward_scale' in sweep:
-                scale = sweep['reward.altitude_reward_scale']
+            if "reward.altitude_reward_scale" in sweep:
+                scale = sweep["reward.altitude_reward_scale"]
                 assert scale > 0, f"Altitude reward {scale} should be positive"
 
     def test_ppo_sweep_has_valid_lr(self, base_config):
@@ -266,8 +270,8 @@ class TestSweepConfigContent:
         sweeps = generate_sweep_configs("ppo", base_config)
 
         for sweep in sweeps:
-            if 'ppo.learning_rate' in sweep:
-                lr = sweep['ppo.learning_rate']
+            if "ppo.learning_rate" in sweep:
+                lr = sweep["ppo.learning_rate"]
                 assert 1e-5 < lr < 1e-2, f"LR {lr} should be reasonable"
 
 
@@ -278,6 +282,7 @@ class TestSweepConfigDescriptions:
     def base_config(self):
         """Create a base config for testing."""
         from rocket_config import RocketTrainingConfig
+
         return RocketTrainingConfig()
 
     def test_sweeps_have_descriptions(self, base_config):
@@ -285,12 +290,12 @@ class TestSweepConfigDescriptions:
         from sweep_hyperparams import generate_sweep_configs
 
         # Only test sweep types that don't require motor specs
-        for sweep_type in ['reward', 'ppo', 'motors', 'quick']:
+        for sweep_type in ["reward", "ppo", "motors", "quick"]:
             sweeps = generate_sweep_configs(sweep_type, base_config)
 
             for sweep in sweeps:
-                assert 'name' in sweep, f"Sweep should have name: {sweep}"
-                assert 'description' in sweep, f"Sweep should have description: {sweep}"
+                assert "name" in sweep, f"Sweep should have name: {sweep}"
+                assert "description" in sweep, f"Sweep should have description: {sweep}"
 
 
 class TestSweepIntegration:
@@ -300,6 +305,7 @@ class TestSweepIntegration:
     def base_config(self):
         """Create a base config for testing."""
         from rocket_config import RocketTrainingConfig
+
         return RocketTrainingConfig()
 
     def test_apply_and_save_configs(self, tmp_path, base_config):

@@ -22,31 +22,33 @@ class Motor:
             motor_config: The 'motor' section from a config YAML file
         """
         # Basic info
-        self.name = motor_config.get('name', 'unknown')
-        self.manufacturer = motor_config.get('manufacturer', 'Unknown')
-        self.designation = motor_config.get('designation', 'Unknown')
+        self.name = motor_config.get("name", "unknown")
+        self.manufacturer = motor_config.get("manufacturer", "Unknown")
+        self.designation = motor_config.get("designation", "Unknown")
 
         # Physical properties (convert to SI units)
-        self.diameter = motor_config.get('diameter_mm', 54) / 1000  # mm to m
-        self.length = motor_config.get('length_mm', 200) / 1000     # mm to m
-        self.total_mass = motor_config.get('total_mass_g', 1000) / 1000      # g to kg
-        self.propellant_mass = motor_config.get('propellant_mass_g', 500) / 1000  # g to kg
-        self.case_mass = motor_config.get('case_mass_g', 500) / 1000  # g to kg
+        self.diameter = motor_config.get("diameter_mm", 54) / 1000  # mm to m
+        self.length = motor_config.get("length_mm", 200) / 1000  # mm to m
+        self.total_mass = motor_config.get("total_mass_g", 1000) / 1000  # g to kg
+        self.propellant_mass = (
+            motor_config.get("propellant_mass_g", 500) / 1000
+        )  # g to kg
+        self.case_mass = motor_config.get("case_mass_g", 500) / 1000  # g to kg
 
         # Performance
-        self.impulse_class = motor_config.get('impulse_class', 'K')
-        self.total_impulse = motor_config.get('total_impulse_Ns', 1500)
-        self.average_thrust = motor_config.get('avg_thrust_N', 400)
-        self.max_thrust = motor_config.get('max_thrust_N', 600)
-        self.burn_time = motor_config.get('burn_time_s', 3.0)
+        self.impulse_class = motor_config.get("impulse_class", "K")
+        self.total_impulse = motor_config.get("total_impulse_Ns", 1500)
+        self.average_thrust = motor_config.get("avg_thrust_N", 400)
+        self.max_thrust = motor_config.get("max_thrust_N", 600)
+        self.burn_time = motor_config.get("burn_time_s", 3.0)
 
         # Thrust curve
-        thrust_curve = motor_config.get('thrust_curve', {})
-        self.time_points = np.array(thrust_curve.get('time_s', [0, 1]))
-        self.thrust_points = np.array(thrust_curve.get('thrust_N', [0, 0]))
+        thrust_curve = motor_config.get("thrust_curve", {})
+        self.time_points = np.array(thrust_curve.get("time_s", [0, 1]))
+        self.thrust_points = np.array(thrust_curve.get("thrust_N", [0, 0]))
 
         # Thrust multiplier for sensitivity testing
-        self.thrust_multiplier = motor_config.get('thrust_multiplier', 1.0)
+        self.thrust_multiplier = motor_config.get("thrust_multiplier", 1.0)
 
         # Create interpolation function for thrust lookup
         self._setup_interpolators()
@@ -58,9 +60,9 @@ class Motor:
             self.thrust_interpolator = interpolate.interp1d(
                 self.time_points,
                 self.thrust_points * self.thrust_multiplier,
-                kind='linear',
+                kind="linear",
                 bounds_error=False,
-                fill_value=0.0
+                fill_value=0.0,
             )
         else:
             # Fallback for missing data
@@ -124,8 +126,10 @@ class Motor:
             return self.propellant_mass / self.burn_time
 
     def __repr__(self):
-        return (f"Motor({self.manufacturer} {self.designation}, "
-                f"{self.impulse_class}-class, {self.total_impulse:.1f} N·s)")
+        return (
+            f"Motor({self.manufacturer} {self.designation}, "
+            f"{self.impulse_class}-class, {self.total_impulse:.1f} N·s)"
+        )
 
 
 def load_motor_from_config(config_path: str) -> Motor:
@@ -143,10 +147,10 @@ def load_motor_from_config(config_path: str) -> Motor:
         >>> thrust = motor.get_thrust(1.0)
         >>> mass = motor.get_mass(1.0)
     """
-    with open(config_path, 'r') as f:
+    with open(config_path, "r") as f:
         config = yaml.safe_load(f)
 
-    motor_config = config.get('motor', {})
+    motor_config = config.get("motor", {})
     return Motor(motor_config)
 
 
@@ -160,7 +164,7 @@ def load_motor_from_dict(config: Dict[str, Any]) -> Motor:
     Returns:
         Motor object
     """
-    motor_config = config.get('motor', {})
+    motor_config = config.get("motor", {})
     return Motor(motor_config)
 
 
