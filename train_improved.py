@@ -50,6 +50,7 @@ from spin_stabilized_control_env import SpinStabilizedCameraRocket
 from spin_stabilized_control_env import RocketConfig as CompositeRocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
 from motor_loader import Motor
+from rocket_env.sensors import IMUObservationWrapper, IMUConfig
 
 
 class ImprovedRewardWrapper(gym.Wrapper):
@@ -378,7 +379,22 @@ def create_environment(
         )
 
     # Apply wrappers
-    # 1. Normalize actions to [-1, 1]
+    # 1. IMU sensor noise wrapper (if enabled)
+    if config.sensors.enabled:
+        if config.sensors.imu_custom:
+            imu_config = IMUConfig.from_dict(config.sensors.imu_custom)
+        else:
+            imu_config = IMUConfig.get_preset(config.sensors.imu_preset)
+
+        env = IMUObservationWrapper(
+            env,
+            imu_config=imu_config,
+            control_rate_hz=config.sensors.control_rate_hz,
+            derive_acceleration=config.sensors.derive_acceleration,
+        )
+        print(f"IMU simulation: {imu_config.name} @ {config.sensors.control_rate_hz}Hz")
+
+    # 2. Normalize actions to [-1, 1]
     env = NormalizedActionWrapper(env)
 
     # 2. Custom reward function

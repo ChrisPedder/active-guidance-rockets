@@ -34,6 +34,14 @@ thrust = [
     "pandas>=2.0.0",  # Added for thrust curve data handling
     "lxml>=4.9.0",  # Added for XML parsing of .rse files
 ]
+sensors = [
+    "numpy>=1.24.0",  # Already a main dep, but explicit for sensors
+]
+inference = [
+    "numpy>=1.24.0",
+    "onnxruntime>=1.16.0",  # Lightweight inference runtime (no PyTorch)
+    "scipy>=1.11.0",
+]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",

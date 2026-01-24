@@ -283,6 +283,33 @@ class PPOConfig:
 
 
 @dataclass
+class SensorConfig:
+    """
+    Sensor simulation configuration.
+
+    Controls IMU noise simulation for training robust controllers.
+    By default, IMU simulation is enabled using the ICM-20948 preset.
+
+    Attributes:
+        imu_preset: IMU sensor preset name
+            - "icm_20948": InvenSense ICM-20948 (recommended, good quality)
+            - "mpu_6050": InvenSense MPU-6050 (budget, higher noise)
+            - "bmi088": Bosch BMI088 (high performance)
+            - "ideal": Perfect sensor (no noise, for debugging)
+        imu_custom: Custom IMU parameters (overrides preset if provided)
+        control_rate_hz: Control loop frequency for noise calculation
+        derive_acceleration: Derive noisy acceleration from noisy rate
+        enabled: Enable/disable IMU noise simulation
+    """
+
+    imu_preset: str = "icm_20948"
+    imu_custom: Optional[Dict[str, Any]] = None
+    control_rate_hz: float = 100.0
+    derive_acceleration: bool = True
+    enabled: bool = True
+
+
+@dataclass
 class CurriculumConfig:
     """Curriculum learning settings"""
 
@@ -362,6 +389,7 @@ class RocketTrainingConfig:
     ppo: PPOConfig = field(default_factory=PPOConfig)
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
+    sensors: SensorConfig = field(default_factory=SensorConfig)
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
@@ -393,6 +421,7 @@ class RocketTrainingConfig:
             ppo=PPOConfig(**data.get("ppo", {})),
             curriculum=CurriculumConfig(**data.get("curriculum", {})),
             logging=LoggingConfig(**data.get("logging", {})),
+            sensors=SensorConfig(**data.get("sensors", {})),
         )
 
     @classmethod
