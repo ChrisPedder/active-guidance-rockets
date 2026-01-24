@@ -1,10 +1,16 @@
 """
 Tests for train_improved module - training script utilities and wrappers.
+
+These tests require torch and stable-baselines3 which are optional dependencies.
 """
 import pytest
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
+
+# Skip all tests in this module if torch is not installed
+torch = pytest.importorskip("torch", reason="torch required for train_improved tests")
+pytest.importorskip("stable_baselines3", reason="stable-baselines3 required for train_improved tests")
 
 
 class TestImprovedRewardWrapper:
