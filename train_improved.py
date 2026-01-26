@@ -72,11 +72,15 @@ class ImprovedRewardWrapper(gym.Wrapper):
         self.prev_action = None
         self.prev_altitude = 0.0
         self.prev_spin_rate = 0.0
+        self.step_count = 0
+        self.settled = False  # Track if we've achieved stable low spin
 
     def reset(self, **kwargs):
         self.prev_action = None
         self.prev_altitude = 0.0
         self.prev_spin_rate = 0.0
+        self.step_count = 0
+        self.settled = False
         return self.env.reset(**kwargs)
 
     def step(self, action):
@@ -146,7 +150,29 @@ class ImprovedRewardWrapper(gym.Wrapper):
             )
             reward += oscillation_penalty
 
-        # 7. Terminal rewards
+        # 7. Control saturation penalty (discourage hitting limits)
+        saturation_threshold = 0.95
+        for a in action:
+            if abs(a) > saturation_threshold:
+                reward += rc.get("saturation_penalty", -0.1)
+
+        # 8. Early settling bonus (reward quick stabilization)
+        time_s = info.get("time_s", self.step_count * 0.01)
+        settling_threshold = rc.get("settling_spin_threshold", 5.0)
+        settling_time_limit = rc.get("settling_time_limit", 0.5)
+
+        if not self.settled and spin_rate < settling_threshold:
+            self.settled = True
+            if time_s < settling_time_limit:
+                # Big bonus for settling within time limit
+                reward += rc.get("early_settling_bonus", 50.0)
+            elif time_s < settling_time_limit * 2:
+                # Smaller bonus for settling within 2x time limit
+                reward += rc.get("early_settling_bonus", 50.0) * 0.5
+
+        self.step_count += 1
+
+        # 10. Terminal rewards
         if terminated:
             if altitude > rc.get("success_altitude", 100.0):
                 reward += rc.get("success_bonus", 100.0)
@@ -472,6 +498,12 @@ def create_environment(
             config.reward, "spin_oscillation_penalty", -0.02
         ),
         "sign_reversal_penalty": getattr(config.reward, "sign_reversal_penalty", -0.5),
+        "saturation_penalty": getattr(config.reward, "saturation_penalty", -0.1),
+        "early_settling_bonus": getattr(config.reward, "early_settling_bonus", 50.0),
+        "settling_spin_threshold": getattr(
+            config.reward, "settling_spin_threshold", 5.0
+        ),
+        "settling_time_limit": getattr(config.reward, "settling_time_limit", 0.5),
         "success_bonus": config.reward.success_bonus,
         "crash_penalty": config.reward.crash_penalty,
         "success_altitude": config.environment.max_altitude,

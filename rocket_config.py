@@ -241,6 +241,12 @@ class RewardConfig:
     sign_reversal_penalty: float = (
         -0.5
     )  # Penalty for control sign changes (anti-bang-bang)
+    saturation_penalty: float = -0.1  # Penalty for hitting control limits
+
+    # Early settling rewards
+    early_settling_bonus: float = 50.0  # Bonus for quick stabilization
+    settling_spin_threshold: float = 5.0  # Spin rate to consider "settled" (deg/s)
+    settling_time_limit: float = 0.5  # Time limit for early settling bonus (s)
 
     # Terminal rewards
     success_bonus: float = 100.0  # Bonus for reaching target altitude

@@ -36,7 +36,7 @@ physics:
   damping_scale: 3.0
   initial_spin_std: 3.0
   max_roll_rate: 900.0
-  action_rate_limit: 0.05  # Max action change per timestep (tighter = smoother)
+  action_rate_limit: 0.03  # Max action change per timestep (tighter = smoother)
 motor:
   name: estes_c6
   manufacturer: Estes
@@ -96,6 +96,10 @@ reward:
   control_smoothness_penalty: -0.2   # Discourage rapid control changes
   spin_oscillation_penalty: -0.05    # Discourage spin oscillation
   sign_reversal_penalty: -1.0        # Strong penalty for control sign reversals
+  saturation_penalty: -0.2           # Penalty for hitting control limits
+  early_settling_bonus: 50.0         # Bonus for quick stabilization
+  settling_spin_threshold: 5.0       # Spin rate to consider "settled" (deg/s)
+  settling_time_limit: 0.5           # Time limit for early settling bonus (s)
   success_bonus: 100.0
   crash_penalty: -20.0
   use_potential_shaping: false
