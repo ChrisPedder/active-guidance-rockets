@@ -45,6 +45,7 @@ from stable_baselines3.common.callbacks import (
     EvalCallback,
     CallbackList,
     CheckpointCallback,
+    StopTrainingOnNoModelImprovement,
 )
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
@@ -697,12 +698,17 @@ def create_environment(
     return env
 
 
-def train(config: RocketTrainingConfig, load_model_path: Optional[str] = None):
+def train(
+    config: RocketTrainingConfig,
+    load_model_path: Optional[str] = None,
+    early_stopping_patience: int = 0,
+):
     """Main training function
 
     Args:
         config: Training configuration
         load_model_path: Optional path to pre-trained model for fine-tuning
+        early_stopping_patience: Stop if no improvement for N evaluations (0=disabled)
     """
 
     # Validate configuration
@@ -857,6 +863,18 @@ def train(config: RocketTrainingConfig, load_model_path: Optional[str] = None):
     metrics_callback = TrainingMetricsCallback(config, verbose=1)
     callbacks.append(metrics_callback)
 
+    # Early stopping callback (if enabled)
+    stop_callback = None
+    if early_stopping_patience > 0:
+        stop_callback = StopTrainingOnNoModelImprovement(
+            max_no_improvement_evals=early_stopping_patience,
+            min_evals=early_stopping_patience,  # Wait at least this many evals before stopping
+            verbose=1,
+        )
+        print(
+            f"Early stopping enabled: will stop after {early_stopping_patience} evaluations without improvement"
+        )
+
     # Eval callback
     eval_callback = EvalCallback(
         eval_env,
@@ -867,6 +885,7 @@ def train(config: RocketTrainingConfig, load_model_path: Optional[str] = None):
         deterministic=True,
         render=False,
         verbose=1,
+        callback_after_eval=stop_callback,
     )
     callbacks.append(eval_callback)
 
@@ -956,6 +975,13 @@ Examples:
         type=str,
         help="Path to pre-trained model (.zip) to fine-tune from",
     )
+    parser.add_argument(
+        "--early-stopping",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Stop training if no improvement for N evaluations (0=disabled)",
+    )
 
     args = parser.parse_args()
 
@@ -988,7 +1014,11 @@ Examples:
         config.ppo.device = args.device
 
     # Train (with optional model loading for fine-tuning)
-    train(config, load_model_path=args.load_model)
+    train(
+        config,
+        load_model_path=args.load_model,
+        early_stopping_patience=args.early_stopping,
+    )
 
 
 if __name__ == "__main__":
