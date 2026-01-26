@@ -1,7 +1,7 @@
-# estes_c6_easy.yaml
+# estes_c6_tight_spin.yaml
 #
-# Auto-generated config for Estes C6
-# Difficulty: easy
+# Config for Estes C6 with tight spin control (<2°/s target)
+# Based on: medium difficulty
 #
 # Motor: C-class, 10.0 N·s total impulse
 #        5.4N average thrust, 1.85s burn time
@@ -25,7 +25,7 @@ physics:
   fin_span: 0.04
   fin_root_chord: 0.05
   fin_tip_chord: 0.025
-  max_tab_deflection: 1.2
+  max_tab_deflection: 2.4
   tab_chord_fraction: 0.25
   tab_span_fraction: 0.5
   cd_body: 0.5
@@ -33,9 +33,9 @@ physics:
   cl_alpha: 2.0
   control_effectiveness: 1.0
   disturbance_scale: 0.0001
-  damping_scale: 3.0
-  initial_spin_std: 3.0
-  max_roll_rate: 900.0
+  damping_scale: 2.2
+  initial_spin_std: 6.0
+  max_roll_rate: 720.0
   action_rate_limit: 0.05  # Max action change per timestep (tighter = smoother)
 motor:
   name: estes_c6
@@ -73,35 +73,35 @@ environment:
   dt: 0.01
   max_episode_steps: 500
   initial_spin_rate_range:
-  - -6.0
-  - 6.0
+  - -12.0
+  - 12.0
   initial_tilt_range:
   - -5.0
   - 5.0
-  enable_wind: false
-  max_wind_speed: 0.0
-  max_gust_speed: 0.0
-  wind_variability: 0.0
-  max_tilt_angle: 60.0
+  enable_wind: true
+  max_wind_speed: 3.0
+  max_gust_speed: 1.5
+  wind_variability: 0.3
+  max_tilt_angle: 45.0
   min_altitude: -1.0
   max_altitude: 200
   normalize_observations: true
   obs_clip_value: 10.0
 reward:
   altitude_reward_scale: 0.01
-  spin_penalty_scale: -0.002         # Quadratic: (spin°/s)² × this value
-  low_spin_bonus: 1.5
-  low_spin_threshold: 10.0
-  control_effort_penalty: -0.01
-  control_smoothness_penalty: -0.2   # Discourage rapid control changes
-  spin_oscillation_penalty: -0.05    # Discourage spin oscillation
-  sign_reversal_penalty: -1.0        # Strong penalty for control sign reversals
+  spin_penalty_scale: -0.004         # Quadratic: (spin°/s)² × this value
+  low_spin_bonus: 1.5                # Gentle bonus
+  low_spin_threshold: 5.0            # Tiered rewards kick in below this
+  control_effort_penalty: -0.01      # Penalize large control inputs
+  control_smoothness_penalty: -0.3   # Strong penalty for control oscillation
+  spin_oscillation_penalty: -0.08    # Penalize rapid spin direction changes
+  sign_reversal_penalty: -2.0        # Very strong penalty for control sign reversals
   success_bonus: 100.0
-  crash_penalty: -20.0
+  crash_penalty: -30.0
   use_potential_shaping: false
   gamma: 0.99
 ppo:
-  learning_rate: 0.0003
+  learning_rate: 0.0002
   n_steps: 2048
   batch_size: 64
   n_epochs: 10
@@ -109,7 +109,7 @@ ppo:
   gae_lambda: 0.95
   clip_range: 0.2
   clip_range_vf: null
-  ent_coef: 0.01
+  ent_coef: 0.008
   vf_coef: 0.5
   max_grad_norm: 0.5
   normalize_advantage: true
@@ -137,8 +137,8 @@ logging:
   eval_freq: 5000
   n_eval_episodes: 20
   log_episode_freq: 10
-  experiment_name: rocket_estes_c6_easy
+  experiment_name: rocket_estes_c6_tight_spin
   tags:
   - estes_c6
   - spin_control
-  - easy
+  - tight_spin

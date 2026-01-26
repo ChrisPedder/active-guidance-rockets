@@ -7,17 +7,22 @@ Features:
 - Observation normalization
 - Configurable reward function
 - Curriculum learning support
+- Fine-tuning from pre-trained models
 - Logging and diagnostics
 
 Usage:
     # Using config file
-    python train_improved.py --config configs/estes_c6.yaml
+    uv run python train_improved.py --config configs/estes_c6.yaml
 
     # Quick test
-    python train_improved.py --config configs/debug.yaml
+    uv run python train_improved.py --config configs/debug.yaml
 
     # Override specific parameters
-    python train_improved.py --config configs/estes_c6.yaml --dry-mass 0.12 --timesteps 100000
+    uv run python train_improved.py --config configs/estes_c6.yaml --dry-mass 0.12 --timesteps 100000
+
+    # Fine-tune from a pre-trained model (progressive difficulty training)
+    uv run python train_improved.py --config configs/estes_c6_medium.yaml \
+        --load-model models/rocket_estes_c6_easy_*/best_model.zip
 """
 
 import os
@@ -101,14 +106,18 @@ class ImprovedRewardWrapper(gym.Wrapper):
         altitude_reward = altitude * rc.get("altitude_reward_scale", 0.01)
         reward += altitude_reward
 
-        # 2. Spin penalty (penalize high spin rates)
-        spin_penalty = spin_rate * rc.get("spin_penalty_scale", -0.1)
+        # 2. Spin penalty (quadratic - gentle on small errors, harsh on large)
+        spin_penalty = (spin_rate**2) * rc.get("spin_penalty_scale", -0.002)
         reward += spin_penalty
 
-        # 3. Low spin bonus (bonus for maintaining low spin)
+        # 3. Low spin bonus (tiered bonus for maintaining low spin)
+        # Gentle gradient - primary control comes from oscillation penalty
         threshold = rc.get("low_spin_threshold", 10.0)
         if spin_rate < threshold:
-            reward += rc.get("low_spin_bonus", 1.0)
+            # Smooth bonus that increases as spin decreases
+            # At 0°/s: 1.2x bonus, at threshold: 1.0x bonus
+            bonus_multiplier = 1.0 + 0.2 * (1.0 - spin_rate / threshold)
+            reward += rc.get("low_spin_bonus", 1.0) * bonus_multiplier
 
         # 4. Control effort penalty
         control_penalty = np.sum(np.abs(action)) * rc.get(
@@ -124,7 +133,20 @@ class ImprovedRewardWrapper(gym.Wrapper):
             )
             reward += smoothness_penalty
 
-        # 6. Terminal rewards
+            # 5b. Control sign reversal penalty (penalize bang-bang control)
+            for i in range(len(action)):
+                if self.prev_action[i] * action[i] < 0:  # Sign changed
+                    reward += rc.get("sign_reversal_penalty", -0.5)
+
+        # 6. Spin oscillation penalty (penalize rapid changes in spin direction)
+        if self.prev_spin_rate > 0:
+            spin_change = abs(spin_rate - self.prev_spin_rate)
+            oscillation_penalty = spin_change * rc.get(
+                "spin_oscillation_penalty", -0.02
+            )
+            reward += oscillation_penalty
+
+        # 7. Terminal rewards
         if terminated:
             if altitude > rc.get("success_altitude", 100.0):
                 reward += rc.get("success_bonus", 100.0)
@@ -132,6 +154,41 @@ class ImprovedRewardWrapper(gym.Wrapper):
                 reward += rc.get("crash_penalty", -50.0)
 
         return reward
+
+
+class ActionRateLimiter(gym.ActionWrapper):
+    """
+    Wrapper that limits how fast actions can change between timesteps.
+
+    This physically prevents bang-bang control oscillation by constraining
+    the slew rate of the actuators.
+    """
+
+    def __init__(self, env: gym.Env, max_rate: float = 0.1):
+        """
+        Args:
+            env: Environment to wrap
+            max_rate: Maximum action change per timestep (in normalized [-1,1] space)
+        """
+        super().__init__(env)
+        self.max_rate = max_rate
+        self.prev_action = None
+
+    def reset(self, **kwargs):
+        self.prev_action = None
+        return self.env.reset(**kwargs)
+
+    def action(self, action):
+        if self.prev_action is None:
+            self.prev_action = np.zeros_like(action)
+
+        # Limit the rate of change
+        delta = action - self.prev_action
+        delta = np.clip(delta, -self.max_rate, self.max_rate)
+        limited_action = self.prev_action + delta
+
+        self.prev_action = limited_action.copy()
+        return limited_action
 
 
 class NormalizedActionWrapper(gym.ActionWrapper):
@@ -397,7 +454,13 @@ def create_environment(
     # 2. Normalize actions to [-1, 1]
     env = NormalizedActionWrapper(env)
 
-    # 2. Custom reward function
+    # 3. Action rate limiter (prevents bang-bang oscillation)
+    action_rate_limit = getattr(config.physics, "action_rate_limit", 0.1)
+    if action_rate_limit > 0:
+        env = ActionRateLimiter(env, max_rate=action_rate_limit)
+        print(f"Action rate limit: {action_rate_limit} per timestep")
+
+    # 4. Custom reward function
     reward_dict = {
         "altitude_reward_scale": config.reward.altitude_reward_scale,
         "spin_penalty_scale": config.reward.spin_penalty_scale,
@@ -405,6 +468,10 @@ def create_environment(
         "low_spin_threshold": config.reward.low_spin_threshold,
         "control_effort_penalty": config.reward.control_effort_penalty,
         "control_smoothness_penalty": config.reward.control_smoothness_penalty,
+        "spin_oscillation_penalty": getattr(
+            config.reward, "spin_oscillation_penalty", -0.02
+        ),
+        "sign_reversal_penalty": getattr(config.reward, "sign_reversal_penalty", -0.5),
         "success_bonus": config.reward.success_bonus,
         "crash_penalty": config.reward.crash_penalty,
         "success_altitude": config.environment.max_altitude,
@@ -417,8 +484,13 @@ def create_environment(
     return env
 
 
-def train(config: RocketTrainingConfig):
-    """Main training function"""
+def train(config: RocketTrainingConfig, load_model_path: Optional[str] = None):
+    """Main training function
+
+    Args:
+        config: Training configuration
+        load_model_path: Optional path to pre-trained model for fine-tuning
+    """
 
     # Validate configuration
     issues = config.validate()
@@ -468,8 +540,19 @@ def train(config: RocketTrainingConfig):
     else:
         train_env = DummyVecEnv([make_env])
 
-    # Observation normalization
-    if config.environment.normalize_observations:
+    # Observation normalization - handle differently for new vs loaded models
+    vec_normalize_loaded = False
+    if load_model_path and config.environment.normalize_observations:
+        # Check for VecNormalize stats alongside the model
+        load_path = Path(load_model_path)
+        vec_normalize_path = load_path.parent / "vec_normalize.pkl"
+        if vec_normalize_path.exists():
+            print(f"Loading VecNormalize stats from: {vec_normalize_path}")
+            train_env = VecNormalize.load(str(vec_normalize_path), train_env)
+            train_env.training = True  # Enable stats updates during training
+            vec_normalize_loaded = True
+
+    if config.environment.normalize_observations and not vec_normalize_loaded:
         train_env = VecNormalize(
             train_env,
             norm_obs=True,
@@ -480,12 +563,18 @@ def train(config: RocketTrainingConfig):
     # Create eval environment
     eval_env = DummyVecEnv([make_env])
     if config.environment.normalize_observations:
-        eval_env = VecNormalize(
-            eval_env,
-            norm_obs=True,
-            norm_reward=False,
-            training=False,  # Don't update stats during eval
-        )
+        if vec_normalize_loaded:
+            # Copy stats from training env
+            eval_env = VecNormalize.load(
+                str(Path(load_model_path).parent / "vec_normalize.pkl"), eval_env
+            )
+        else:
+            eval_env = VecNormalize(
+                eval_env,
+                norm_obs=True,
+                norm_reward=False,
+            )
+        eval_env.training = False  # Don't update stats during eval
 
     # Setup policy network
     activation_fn = {
@@ -499,27 +588,54 @@ def train(config: RocketTrainingConfig):
         activation_fn=activation_fn,
     )
 
-    # Create PPO model
-    model = PPO(
-        "MlpPolicy",
-        train_env,
-        learning_rate=config.ppo.learning_rate,
-        n_steps=config.ppo.n_steps,
-        batch_size=config.ppo.batch_size,
-        n_epochs=config.ppo.n_epochs,
-        gamma=config.ppo.gamma,
-        gae_lambda=config.ppo.gae_lambda,
-        clip_range=config.ppo.clip_range,
-        clip_range_vf=config.ppo.clip_range_vf,
-        normalize_advantage=config.ppo.normalize_advantage,
-        ent_coef=config.ppo.ent_coef,
-        vf_coef=config.ppo.vf_coef,
-        max_grad_norm=config.ppo.max_grad_norm,
-        policy_kwargs=policy_kwargs,
-        verbose=1,
-        device=config.ppo.device,
-        tensorboard_log=str(log_dir) if config.logging.tensorboard_log else None,
-    )
+    # Create or load PPO model
+    if load_model_path:
+        # Load pre-trained model for fine-tuning
+        load_path = Path(load_model_path)
+        print(f"Loading pre-trained model from: {load_path}")
+
+        model = PPO.load(
+            str(load_path),
+            env=train_env,
+            learning_rate=config.ppo.learning_rate,
+            n_steps=config.ppo.n_steps,
+            batch_size=config.ppo.batch_size,
+            n_epochs=config.ppo.n_epochs,
+            gamma=config.ppo.gamma,
+            gae_lambda=config.ppo.gae_lambda,
+            clip_range=config.ppo.clip_range,
+            clip_range_vf=config.ppo.clip_range_vf,
+            normalize_advantage=config.ppo.normalize_advantage,
+            ent_coef=config.ppo.ent_coef,
+            vf_coef=config.ppo.vf_coef,
+            max_grad_norm=config.ppo.max_grad_norm,
+            verbose=1,
+            device=config.ppo.device,
+            tensorboard_log=str(log_dir) if config.logging.tensorboard_log else None,
+        )
+        print("Model loaded successfully for fine-tuning")
+    else:
+        # Create new PPO model
+        model = PPO(
+            "MlpPolicy",
+            train_env,
+            learning_rate=config.ppo.learning_rate,
+            n_steps=config.ppo.n_steps,
+            batch_size=config.ppo.batch_size,
+            n_epochs=config.ppo.n_epochs,
+            gamma=config.ppo.gamma,
+            gae_lambda=config.ppo.gae_lambda,
+            clip_range=config.ppo.clip_range,
+            clip_range_vf=config.ppo.clip_range_vf,
+            normalize_advantage=config.ppo.normalize_advantage,
+            ent_coef=config.ppo.ent_coef,
+            vf_coef=config.ppo.vf_coef,
+            max_grad_norm=config.ppo.max_grad_norm,
+            policy_kwargs=policy_kwargs,
+            verbose=1,
+            device=config.ppo.device,
+            tensorboard_log=str(log_dir) if config.logging.tensorboard_log else None,
+        )
 
     # Setup callbacks
     callbacks = []
@@ -572,7 +688,7 @@ def train(config: RocketTrainingConfig):
     print(f"Best model: {save_dir}/best_model.zip")
     print(f"\nTo evaluate:")
     print(
-        f"  python evaluate_rocket.py --model {save_dir}/best_model.zip --config {save_dir}/config.yaml"
+        f"  uv run python visualizations/visualize_spin_agent.py {save_dir}/best_model.zip --config {save_dir}/config.yaml"
     )
     print(f"\nTo view tensorboard:")
     print(f"  tensorboard --logdir {log_dir}")
@@ -592,16 +708,19 @@ def main():
         epilog="""
 Examples:
   # Train with default config
-  python train_improved.py --config configs/estes_c6.yaml
+  uv run python train_improved.py --config configs/estes_c6.yaml
 
   # Quick debug run
-  python train_improved.py --config configs/debug.yaml
+  uv run python train_improved.py --config configs/debug.yaml
 
   # Override parameters
-  python train_improved.py --config configs/estes_c6.yaml --dry-mass 0.12 --timesteps 100000
+  uv run python train_improved.py --config configs/estes_c6.yaml --dry-mass 0.12 --timesteps 100000
+
+  # Fine-tune from a pre-trained model
+  uv run python train_improved.py --config configs/estes_c6_medium.yaml --load-model models/rocket_estes_c6_easy_*/best_model.zip
 
   # Create default config files
-  python train_improved.py --create-configs
+  uv run python train_improved.py --create-configs
         """,
     )
 
@@ -619,6 +738,11 @@ Examples:
     parser.add_argument("--lr", type=float, help="Override learning rate")
     parser.add_argument("--n-envs", type=int, help="Override number of parallel envs")
     parser.add_argument("--device", type=str, help="Override device (cpu/cuda/auto)")
+    parser.add_argument(
+        "--load-model",
+        type=str,
+        help="Path to pre-trained model (.zip) to fine-tune from",
+    )
 
     args = parser.parse_args()
 
@@ -650,8 +774,8 @@ Examples:
     if args.device is not None:
         config.ppo.device = args.device
 
-    # Train
-    train(config)
+    # Train (with optional model loading for fine-tuning)
+    train(config, load_model_path=args.load_model)
 
 
 if __name__ == "__main__":

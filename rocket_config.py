@@ -237,6 +237,10 @@ class RewardConfig:
     # Control penalties
     control_effort_penalty: float = -0.01  # Penalty for large actions
     control_smoothness_penalty: float = -0.05  # Penalty for action changes
+    spin_oscillation_penalty: float = -0.02  # Penalty for rapid spin rate changes
+    sign_reversal_penalty: float = (
+        -0.5
+    )  # Penalty for control sign changes (anti-bang-bang)
 
     # Terminal rewards
     success_bonus: float = 100.0  # Bonus for reaching target altitude

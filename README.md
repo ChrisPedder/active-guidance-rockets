@@ -328,18 +328,18 @@ The pipeline automates:
 MOTOR OPTIONS:
     -m, --motor MOTOR       Motor name (e.g., estes_c6, aerotech_h128)
     -d, --difficulty LEVEL  easy, medium, full, or all
-    
+
 CONFIG OPTIONS:
     -g, --generate-config   Auto-generate config if not found
     --dry-mass KG           Override dry mass for config generation
     -c, --config FILE       Use specific config file
-    
+
 TRAINING OPTIONS:
     -t, --timesteps N       Training timesteps (default: 500000)
     -n, --n-envs N          Parallel environments (default: 8)
     --eval-only             Skip training
     --model-path PATH       Existing model for evaluation
-    
+
 OUTPUT OPTIONS:
     -o, --output-dir DIR    Results directory (default: experiments/)
     -e, --eval-episodes N   Evaluation episodes (default: 50)
@@ -358,7 +358,7 @@ uv run python generate_motor_config.py generate estes_c6 --output configs/
 # Review the physics analysis
 # The script will show:
 # - Motor specifications
-# - Recommended rocket configuration  
+# - Recommended rocket configuration
 # - Physics analysis (control authority, disturbance levels)
 # - Generated config files
 ```
@@ -416,28 +416,52 @@ This config is tuned so that even random actions from an untrained agent don't i
 
 ### Training Progression Strategy
 
+Progressive training from easy to hard difficulty produces the best results. Each stage fine-tunes from the previous stage's model.
+
 | Phase | Config | Timesteps | What Agent Learns |
 |-------|--------|-----------|-------------------|
-| 1. Easy | `*_easy.yaml` | 500k | Basic stabilization |
-| 2. Medium | `*_medium.yaml` | 500k | Stronger control inputs |
-| 3. Full | `*_full.yaml` | 500k | Full difficulty with wind |
+| 1. Easy | `*_easy.yaml` | 1.5M | Basic stabilization, smooth control |
+| 2. Medium | `*_medium.yaml` | 1M | Tighter spin control, wind handling |
+| 3. Full | `*_full.yaml` | 1M | Full difficulty, <3°/s target spin |
+
+#### Automated Progressive Training (Recommended)
+
+Use the progressive training script to run all stages automatically:
 
 ```bash
-# Phase 1: Easy start
-./run_experiment.sh --motor estes_c6 --generate-config --difficulty easy
+# Run full pipeline (easy -> medium -> full)
+./train_progressive.sh
 
-# Phase 2: Load best model, continue with medium difficulty
-uv run python train_improved.py --config configs/estes_c6_medium.yaml \
-    --load-model experiments/estes_c6_easy_*/best_model.zip
+# Run with custom timesteps
+./train_progressive.sh --timesteps 2000000
 
-# Phase 3: Full difficulty
-uv run python train_improved.py --config configs/estes_c6_full.yaml \
-    --load-model models/rocket_spin_control_medium/best_model.zip
+# Run only a specific stage
+./train_progressive.sh --stage easy
+./train_progressive.sh --stage medium
+./train_progressive.sh --stage full
+
+# Quick test run (reduced timesteps)
+./train_progressive.sh --timesteps-easy 100000 --timesteps-medium 50000 --timesteps-full 50000
+```
+
+#### Manual Progressive Training
+
+```bash
+# Phase 1: Easy start (from scratch)
+uv run python train_improved.py --config configs/estes_c6_easy.yaml --timesteps 1500000
+
+# Phase 2: Fine-tune on medium difficulty
+uv run python train_improved.py --config configs/estes_c6_medium.yaml --load-model models/rocket_estes_c6_easy_*/best_model.zip
+
+# Phase 3: Fine-tune on full difficulty
+uv run python train_improved.py --config configs/estes_c6_full.yaml --load-model models/rocket_estes_c6_medium_*/best_model.zip
 ```
 
 ### Config Parameter Reference
 
 Key parameters that affect training success:
+
+**Physics Parameters:**
 
 | Parameter | Easy | Medium | Full | Effect |
 |-----------|------|--------|------|--------|
@@ -446,6 +470,14 @@ Key parameters that affect training success:
 | `max_roll_rate` | 720-900°/s | 576-720°/s | 360-450°/s | Termination threshold |
 | `damping_scale` | 2.0-3.0 | 1.5-2.2 | 1.0-1.5 | Aerodynamic stability |
 | `enable_wind` | false | true | true | Environmental challenge |
+
+**Reward Parameters (anti-oscillation tuning):**
+
+| Parameter | Easy | Medium | Full | Effect |
+|-----------|------|--------|------|--------|
+| `control_smoothness_penalty` | -0.10 | -0.12 | -0.15 | Penalizes rapid control changes |
+| `spin_oscillation_penalty` | -0.03 | -0.04 | -0.05 | Penalizes spin rate oscillation |
+| `low_spin_threshold` | 10°/s | 5°/s | 3°/s | Target spin rate for bonus |
 
 ---
 
@@ -475,6 +507,88 @@ Max Altitude: 6.6 ± 2.2 m           # ❌ Too low
 Final Spin Rate: 395.3 ± 12.3 °/s   # ❌ Too high
 ep_len_mean: 37                     # ❌ Episodes too short
 ```
+
+---
+
+## PID Controller Baseline
+
+### Why Compare with Classical Control?
+
+While reinforcement learning can discover sophisticated control strategies, it's valuable to compare against classical control theory approaches like PID (Proportional-Integral-Derivative) control:
+
+1. **Baseline Performance**: PID provides a well-understood baseline to measure RL improvements against
+2. **Interpretability**: PID gains have clear physical meaning, while RL policies are black boxes
+3. **Tuning Effort**: PID requires manual tuning; RL learns automatically but needs more compute
+4. **Real-world Validation**: Many existing rocket stabilization systems use PID, so comparison validates our simulation
+5. **Failure Modes**: Understanding where PID fails helps explain what the RL agent learns
+
+### PID Controller Model
+
+The PID controller (`pid_controller.py`) mimics a real Arduino-based rocket stabilization system:
+
+```
+Control = Cprop × (θ - θ_target) + Cint × ∫(θ - θ_target)dt + Cderiv × ω
+```
+
+Where:
+- **θ**: Current roll orientation (degrees)
+- **θ_target**: Target orientation (captured at launch)
+- **ω**: Roll rate (degrees/second)
+- **Cprop, Cint, Cderiv**: Tunable gains
+
+**Key Features:**
+- **Launch Detection**: Activates when vertical acceleration exceeds 20 m/s²
+- **Target Lock**: Stores roll orientation at launch as the setpoint
+- **Anti-windup**: Integral term is clamped to prevent saturation
+- **Output Limiting**: Control surface deflection is bounded
+
+### Running PID Simulations
+
+```bash
+# Basic PID evaluation
+uv run python pid_controller.py --config configs/estes_c6_easy.yaml --n-episodes 50
+
+# Custom PID gains
+uv run python pid_controller.py --config configs/estes_c6_easy.yaml \
+    --Cprop 0.02 --Cint 0.005 --Cderiv 0.05
+
+# Compare PID vs trained RL agent
+uv run python pid_controller.py --config configs/estes_c6_easy.yaml \
+    --compare models/rocket_estes_c6_easy_*/best_model.zip
+
+# Save comparison plot
+uv run python pid_controller.py --config configs/estes_c6_easy.yaml \
+    --compare models/rocket_estes_c6_easy_*/best_model.zip \
+    --save-plot comparison.png
+```
+
+### PID Tuning Guide
+
+| Gain | Effect | Too Low | Too High |
+|------|--------|---------|----------|
+| `Cprop` | Response speed | Slow correction, drift | Overshoot, oscillation |
+| `Cint` | Steady-state error | Persistent offset | Windup, slow recovery |
+| `Cderiv` | Damping | Overshoot | Noise sensitivity, jitter |
+
+**Recommended starting values:**
+- `Cprop = 0.02` - Moderate proportional response
+- `Cint = 0.005` - Small integral to eliminate drift
+- `Cderiv = 0.05` - Light damping based on roll rate
+
+### Expected Comparison Results
+
+| Metric | PID (tuned) | RL Agent |
+|--------|-------------|----------|
+| Mean Spin Rate | 15-30°/s | 2-10°/s |
+| Consistency | Variable | Consistent |
+| Adaptability | Fixed response | Adapts to conditions |
+| Control Smoothness | Can oscillate | Learned smooth control |
+
+The RL agent typically outperforms PID because it:
+- Learns non-linear control strategies
+- Adapts control authority to flight phase (boost vs coast)
+- Optimizes for the specific reward function
+- Handles the full state space, not just roll error
 
 ---
 

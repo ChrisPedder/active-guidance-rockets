@@ -6,8 +6,8 @@ This script evaluates a trained agent and creates comprehensive visualizations
 of flight performance, spin control, and camera quality.
 
 Usage:
-    python visualizations/visualize_spin_agent.py models/best_model.zip --config configs/estes_c6_easy.yaml
-    python visualizations/visualize_spin_agent.py models/best_model.zip --n-episodes 50 --save-dir results/
+    uv run python visualizations/visualize_spin_agent.py models/best_model.zip --config configs/estes_c6_easy.yaml
+    uv run python visualizations/visualize_spin_agent.py models/best_model.zip --n-episodes 50 --save-dir results/
 """
 
 import sys
@@ -34,6 +34,7 @@ from gymnasium import spaces
 # Import environment components
 from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
+from rocket_config import load_config
 
 
 @dataclass
@@ -85,6 +86,28 @@ class NormalizedActionWrapper(gym.ActionWrapper):
         )
 
 
+class ActionRateLimiter(gym.ActionWrapper):
+    """Limits how fast actions can change between timesteps."""
+
+    def __init__(self, env, max_rate: float = 0.1):
+        super().__init__(env)
+        self.max_rate = max_rate
+        self.prev_action = None
+
+    def reset(self, **kwargs):
+        self.prev_action = None
+        return self.env.reset(**kwargs)
+
+    def action(self, action):
+        if self.prev_action is None:
+            self.prev_action = np.zeros_like(action)
+        delta = action - self.prev_action
+        delta = np.clip(delta, -self.max_rate, self.max_rate)
+        limited_action = self.prev_action + delta
+        self.prev_action = limited_action.copy()
+        return limited_action
+
+
 class SpinAgentEvaluator:
     """Evaluates trained spin control agent"""
 
@@ -97,41 +120,86 @@ class SpinAgentEvaluator:
         Args:
             model_path: Path to trained PPO model
             config_path: Path to YAML config file
-            vec_normalize_path: Path to VecNormalize stats (optional)
+            vec_normalize_path: Path to VecNormalize stats (optional, auto-detected if not provided)
         """
         self.model = PPO.load(model_path)
         self.config_path = config_path
+
+        # Auto-detect vec_normalize.pkl if not provided
+        if vec_normalize_path is None:
+            model_dir = Path(model_path).parent
+            auto_path = model_dir / "vec_normalize.pkl"
+            if auto_path.exists():
+                vec_normalize_path = str(auto_path)
+                print(f"Auto-detected VecNormalize stats: {vec_normalize_path}")
+
         self.vec_normalize_path = vec_normalize_path
 
-        # Load config if provided
+        # Load config if provided (use structured loader)
         self.config = None
         if config_path and Path(config_path).exists():
-            with open(config_path, "r") as f:
-                self.config = yaml.safe_load(f)
+            self.config = load_config(config_path)
 
         print(f"Loaded model from: {model_path}")
         if self.config:
             print(f"Using config: {config_path}")
+        if self.vec_normalize_path:
+            print(f"Using VecNormalize stats: {self.vec_normalize_path}")
 
     def create_env(self) -> gym.Env:
         """Create environment matching training config"""
         if self.config:
-            physics = self.config.get("physics", {})
-            motor_config = self.config.get("motor", {})
+            # Load airframe from config (handles both new-style and legacy configs)
+            airframe = self.config.physics.resolve_airframe()
 
+            # Build RocketConfig with simulation/physics tuning parameters only
+            # (geometry comes from airframe)
             rocket_config = RocketConfig(
-                dry_mass=physics.get("dry_mass", 0.1),
-                diameter=physics.get("diameter", 0.024),
-                length=physics.get("length", 0.4),
-                max_tab_deflection=physics.get("max_tab_deflection", 15.0),
-                disturbance_scale=physics.get("disturbance_scale", 0.0001),
-                damping_scale=physics.get("damping_scale", 1.0),
-                initial_spin_std=physics.get("initial_spin_std", 15.0),
-                max_roll_rate=physics.get("max_roll_rate", 360.0),
-                dt=self.config.get("environment", {}).get("dt", 0.01),
+                max_tab_deflection=self.config.physics.max_tab_deflection,
+                tab_chord_fraction=self.config.physics.tab_chord_fraction,
+                tab_span_fraction=self.config.physics.tab_span_fraction,
+                num_controlled_fins=getattr(
+                    self.config.physics, "num_controlled_fins", 2
+                ),
+                disturbance_scale=getattr(
+                    self.config.physics, "disturbance_scale", 0.0001
+                ),
+                initial_spin_std=getattr(self.config.physics, "initial_spin_std", 15.0),
+                damping_scale=getattr(self.config.physics, "damping_scale", 2.0),
+                max_roll_rate=getattr(self.config.physics, "max_roll_rate", 720.0),
+                max_episode_time=getattr(self.config.physics, "max_episode_time", 15.0),
+                dt=getattr(self.config.environment, "dt", 0.01),
             )
 
-            env = RealisticMotorRocket(motor_config=motor_config, config=rocket_config)
+            # Build motor config dict from MotorConfig dataclass
+            motor_config_dict = {
+                "name": self.config.motor.name,
+                "manufacturer": self.config.motor.manufacturer,
+                "designation": self.config.motor.designation,
+                "diameter_mm": self.config.motor.diameter_mm,
+                "length_mm": self.config.motor.length_mm,
+                "total_mass_g": self.config.motor.total_mass_g,
+                "propellant_mass_g": self.config.motor.propellant_mass_g,
+                "case_mass_g": self.config.motor.case_mass_g,
+                "impulse_class": self.config.motor.impulse_class,
+                "total_impulse_Ns": self.config.motor.total_impulse_Ns,
+                "avg_thrust_N": self.config.motor.avg_thrust_N,
+                "max_thrust_N": self.config.motor.max_thrust_N,
+                "burn_time_s": self.config.motor.burn_time_s,
+                "thrust_curve": self.config.motor.thrust_curve,
+                "thrust_multiplier": self.config.motor.thrust_multiplier,
+            }
+            # Remove None values
+            motor_config_dict = {
+                k: v for k, v in motor_config_dict.items() if v is not None
+            }
+
+            # Create environment with airframe and motor
+            env = RealisticMotorRocket(
+                airframe=airframe,
+                motor_config=motor_config_dict,
+                config=rocket_config,
+            )
         else:
             raise ValueError(
                 "Config file required for visualization. "
@@ -140,13 +208,27 @@ class SpinAgentEvaluator:
 
         env = NormalizedActionWrapper(env)
 
+        # Apply action rate limiter if configured
+        action_rate_limit = getattr(self.config.physics, "action_rate_limit", 0.1)
+        if action_rate_limit > 0:
+            env = ActionRateLimiter(env, max_rate=action_rate_limit)
+
         return env
 
     def run_episode(
         self, episode_id: int, deterministic: bool = True
     ) -> SpinEpisodeData:
         """Run single evaluation episode"""
-        env = self.create_env()
+        base_env = self.create_env()
+
+        # Wrap in DummyVecEnv for VecNormalize compatibility
+        vec_env = DummyVecEnv([lambda: base_env])
+
+        # Apply VecNormalize if stats are available
+        if self.vec_normalize_path:
+            vec_env = VecNormalize.load(self.vec_normalize_path, vec_env)
+            vec_env.training = False  # Don't update stats during evaluation
+            vec_env.norm_reward = False
 
         # Storage
         times, altitudes, velocities = [], [], []
@@ -154,7 +236,16 @@ class SpinAgentEvaluator:
         actions, tab_deflections = [], []
         rewards, thrusts, dynamic_pressures = [], [], []
 
-        obs, info = env.reset()
+        obs = vec_env.reset()
+        # Get info from underlying env
+        info = {}
+        if hasattr(vec_env, "get_attr"):
+            try:
+                infos = vec_env.get_attr("_last_info")
+                info = infos[0] if infos else {}
+            except AttributeError:
+                pass
+
         total_reward = 0.0
         step = 0
 
@@ -167,8 +258,10 @@ class SpinAgentEvaluator:
             altitudes.append(info.get("altitude_m", 0))
             velocities.append(info.get("vertical_velocity_ms", 0))
             roll_rates.append(info.get("roll_rate_deg_s", 0))
-            roll_angles.append(obs[2] if len(obs) > 2 else 0)  # roll angle from obs
-            actions.append(action[0])
+            roll_angles.append(
+                obs[0][2] if len(obs[0]) > 2 else 0
+            )  # roll angle from obs
+            actions.append(action[0][0] if len(action.shape) > 1 else action[0])
             tab_deflections.append(info.get("tab_deflection_deg", 0))
             thrusts.append(info.get("current_thrust_N", 0))
 
@@ -179,15 +272,19 @@ class SpinAgentEvaluator:
             dynamic_pressures.append(0.5 * rho * v**2)
 
             # Take step
-            obs, reward, terminated, truncated, info = env.step(action)
+            obs, reward_arr, done_arr, infos = vec_env.step(action)
+            reward = reward_arr[0]
+            done = done_arr[0]
+            info = infos[0] if infos else {}
+
             rewards.append(reward)
             total_reward += reward
             step += 1
 
-            if terminated or truncated:
+            if done:
                 break
 
-        env.close()
+        vec_env.close()
 
         # Convert to arrays
         times = np.array(times)
@@ -212,11 +309,7 @@ class SpinAgentEvaluator:
             camera_quality = "Poor"
 
         # Success criteria
-        target_altitude = (
-            self.config.get("environment", {}).get("max_altitude", 100)
-            if self.config
-            else 100
-        )
+        target_altitude = self.config.environment.max_altitude if self.config else 100
         reached_altitude = max_altitude > target_altitude * 0.5
         low_spin = mean_spin < 30
         success = reached_altitude and low_spin
@@ -587,7 +680,7 @@ class SpinVisualizationPlotter:
         Mean Altitude: {np.mean([e.max_altitude for e in best_eps]):.1f} m
         Mean Spin Rate: {np.mean([e.mean_spin_rate for e in best_eps]):.1f} °/s
         Mean Reward: {np.mean([e.total_reward for e in best_eps]):.1f}
-        
+
         WORST TRAJECTORIES
         ─────────────────────
         Mean Altitude: {np.mean([e.max_altitude for e in worst_eps]):.1f} m
@@ -710,13 +803,13 @@ def main():
         epilog="""
 Examples:
     # Basic evaluation
-    python visualize_spin_agent.py models/best_model.zip
-    
+    uv run python visualize_spin_agent.py models/best_model.zip
+
     # With config file
-    python visualize_spin_agent.py models/best_model.zip --config configs/estes_c6_easy.yaml
-    
+    uv run python visualize_spin_agent.py models/best_model.zip --config configs/estes_c6_easy.yaml
+
     # Full evaluation with saved report
-    python visualize_spin_agent.py models/best_model.zip \\
+    uv run python visualize_spin_agent.py models/best_model.zip \\
         --config configs/estes_c6_easy.yaml \\
         --n-episodes 100 \\
         --save-dir evaluation_results/
