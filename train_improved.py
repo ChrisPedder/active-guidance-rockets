@@ -74,6 +74,7 @@ class ImprovedRewardWrapper(gym.Wrapper):
         self.prev_spin_rate = 0.0
         self.step_count = 0
         self.settled = False  # Track if we've achieved stable low spin
+        self.missed_deadline = False  # Track if we missed settling deadline
 
     def reset(self, **kwargs):
         self.prev_action = None
@@ -81,6 +82,7 @@ class ImprovedRewardWrapper(gym.Wrapper):
         self.prev_spin_rate = 0.0
         self.step_count = 0
         self.settled = False
+        self.missed_deadline = False
         return self.env.reset(**kwargs)
 
     def step(self, action):
@@ -156,7 +158,7 @@ class ImprovedRewardWrapper(gym.Wrapper):
             if abs(a) > saturation_threshold:
                 reward += rc.get("saturation_penalty", -0.1)
 
-        # 8. Early settling bonus (reward quick stabilization)
+        # 8. Early settling bonus/penalty (reward quick stabilization, punish slow settling)
         time_s = info.get("time_s", self.step_count * 0.01)
         settling_threshold = rc.get("settling_spin_threshold", 5.0)
         settling_time_limit = rc.get("settling_time_limit", 0.5)
@@ -169,6 +171,25 @@ class ImprovedRewardWrapper(gym.Wrapper):
             elif time_s < settling_time_limit * 2:
                 # Smaller bonus for settling within 2x time limit
                 reward += rc.get("early_settling_bonus", 50.0) * 0.5
+
+        # 9. Settling deadline penalty (one-time penalty for missing the deadline)
+        if (
+            not self.settled
+            and not self.missed_deadline
+            and time_s >= settling_time_limit
+        ):
+            self.missed_deadline = True
+            # Apply penalty for missing the settling deadline
+            reward += rc.get("settling_deadline_penalty", -50.0)
+
+        # 10. Early-phase spin penalty multiplier
+        # During the settling window, spin is penalized more heavily
+        # This creates urgency to settle quickly
+        if time_s < settling_time_limit and not self.settled:
+            early_phase_multiplier = rc.get("early_phase_spin_multiplier", 2.0)
+            # Apply additional spin penalty (on top of base spin penalty)
+            extra_spin_penalty = (spin_rate**2) * rc.get("spin_penalty_scale", -0.002)
+            reward += extra_spin_penalty * (early_phase_multiplier - 1.0)
 
         self.step_count += 1
 
@@ -188,6 +209,8 @@ class ActionRateLimiter(gym.ActionWrapper):
 
     This physically prevents bang-bang control oscillation by constraining
     the slew rate of the actuators.
+
+    DEPRECATED: Use ExponentialSmoothingWrapper for more realistic behavior.
     """
 
     def __init__(self, env: gym.Env, max_rate: float = 0.1):
@@ -215,6 +238,123 @@ class ActionRateLimiter(gym.ActionWrapper):
 
         self.prev_action = limited_action.copy()
         return limited_action
+
+
+class ExponentialSmoothingWrapper(gym.ActionWrapper):
+    """
+    Wrapper that applies exponential smoothing to actions.
+
+    Models realistic servo/actuator dynamics where the actual position
+    follows the commanded position with a time constant.
+
+    Formula: action_applied = alpha * action_commanded + (1 - alpha) * prev_action
+
+    This is more physically realistic than hard rate limiting because:
+    - It models inertia and response time of real actuators
+    - Smooth transitions even for large commanded changes
+    - The time constant can be tuned to match real hardware
+    """
+
+    def __init__(self, env: gym.Env, alpha: float = 0.1):
+        """
+        Args:
+            env: Environment to wrap
+            alpha: Smoothing factor (0-1). Lower = smoother/slower response.
+                   alpha=0.1 means ~10 timesteps to reach 63% of target
+                   alpha=0.2 means ~5 timesteps to reach 63% of target
+                   alpha=0.05 means ~20 timesteps to reach 63% of target
+        """
+        super().__init__(env)
+        self.alpha = alpha
+        self.smoothed_action = None
+
+    def reset(self, **kwargs):
+        self.smoothed_action = None
+        return self.env.reset(**kwargs)
+
+    def action(self, action):
+        if self.smoothed_action is None:
+            self.smoothed_action = np.zeros_like(action)
+
+        # Exponential smoothing: new = alpha * commanded + (1-alpha) * previous
+        self.smoothed_action = (
+            self.alpha * action + (1 - self.alpha) * self.smoothed_action
+        )
+
+        return self.smoothed_action.copy()
+
+
+class PreviousActionWrapper(gym.ObservationWrapper):
+    """
+    Wrapper that adds the previous APPLIED action to the observation space.
+
+    This gives the agent information about its current actuator position,
+    enabling it to learn incremental control strategies rather than
+    absolute positioning.
+
+    IMPORTANT: This wrapper looks for smoothed actions from ExponentialSmoothingWrapper
+    to ensure the observation contains the actual applied action, not the commanded one.
+
+    The observation space is extended by the action space dimensions.
+    """
+
+    def __init__(self, env: gym.Env):
+        super().__init__(env)
+        self.prev_applied_action = None
+
+        # Extend observation space to include previous action
+        obs_space = env.observation_space
+        action_space = env.action_space
+
+        # New observation space: [original_obs, prev_action]
+        new_low = np.concatenate([obs_space.low, action_space.low])
+        new_high = np.concatenate([obs_space.high, action_space.high])
+
+        self.observation_space = spaces.Box(
+            low=new_low.astype(np.float32),
+            high=new_high.astype(np.float32),
+            dtype=np.float32,
+        )
+
+        self._action_dim = action_space.shape[0]
+
+    def reset(self, **kwargs):
+        self.prev_applied_action = np.zeros(self._action_dim, dtype=np.float32)
+        obs, info = self.env.reset(**kwargs)
+        return self.observation(obs), info
+
+    def observation(self, observation):
+        """Append previous applied action to observation."""
+        if self.prev_applied_action is None:
+            self.prev_applied_action = np.zeros(self._action_dim, dtype=np.float32)
+        return np.concatenate([observation, self.prev_applied_action]).astype(
+            np.float32
+        )
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        # Get the actual applied action (smoothed if smoothing wrapper exists)
+        applied_action = self._get_applied_action(action)
+        self.prev_applied_action = np.array(applied_action, dtype=np.float32)
+
+        return self.observation(obs), reward, terminated, truncated, info
+
+    def _get_applied_action(self, commanded_action):
+        """Get the actual applied action, checking for smoothing wrappers."""
+        # Walk through wrapped environments to find smoothing wrapper
+        env = self.env
+        while hasattr(env, "env"):
+            if isinstance(env, ExponentialSmoothingWrapper):
+                # Return the smoothed action
+                return env.smoothed_action
+            if isinstance(env, ActionRateLimiter):
+                # Return the rate-limited action
+                return env.prev_action
+            env = env.env
+
+        # No smoothing found, return commanded action
+        return commanded_action
 
 
 class NormalizedActionWrapper(gym.ActionWrapper):
@@ -259,7 +399,8 @@ class TrainingMetricsCallback(BaseCallback):
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_altitudes = []
-        self.episode_spin_rates = []
+        self.episode_mean_spin_rates = []
+        self.episode_max_spin_rates = []
         self.episode_camera_scores = []
 
     def _on_step(self) -> bool:
@@ -277,7 +418,21 @@ class TrainingMetricsCallback(BaseCallback):
                     self.episode_altitudes.append(
                         info.get("altitude_m", info.get("altitude", 0))
                     )
-                    self.episode_spin_rates.append(abs(info.get("roll_rate_deg_s", 0)))
+                    # Track mean and max spin rates (fall back to final if not available)
+                    self.episode_mean_spin_rates.append(
+                        abs(
+                            info.get(
+                                "mean_spin_rate_deg_s", info.get("roll_rate_deg_s", 0)
+                            )
+                        )
+                    )
+                    self.episode_max_spin_rates.append(
+                        abs(
+                            info.get(
+                                "max_spin_rate_deg_s", info.get("roll_rate_deg_s", 0)
+                            )
+                        )
+                    )
 
                     # Camera quality
                     quality = info.get("horizontal_camera_quality", "")
@@ -308,7 +463,8 @@ class TrainingMetricsCallback(BaseCallback):
         # Recent performance
         recent_rewards = self.episode_rewards[-n:]
         recent_altitudes = self.episode_altitudes[-n:]
-        recent_spins = self.episode_spin_rates[-n:]
+        recent_mean_spins = self.episode_mean_spin_rates[-n:]
+        recent_max_spins = self.episode_max_spin_rates[-n:]
 
         print(
             f"Rewards (last {n}): {np.mean(recent_rewards):.1f} ± {np.std(recent_rewards):.1f}"
@@ -317,14 +473,19 @@ class TrainingMetricsCallback(BaseCallback):
             f"Max Altitude: {np.mean(recent_altitudes):.1f} ± {np.std(recent_altitudes):.1f} m"
         )
         print(
-            f"Final Spin Rate: {np.mean(recent_spins):.1f} ± {np.std(recent_spins):.1f} °/s"
+            f"Mean Spin Rate: {np.mean(recent_mean_spins):.1f} ± {np.std(recent_mean_spins):.1f} °/s"
+        )
+        print(
+            f"Max Spin Rate: {np.mean(recent_max_spins):.1f} ± {np.std(recent_max_spins):.1f} °/s"
         )
 
         # Success metrics
         high_alt = sum(1 for a in recent_altitudes if a > 50) / n * 100
-        low_spin = sum(1 for s in recent_spins if s < 30) / n * 100
+        low_mean_spin = sum(1 for s in recent_mean_spins if s < 10) / n * 100
+        low_max_spin = sum(1 for s in recent_max_spins if s < 30) / n * 100
         print(f"High altitude (>50m): {high_alt:.0f}%")
-        print(f"Low spin (<30°/s): {low_spin:.0f}%")
+        print(f"Low mean spin (<10°/s): {low_mean_spin:.0f}%")
+        print(f"Low max spin (<30°/s): {low_max_spin:.0f}%")
 
         if self.episode_camera_scores:
             recent_cameras = self.episode_camera_scores[-n:]
@@ -480,13 +641,27 @@ def create_environment(
     # 2. Normalize actions to [-1, 1]
     env = NormalizedActionWrapper(env)
 
-    # 3. Action rate limiter (prevents bang-bang oscillation)
+    # 3. Action smoothing (prevents bang-bang oscillation)
+    # Check for new exponential smoothing parameter first, fall back to rate limiter
+    action_smoothing_alpha = getattr(config.physics, "action_smoothing_alpha", None)
     action_rate_limit = getattr(config.physics, "action_rate_limit", 0.1)
-    if action_rate_limit > 0:
-        env = ActionRateLimiter(env, max_rate=action_rate_limit)
-        print(f"Action rate limit: {action_rate_limit} per timestep")
 
-    # 4. Custom reward function
+    if action_smoothing_alpha is not None and action_smoothing_alpha > 0:
+        # Use exponential smoothing (preferred - more realistic)
+        env = ExponentialSmoothingWrapper(env, alpha=action_smoothing_alpha)
+        print(f"Action smoothing: exponential alpha={action_smoothing_alpha}")
+    elif action_rate_limit > 0:
+        # Fall back to hard rate limiting (legacy)
+        env = ActionRateLimiter(env, max_rate=action_rate_limit)
+        print(f"Action smoothing: rate limit={action_rate_limit} per timestep")
+
+    # 4. Add previous action to observations (helps agent learn incremental control)
+    include_prev_action = getattr(config.physics, "include_previous_action", False)
+    if include_prev_action:
+        env = PreviousActionWrapper(env)
+        print("Observation space extended with previous action")
+
+    # 5. Custom reward function
     reward_dict = {
         "altitude_reward_scale": config.reward.altitude_reward_scale,
         "spin_penalty_scale": config.reward.spin_penalty_scale,
@@ -504,13 +679,19 @@ def create_environment(
             config.reward, "settling_spin_threshold", 5.0
         ),
         "settling_time_limit": getattr(config.reward, "settling_time_limit", 0.5),
+        "settling_deadline_penalty": getattr(
+            config.reward, "settling_deadline_penalty", -50.0
+        ),
+        "early_phase_spin_multiplier": getattr(
+            config.reward, "early_phase_spin_multiplier", 2.0
+        ),
         "success_bonus": config.reward.success_bonus,
         "crash_penalty": config.reward.crash_penalty,
         "success_altitude": config.environment.max_altitude,
     }
     env = ImprovedRewardWrapper(env, reward_dict)
 
-    # 3. Monitor wrapper (for logging)
+    # 6. Monitor wrapper (for logging)
     env = Monitor(env)
 
     return env

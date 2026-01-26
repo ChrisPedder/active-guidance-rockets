@@ -159,6 +159,11 @@ class SpinStabilizedCameraRocket(gym.Env):
         self.max_altitude_reached = 0.0
         self.integrated_roll_error = 0.0
 
+        # Spin rate tracking for metrics
+        self.max_spin_rate = abs(self.roll_rate)  # Track max spin rate
+        self.spin_rate_sum = 0.0  # For computing mean
+        self.spin_rate_count = 0
+
         return self._get_observation(), self._get_info()
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
@@ -208,6 +213,12 @@ class SpinStabilizedCameraRocket(gym.Env):
         self.total_rotation += abs(self.roll_rate) * dt
         self.max_altitude_reached = max(self.max_altitude_reached, self.altitude)
         self.integrated_roll_error += abs(self.roll_rate) * dt
+
+        # Spin rate metrics
+        abs_spin = abs(self.roll_rate)
+        self.max_spin_rate = max(self.max_spin_rate, abs_spin)
+        self.spin_rate_sum += abs_spin
+        self.spin_rate_count += 1
 
         # Camera shake
         camera_shake = self._calculate_camera_shake()
@@ -410,10 +421,19 @@ class SpinStabilizedCameraRocket(gym.Env):
         else:
             h_quality = "Poor - Severe blur"
 
+        # Compute mean spin rate
+        mean_spin_rate = (
+            self.spin_rate_sum / self.spin_rate_count
+            if self.spin_rate_count > 0
+            else abs(self.roll_rate)
+        )
+
         return {
             "altitude_m": self.altitude,
             "vertical_velocity_ms": self.vertical_velocity,
             "roll_rate_deg_s": np.rad2deg(self.roll_rate),
+            "mean_spin_rate_deg_s": np.rad2deg(mean_spin_rate),
+            "max_spin_rate_deg_s": np.rad2deg(self.max_spin_rate),
             "roll_total_rotations": self.total_rotation / (2 * np.pi),
             "tab_deflection_deg": np.rad2deg(self.tab_deflection),
             "time_s": self.time,

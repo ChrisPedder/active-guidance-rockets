@@ -87,7 +87,7 @@ class NormalizedActionWrapper(gym.ActionWrapper):
 
 
 class ActionRateLimiter(gym.ActionWrapper):
-    """Limits how fast actions can change between timesteps."""
+    """Limits how fast actions can change between timesteps (legacy)."""
 
     def __init__(self, env, max_rate: float = 0.1):
         super().__init__(env)
@@ -106,6 +106,75 @@ class ActionRateLimiter(gym.ActionWrapper):
         limited_action = self.prev_action + delta
         self.prev_action = limited_action.copy()
         return limited_action
+
+
+class ExponentialSmoothingWrapper(gym.ActionWrapper):
+    """Applies exponential smoothing to actions for realistic actuator dynamics."""
+
+    def __init__(self, env, alpha: float = 0.1):
+        super().__init__(env)
+        self.alpha = alpha
+        self.smoothed_action = None
+
+    def reset(self, **kwargs):
+        self.smoothed_action = None
+        return self.env.reset(**kwargs)
+
+    def action(self, action):
+        if self.smoothed_action is None:
+            self.smoothed_action = np.zeros_like(action)
+        self.smoothed_action = (
+            self.alpha * action + (1 - self.alpha) * self.smoothed_action
+        )
+        return self.smoothed_action.copy()
+
+
+class PreviousActionWrapper(gym.ObservationWrapper):
+    """Adds previous APPLIED action to observation space for incremental control learning."""
+
+    def __init__(self, env):
+        super().__init__(env)
+        self.prev_applied_action = None
+        obs_space = env.observation_space
+        action_space = env.action_space
+        new_low = np.concatenate([obs_space.low, action_space.low])
+        new_high = np.concatenate([obs_space.high, action_space.high])
+        self.observation_space = spaces.Box(
+            low=new_low.astype(np.float32),
+            high=new_high.astype(np.float32),
+            dtype=np.float32,
+        )
+        self._action_dim = action_space.shape[0]
+
+    def reset(self, **kwargs):
+        self.prev_applied_action = np.zeros(self._action_dim, dtype=np.float32)
+        obs, info = self.env.reset(**kwargs)
+        return self.observation(obs), info
+
+    def observation(self, observation):
+        if self.prev_applied_action is None:
+            self.prev_applied_action = np.zeros(self._action_dim, dtype=np.float32)
+        return np.concatenate([observation, self.prev_applied_action]).astype(
+            np.float32
+        )
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        # Get the actual applied action (smoothed if smoothing wrapper exists)
+        applied_action = self._get_applied_action(action)
+        self.prev_applied_action = np.array(applied_action, dtype=np.float32)
+        return self.observation(obs), reward, terminated, truncated, info
+
+    def _get_applied_action(self, commanded_action):
+        """Get the actual applied action, checking for smoothing wrappers."""
+        env = self.env
+        while hasattr(env, "env"):
+            if isinstance(env, ExponentialSmoothingWrapper):
+                return env.smoothed_action
+            if isinstance(env, ActionRateLimiter):
+                return env.prev_action
+            env = env.env
+        return commanded_action
 
 
 class SpinAgentEvaluator:
@@ -208,10 +277,23 @@ class SpinAgentEvaluator:
 
         env = NormalizedActionWrapper(env)
 
-        # Apply action rate limiter if configured
+        # Apply action smoothing (exponential or rate limiting)
+        action_smoothing_alpha = getattr(
+            self.config.physics, "action_smoothing_alpha", None
+        )
         action_rate_limit = getattr(self.config.physics, "action_rate_limit", 0.1)
-        if action_rate_limit > 0:
+
+        if action_smoothing_alpha is not None and action_smoothing_alpha > 0:
+            env = ExponentialSmoothingWrapper(env, alpha=action_smoothing_alpha)
+        elif action_rate_limit > 0:
             env = ActionRateLimiter(env, max_rate=action_rate_limit)
+
+        # Add previous action to observations if configured
+        include_prev_action = getattr(
+            self.config.physics, "include_previous_action", False
+        )
+        if include_prev_action:
+            env = PreviousActionWrapper(env)
 
         return env
 

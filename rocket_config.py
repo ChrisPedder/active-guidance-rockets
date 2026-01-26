@@ -56,6 +56,15 @@ class RocketPhysicsConfig:
     max_roll_rate: float = 720.0  # deg/s - termination threshold
     max_episode_time: float = 15.0  # seconds - max episode duration
 
+    # === Control Smoothing ===
+    # Action rate limit (legacy): max change per timestep in normalized [-1,1] space
+    action_rate_limit: float = 0.0  # 0 = disabled, use action_smoothing_alpha instead
+    # Exponential smoothing alpha: action = alpha*cmd + (1-alpha)*prev
+    # Lower = smoother. 0.1 = ~10 steps to 63% of target
+    action_smoothing_alpha: Optional[float] = None  # None = use rate limit instead
+    # Include previous action in observation space for incremental control learning
+    include_previous_action: bool = False
+
     # === Legacy fields (for backward compatibility with old configs) ===
     # These are populated when loading old-style configs that specify
     # rocket geometry directly instead of using airframe_file
@@ -243,10 +252,14 @@ class RewardConfig:
     )  # Penalty for control sign changes (anti-bang-bang)
     saturation_penalty: float = -0.1  # Penalty for hitting control limits
 
-    # Early settling rewards
+    # Early settling rewards/penalties
     early_settling_bonus: float = 50.0  # Bonus for quick stabilization
     settling_spin_threshold: float = 5.0  # Spin rate to consider "settled" (deg/s)
     settling_time_limit: float = 0.5  # Time limit for early settling bonus (s)
+    settling_deadline_penalty: float = -50.0  # One-time penalty for missing deadline
+    early_phase_spin_multiplier: float = (
+        2.0  # Spin penalty multiplier during settling window
+    )
 
     # Terminal rewards
     success_bonus: float = 100.0  # Bonus for reaching target altitude
@@ -458,6 +471,10 @@ class RocketTrainingConfig:
             "initial_spin_std",
             "max_roll_rate",
             "max_episode_time",
+            # Control smoothing fields
+            "action_rate_limit",
+            "action_smoothing_alpha",
+            "include_previous_action",
         }
 
         # Legacy fields that were in old configs (now in airframe)
