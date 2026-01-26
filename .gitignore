@@ -13,7 +13,7 @@ models/
 motors/
 experiments/
 sweeps/
-visualization_results/
+results/
 
 # Claude code
 .claude/
