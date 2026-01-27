@@ -159,6 +159,17 @@ class ImprovedRewardWrapper(gym.Wrapper):
             if abs(a) > saturation_threshold:
                 reward += rc.get("saturation_penalty", -0.1)
 
+        # 7b. Elastic net penalty on actions (L1 + L2 regularization)
+        # L1: Encourages sparsity (zero actions when possible)
+        # L2: Penalizes large actions quadratically
+        l1_penalty = rc.get("action_l1_penalty", 0.0)
+        l2_penalty = rc.get("action_l2_penalty", 0.0)
+        if l1_penalty != 0.0 or l2_penalty != 0.0:
+            action_l1 = np.sum(np.abs(action))  # Sum of |a_i|
+            action_l2 = np.sum(action**2)  # Sum of a_i^2
+            elastic_penalty = -(l1_penalty * action_l1 + l2_penalty * action_l2)
+            reward += elastic_penalty
+
         # 8. Early settling bonus/penalty (reward quick stabilization, punish slow settling)
         time_s = info.get("time_s", self.step_count * 0.01)
         settling_threshold = rc.get("settling_spin_threshold", 5.0)
@@ -384,6 +395,57 @@ class NormalizedActionWrapper(gym.ActionWrapper):
             self.original_high - self.original_low
         )
         return scaled
+
+
+class DeltaActionWrapper(gym.ActionWrapper):
+    """
+    Wrapper that converts action space to incremental (delta) actions.
+
+    Instead of commanding absolute positions, the agent commands changes:
+        position_t = clip(position_{t-1} + delta * max_delta, -1, 1)
+
+    This naturally limits the rate of change and encourages smoother control.
+    The agent can still reach any position, but must do so gradually.
+
+    Benefits:
+    - Physical constraint on rate of change
+    - Encourages smoother trajectories
+    - Agent learns to "nudge" rather than "jump"
+    """
+
+    def __init__(self, env: gym.Env, max_delta: float = 0.1):
+        """
+        Args:
+            env: Environment to wrap
+            max_delta: Maximum change per timestep in normalized [-1,1] space.
+                       0.1 means it takes 10 steps to go from -1 to 0.
+        """
+        super().__init__(env)
+        self.max_delta = max_delta
+        self.current_position = None
+
+        # Action space remains [-1, 1] but now represents delta commands
+        # The agent outputs desired change direction and magnitude
+
+    def reset(self, **kwargs):
+        self.current_position = None
+        return self.env.reset(**kwargs)
+
+    def action(self, delta_action):
+        """Convert delta action to absolute position"""
+        if self.current_position is None:
+            # Start at neutral position
+            self.current_position = np.zeros_like(delta_action)
+
+        # Scale delta by max_delta and add to current position
+        # delta_action is in [-1, 1], so actual delta is [-max_delta, max_delta]
+        actual_delta = delta_action * self.max_delta
+        self.current_position = self.current_position + actual_delta
+
+        # Clip to valid range
+        self.current_position = np.clip(self.current_position, -1.0, 1.0)
+
+        return self.current_position.copy()
 
 
 class TrainingMetricsCallback(BaseCallback):
@@ -642,6 +704,13 @@ def create_environment(
     # 2. Normalize actions to [-1, 1]
     env = NormalizedActionWrapper(env)
 
+    # 2b. Delta actions (agent commands incremental changes)
+    use_delta_actions = getattr(config.physics, "use_delta_actions", False)
+    max_delta_per_step = getattr(config.physics, "max_delta_per_step", 0.1)
+    if use_delta_actions:
+        env = DeltaActionWrapper(env, max_delta=max_delta_per_step)
+        print(f"Delta actions enabled: max_delta={max_delta_per_step} per step")
+
     # 3. Action smoothing (prevents bang-bang oscillation)
     # Check for new exponential smoothing parameter first, fall back to rate limiter
     action_smoothing_alpha = getattr(config.physics, "action_smoothing_alpha", None)
@@ -686,6 +755,8 @@ def create_environment(
         "early_phase_spin_multiplier": getattr(
             config.reward, "early_phase_spin_multiplier", 2.0
         ),
+        "action_l1_penalty": getattr(config.reward, "action_l1_penalty", 0.0),
+        "action_l2_penalty": getattr(config.reward, "action_l2_penalty", 0.0),
         "success_bonus": config.reward.success_bonus,
         "crash_penalty": config.reward.crash_penalty,
         "success_altitude": config.environment.max_altitude,

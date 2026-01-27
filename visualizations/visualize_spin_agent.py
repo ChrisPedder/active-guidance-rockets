@@ -129,6 +129,32 @@ class ExponentialSmoothingWrapper(gym.ActionWrapper):
         return self.smoothed_action.copy()
 
 
+class DeltaActionWrapper(gym.ActionWrapper):
+    """
+    Wrapper that converts action space to incremental (delta) actions.
+
+    Instead of commanding absolute positions, the agent commands changes:
+        position_t = clip(position_{t-1} + delta * max_delta, -1, 1)
+    """
+
+    def __init__(self, env, max_delta: float = 0.1):
+        super().__init__(env)
+        self.max_delta = max_delta
+        self.current_position = None
+
+    def reset(self, **kwargs):
+        self.current_position = None
+        return self.env.reset(**kwargs)
+
+    def action(self, delta_action):
+        if self.current_position is None:
+            self.current_position = np.zeros_like(delta_action)
+        actual_delta = delta_action * self.max_delta
+        self.current_position = self.current_position + actual_delta
+        self.current_position = np.clip(self.current_position, -1.0, 1.0)
+        return self.current_position.copy()
+
+
 class PreviousActionWrapper(gym.ObservationWrapper):
     """Adds previous APPLIED action to observation space for incremental control learning."""
 
@@ -171,6 +197,8 @@ class PreviousActionWrapper(gym.ObservationWrapper):
         while hasattr(env, "env"):
             if isinstance(env, ExponentialSmoothingWrapper):
                 return env.smoothed_action
+            if isinstance(env, DeltaActionWrapper):
+                return env.current_position
             if isinstance(env, ActionRateLimiter):
                 return env.prev_action
             env = env.env
@@ -276,6 +304,12 @@ class SpinAgentEvaluator:
             )
 
         env = NormalizedActionWrapper(env)
+
+        # Apply delta actions if configured
+        use_delta_actions = getattr(self.config.physics, "use_delta_actions", False)
+        max_delta_per_step = getattr(self.config.physics, "max_delta_per_step", 0.1)
+        if use_delta_actions:
+            env = DeltaActionWrapper(env, max_delta=max_delta_per_step)
 
         # Apply action smoothing (exponential or rate limiting)
         action_smoothing_alpha = getattr(

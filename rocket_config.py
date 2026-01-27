@@ -64,6 +64,10 @@ class RocketPhysicsConfig:
     action_smoothing_alpha: Optional[float] = None  # None = use rate limit instead
     # Include previous action in observation space for incremental control learning
     include_previous_action: bool = False
+    # Delta actions: agent commands incremental changes instead of absolute positions
+    use_delta_actions: bool = False
+    # Max delta per timestep (in normalized [-1,1] space). Limits rate of change.
+    max_delta_per_step: float = 0.1  # 0.1 = takes 10 steps to go from -1 to 0
 
     # === Legacy fields (for backward compatibility with old configs) ===
     # These are populated when loading old-style configs that specify
@@ -251,6 +255,13 @@ class RewardConfig:
         -0.5
     )  # Penalty for control sign changes (anti-bang-bang)
     saturation_penalty: float = -0.1  # Penalty for hitting control limits
+
+    # Elastic net penalty: L1 + L2 regularization on actions
+    # L1 (action_l1_penalty): Encourages sparsity - pushes small actions to zero
+    # L2 (action_l2_penalty): Penalizes large actions quadratically
+    # Together they encourage "do nothing or do something meaningful"
+    action_l1_penalty: float = 0.0  # L1 penalty weight (0 = disabled)
+    action_l2_penalty: float = 0.0  # L2 penalty weight (0 = disabled)
 
     # Early settling rewards/penalties
     early_settling_bonus: float = 50.0  # Bonus for quick stabilization
@@ -475,6 +486,9 @@ class RocketTrainingConfig:
             "action_rate_limit",
             "action_smoothing_alpha",
             "include_previous_action",
+            # Delta action fields
+            "use_delta_actions",
+            "max_delta_per_step",
         }
 
         # Legacy fields that were in old configs (now in airframe)
