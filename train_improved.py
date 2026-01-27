@@ -994,7 +994,7 @@ def train(
         f"  uv run python visualizations/visualize_spin_agent.py {save_dir}/best_model.zip --config {save_dir}/config.yaml"
     )
     print(f"\nTo view tensorboard:")
-    print(f"  tensorboard --logdir {log_dir}")
+    print(f" uv run tensorboard --logdir {log_dir}")
     print(f"{'='*70}\n")
 
     # Cleanup
