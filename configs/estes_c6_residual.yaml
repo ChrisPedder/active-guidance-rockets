@@ -42,8 +42,9 @@ physics:
   # === RESIDUAL PID SETTINGS ===
   # RL learns corrections on top of PID
   use_residual_pid: true
-  # Maximum RL correction: 0.3 = RL can adjust PID output by ±30%
-  max_residual: 0.3
+  # Maximum RL correction: 0.15 = RL can adjust PID output by ±15%
+  # Tighter bound reduces wobble while still allowing helpful corrections
+  max_residual: 0.15
   # PID gains (tuned for this rocket)
   pid_Kp: 0.02   # Proportional gain
   pid_Ki: 0.005  # Integral gain
@@ -156,8 +157,8 @@ ppo:
   - 128
   - 128
   activation: tanh
-  # Shorter training - should converge faster with PID baseline
-  total_timesteps: 500000
+  # Training timesteps (early stopping will halt when converged)
+  total_timesteps: 2000000
   n_envs: 8
   device: auto
 curriculum:
