@@ -1,17 +1,18 @@
-# estes_c6_delta.yaml
+# estes_c6_residual.yaml
 #
-# Config optimized for PID-LIKE smooth control using:
-#   - Delta actions: agent commands incremental changes, not absolute positions
-#   - Elastic net penalty (L1 + L2): encourages zero actions OR meaningful actions
-#   - Exponential smoothing on top for extra smoothness
+# RESIDUAL RL: RL agent learns small corrections on top of PID controller
 #
-# The delta action approach physically constrains rate of change:
-#   position_t = clip(position_{t-1} + delta * max_delta, -1, 1)
+# Key insight: PID already produces smooth control. Instead of fighting
+# RL's tendency toward bang-bang, we let PID handle the base control
+# and RL learns small adjustments for edge cases.
 #
-# Elastic net regularization (L1 + L2):
-#   - L1 encourages sparsity (pushes small actions to zero)
-#   - L2 penalizes large actions quadratically
-#   Combined: "do nothing or do something meaningful"
+# final_action = PID_output + clip(RL_output * max_residual, -max_residual, max_residual)
+#
+# Benefits:
+#   - Inherits smooth behavior from PID baseline
+#   - RL only learns small corrections (easier problem)
+#   - Robust: even if RL fails, PID provides reasonable control
+#   - Faster training: starts with good baseline behavior
 #
 # Motor: C-class, 10.0 N·s total impulse
 #        5.4N average thrust, 1.85s burn time
@@ -38,17 +39,20 @@ physics:
   damping_scale: 1.5
   initial_spin_std: 9.0
   max_roll_rate: 450.0
-  # === DELTA ACTION SETTINGS ===
-  # Agent commands incremental changes, not absolute positions
-  use_delta_actions: true
-  # Max change per timestep: 0.05 means 20 steps to go from -1 to 0
-  max_delta_per_step: 0.05
-  # Light exponential smoothing on top (optional, for extra smoothness)
-  action_smoothing_alpha: 0.15
-  # Disable hard rate limiting
+  # === RESIDUAL PID SETTINGS ===
+  # RL learns corrections on top of PID
+  use_residual_pid: true
+  # Maximum RL correction: 0.3 = RL can adjust PID output by ±30%
+  max_residual: 0.3
+  # PID gains (tuned for this rocket)
+  pid_Kp: 0.02   # Proportional gain
+  pid_Ki: 0.005  # Integral gain
+  pid_Kd: 0.05   # Derivative gain
+  # Disable other action wrappers (residual PID handles everything)
+  use_delta_actions: false
+  action_smoothing_alpha: 0.0
   action_rate_limit: 0.0
-  # Include previous action in observations
-  include_previous_action: true
+  include_previous_action: false
 motor:
   name: estes_c6
   manufacturer: Estes
@@ -100,39 +104,37 @@ environment:
   normalize_observations: true
   obs_clip_value: 10.0
 reward:
+  # Simpler reward: focus on spin reduction, let PID handle smoothness
   altitude_reward_scale: 0.01
-  # Moderate spin penalty - delta actions handle rate limiting
-  spin_penalty_scale: -0.005
-  low_spin_bonus: 2.0
+  # Stronger spin penalty - we want RL to help PID reduce spin faster
+  spin_penalty_scale: -0.01
+  low_spin_bonus: 3.0
   low_spin_threshold: 5.0
-  # === ZERO-SPIN INCENTIVE ===
-  # Extra bonus for getting spin very close to zero (quadratic scaling)
+  # Zero-spin bonus for getting very close to zero
   zero_spin_bonus: 5.0
-  zero_spin_threshold: 2.0  # deg/s - bonus kicks in below this
-  # Reduced control effort penalty (elastic net handles this)
-  control_effort_penalty: -0.01
-  # Moderate smoothness penalty (delta actions are inherently smooth)
-  control_smoothness_penalty: -0.2
-  # Reduced oscillation penalties (delta actions prevent rapid changes)
+  zero_spin_threshold: 2.0
+  # Light control penalties (PID is already smooth)
+  control_effort_penalty: -0.005
+  control_smoothness_penalty: -0.05
   spin_oscillation_penalty: -0.01
-  sign_reversal_penalty: -1.0
-  saturation_penalty: -1.0
-  # === ELASTIC NET PENALTY (L1 + L2) ===
-  # L1: Encourages zero actions (sparsity)
-  action_l1_penalty: 0.1
-  # L2: Penalizes large actions quadratically
-  action_l2_penalty: 0.2
-  # === SETTLING INCENTIVES ===
+  # Reduced sign reversal penalty (PID handles this)
+  sign_reversal_penalty: -0.2
+  saturation_penalty: -0.5
+  # No elastic net needed (PID + small residual is inherently smooth)
+  action_l1_penalty: 0.0
+  action_l2_penalty: 0.0
+  # Settling incentives
   early_settling_bonus: 100.0
-  settling_spin_threshold: 5.0
+  settling_spin_threshold: 3.0  # Tighter threshold with PID help
   settling_time_limit: 0.5
-  settling_deadline_penalty: -100.0
+  settling_deadline_penalty: -50.0
   early_phase_spin_multiplier: 2.0
   success_bonus: 100.0
   crash_penalty: -50.0
   use_potential_shaping: false
   gamma: 0.99
 ppo:
+  # Higher learning rate - simpler problem
   learning_rate: 0.0003
   n_steps: 2048
   batch_size: 64
@@ -141,19 +143,21 @@ ppo:
   gae_lambda: 0.95
   clip_range: 0.2
   clip_range_vf: null
-  # Higher entropy prevents premature convergence and policy collapse
+  # Moderate entropy
   ent_coef: 0.01
   vf_coef: 0.5
   max_grad_norm: 0.5
   normalize_advantage: true
+  # Smaller network - simpler problem (just learning residuals)
   policy_net_arch:
-  - 256
-  - 256
+  - 128
+  - 128
   value_net_arch:
-  - 256
-  - 256
+  - 128
+  - 128
   activation: tanh
-  total_timesteps: 2000000
+  # Shorter training - should converge faster with PID baseline
+  total_timesteps: 500000
   n_envs: 8
   device: auto
 curriculum:
@@ -170,10 +174,9 @@ logging:
   eval_freq: 5000
   n_eval_episodes: 20
   log_episode_freq: 10
-  experiment_name: rocket_estes_c6_delta
+  experiment_name: rocket_estes_c6_residual
   tags:
   - estes_c6
   - spin_control
-  - delta_actions
-  - elastic_net
-  - smooth
+  - residual_pid
+  - hybrid_control

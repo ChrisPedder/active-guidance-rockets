@@ -35,6 +35,7 @@ from gymnasium import spaces
 from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
 from rocket_config import load_config
+from pid_controller import PIDController, PIDConfig
 
 
 @dataclass
@@ -156,6 +157,58 @@ class DeltaActionWrapper(gym.ActionWrapper):
         self.current_position = self.current_position + actual_delta
         self.current_position = np.clip(self.current_position, -1.0, 1.0)
         return self.current_position.copy()
+
+
+class ResidualPIDWrapper(gym.Wrapper):
+    """Combines PID controller with RL residual corrections for visualization."""
+
+    def __init__(self, env, pid_config=None, max_residual=0.3, dt=0.01):
+        super().__init__(env)
+        self.pid = PIDController(pid_config or PIDConfig())
+        self.max_residual = max_residual
+        self.dt = dt
+        self._last_info = {}
+        self._last_obs = None
+        self.last_pid_action = 0.0
+        self.last_residual = 0.0
+        self.last_combined_action = 0.0
+
+    def reset(self, **kwargs):
+        self.pid.reset()
+        self._last_info = {}
+        obs, info = self.env.reset(**kwargs)
+        self._last_obs = obs
+        self._last_info = info
+        return obs, info
+
+    def step(self, rl_action):
+        pid_action = self.pid.step(self._last_obs, self._last_info, self.dt)
+        residual = np.clip(
+            rl_action * self.max_residual, -self.max_residual, self.max_residual
+        )
+        combined_action = np.clip(pid_action + residual, -1.0, 1.0)
+
+        self.last_pid_action = (
+            float(pid_action[0])
+            if hasattr(pid_action, "__len__")
+            else float(pid_action)
+        )
+        self.last_residual = (
+            float(residual[0]) if hasattr(residual, "__len__") else float(residual)
+        )
+        self.last_combined_action = (
+            float(combined_action[0])
+            if hasattr(combined_action, "__len__")
+            else float(combined_action)
+        )
+
+        obs, reward, terminated, truncated, info = self.env.step(combined_action)
+        self._last_obs = obs
+        self._last_info = info
+        info["pid_action"] = self.last_pid_action
+        info["rl_residual"] = self.last_residual
+        info["combined_action"] = self.last_combined_action
+        return obs, reward, terminated, truncated, info
 
 
 class PreviousActionWrapper(gym.ObservationWrapper):
@@ -308,10 +361,24 @@ class SpinAgentEvaluator:
 
         env = NormalizedActionWrapper(env)
 
-        # Apply delta actions if configured
+        # Apply residual PID if configured (RL + PID hybrid)
+        use_residual_pid = getattr(self.config.physics, "use_residual_pid", False)
+        if use_residual_pid:
+            max_residual = getattr(self.config.physics, "max_residual", 0.3)
+            pid_config = PIDConfig(
+                Cprop=getattr(self.config.physics, "pid_Kp", 0.02),
+                Cint=getattr(self.config.physics, "pid_Ki", 0.005),
+                Cderiv=getattr(self.config.physics, "pid_Kd", 0.05),
+            )
+            dt = getattr(self.config.environment, "dt", 0.01)
+            env = ResidualPIDWrapper(
+                env, pid_config=pid_config, max_residual=max_residual, dt=dt
+            )
+
+        # Apply delta actions if configured (alternative to residual PID)
         use_delta_actions = getattr(self.config.physics, "use_delta_actions", False)
         max_delta_per_step = getattr(self.config.physics, "max_delta_per_step", 0.1)
-        if use_delta_actions:
+        if use_delta_actions and not use_residual_pid:
             env = DeltaActionWrapper(env, max_delta=max_delta_per_step)
 
         # Apply action smoothing (exponential or rate limiting)

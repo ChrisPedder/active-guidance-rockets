@@ -69,6 +69,16 @@ class RocketPhysicsConfig:
     # Max delta per timestep (in normalized [-1,1] space). Limits rate of change.
     max_delta_per_step: float = 0.1  # 0.1 = takes 10 steps to go from -1 to 0
 
+    # === Residual RL (RL + PID hybrid) ===
+    # RL agent learns small corrections on top of PID controller
+    use_residual_pid: bool = False
+    # Maximum RL correction magnitude (e.g., 0.3 = ±30% of full range)
+    max_residual: float = 0.3
+    # PID gains for base controller
+    pid_Kp: float = 0.02  # Proportional gain
+    pid_Ki: float = 0.005  # Integral gain
+    pid_Kd: float = 0.05  # Derivative gain
+
     # === Legacy fields (for backward compatibility with old configs) ===
     # These are populated when loading old-style configs that specify
     # rocket geometry directly instead of using airframe_file
@@ -492,6 +502,12 @@ class RocketTrainingConfig:
             # Delta action fields
             "use_delta_actions",
             "max_delta_per_step",
+            # Residual RL fields
+            "use_residual_pid",
+            "max_residual",
+            "pid_Kp",
+            "pid_Ki",
+            "pid_Kd",
         }
 
         # Legacy fields that were in old configs (now in airframe)

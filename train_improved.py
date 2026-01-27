@@ -57,6 +57,7 @@ from spin_stabilized_control_env import RocketConfig as CompositeRocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
 from motor_loader import Motor
 from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+from pid_controller import PIDController, PIDConfig
 
 
 class ImprovedRewardWrapper(gym.Wrapper):
@@ -457,6 +458,103 @@ class DeltaActionWrapper(gym.ActionWrapper):
         return self.current_position.copy()
 
 
+class ResidualPIDWrapper(gym.Wrapper):
+    """
+    Wrapper that combines a PID controller with RL residual corrections.
+
+    The RL agent learns small corrections on top of PID output:
+        final_action = PID_output + clip(RL_output * max_residual, -max_residual, max_residual)
+
+    Benefits:
+    - Inherits smooth behavior from PID baseline
+    - RL only needs to learn small corrections
+    - Robust: even if RL fails, PID provides reasonable control
+    - Faster training: agent starts with good baseline behavior
+    """
+
+    def __init__(
+        self,
+        env: gym.Env,
+        pid_config: PIDConfig = None,
+        max_residual: float = 0.3,
+        dt: float = 0.01,
+    ):
+        """
+        Args:
+            env: Environment to wrap
+            pid_config: PID controller configuration
+            max_residual: Maximum RL correction magnitude (e.g., 0.3 = ±30% adjustment)
+            dt: Timestep for PID integration
+        """
+        super().__init__(env)
+        self.pid = PIDController(pid_config or PIDConfig())
+        self.max_residual = max_residual
+        self.dt = dt
+        self._last_info = {}
+        self._last_obs = None
+
+        # Track contributions for visualization/debugging
+        self.last_pid_action = 0.0
+        self.last_residual = 0.0
+        self.last_combined_action = 0.0
+
+    def reset(self, **kwargs):
+        self.pid.reset()
+        self._last_info = {}
+        obs, info = self.env.reset(**kwargs)
+        self._last_obs = obs
+        self._last_info = info
+        return obs, info
+
+    def step(self, rl_action):
+        """
+        Combine PID output with RL residual and step the environment.
+
+        Args:
+            rl_action: RL agent's output in [-1, 1], interpreted as residual correction
+        """
+        # Get PID action based on current state
+        pid_action = self.pid.step(self._last_obs, self._last_info, self.dt)
+
+        # Scale RL action to residual range
+        residual = np.clip(
+            rl_action * self.max_residual, -self.max_residual, self.max_residual
+        )
+
+        # Combine PID + residual
+        combined_action = pid_action + residual
+
+        # Clip to valid action range
+        combined_action = np.clip(combined_action, -1.0, 1.0)
+
+        # Store for debugging/visualization
+        self.last_pid_action = (
+            float(pid_action[0]) if len(pid_action.shape) > 0 else float(pid_action)
+        )
+        self.last_residual = (
+            float(residual[0]) if len(residual.shape) > 0 else float(residual)
+        )
+        self.last_combined_action = (
+            float(combined_action[0])
+            if len(combined_action.shape) > 0
+            else float(combined_action)
+        )
+
+        # Step environment with combined action
+        obs, reward, terminated, truncated, info = self.env.step(combined_action)
+
+        # Store for next PID computation
+        self._last_obs = obs
+        self._last_info = info
+
+        # Add PID/residual info for logging
+        info["pid_action"] = self.last_pid_action
+        info["rl_residual"] = self.last_residual
+        info["combined_action"] = self.last_combined_action
+
+        return obs, reward, terminated, truncated, info
+
+
 class TrainingMetricsCallback(BaseCallback):
     """
     Callback for tracking and logging training metrics.
@@ -713,10 +811,27 @@ def create_environment(
     # 2. Normalize actions to [-1, 1]
     env = NormalizedActionWrapper(env)
 
-    # 2b. Delta actions (agent commands incremental changes)
+    # 2b. Residual PID (RL learns corrections on top of PID) - RECOMMENDED
+    use_residual_pid = getattr(config.physics, "use_residual_pid", False)
+    if use_residual_pid:
+        max_residual = getattr(config.physics, "max_residual", 0.3)
+        pid_config = PIDConfig(
+            Cprop=getattr(config.physics, "pid_Kp", 0.02),
+            Cint=getattr(config.physics, "pid_Ki", 0.005),
+            Cderiv=getattr(config.physics, "pid_Kd", 0.05),
+        )
+        dt = getattr(config.environment, "dt", 0.01)
+        env = ResidualPIDWrapper(
+            env, pid_config=pid_config, max_residual=max_residual, dt=dt
+        )
+        print(
+            f"Residual PID enabled: max_residual={max_residual}, PID gains=({pid_config.Cprop}, {pid_config.Cint}, {pid_config.Cderiv})"
+        )
+
+    # 2c. Delta actions (agent commands incremental changes) - alternative to residual PID
     use_delta_actions = getattr(config.physics, "use_delta_actions", False)
     max_delta_per_step = getattr(config.physics, "max_delta_per_step", 0.1)
-    if use_delta_actions:
+    if use_delta_actions and not use_residual_pid:
         env = DeltaActionWrapper(env, max_delta=max_delta_per_step)
         print(f"Delta actions enabled: max_delta={max_delta_per_step} per step")
 
