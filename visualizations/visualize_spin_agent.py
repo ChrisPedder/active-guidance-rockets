@@ -52,7 +52,6 @@ class SpinEpisodeData:
     rewards: np.ndarray
     thrust: np.ndarray
     dynamic_pressure: np.ndarray
-    disturbance_torque: np.ndarray = None  # Atmospheric disturbance (Nm)
 
     # Summary metrics
     max_altitude: float
@@ -66,6 +65,9 @@ class SpinEpisodeData:
     reached_target_altitude: bool
     maintained_low_spin: bool
     success: bool
+
+    # Optional fields (must come after required fields)
+    disturbance_torque: np.ndarray = None  # Atmospheric disturbance (Nm)
 
 
 class NormalizedActionWrapper(gym.ActionWrapper):
