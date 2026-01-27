@@ -52,6 +52,7 @@ class SpinEpisodeData:
     rewards: np.ndarray
     thrust: np.ndarray
     dynamic_pressure: np.ndarray
+    disturbance_torque: np.ndarray = None  # Atmospheric disturbance (Nm)
 
     # Summary metrics
     max_altitude: float
@@ -351,6 +352,7 @@ class SpinAgentEvaluator:
         roll_rates, roll_angles = [], []
         actions, tab_deflections = [], []
         rewards, thrusts, dynamic_pressures = [], [], []
+        disturbance_torques = []  # Atmospheric disturbance
 
         obs = vec_env.reset()
         # Get info from underlying env
@@ -386,6 +388,9 @@ class SpinAgentEvaluator:
             alt = info.get("altitude_m", 0)
             rho = 1.225 * np.exp(-alt / 8000)
             dynamic_pressures.append(0.5 * rho * v**2)
+
+            # Track atmospheric disturbance
+            disturbance_torques.append(info.get("disturbance_torque_Nm", 0))
 
             # Take step
             obs, reward_arr, done_arr, infos = vec_env.step(action)
@@ -442,6 +447,7 @@ class SpinAgentEvaluator:
             rewards=np.array(rewards),
             thrust=np.array(thrusts),
             dynamic_pressure=np.array(dynamic_pressures),
+            disturbance_torque=np.array(disturbance_torques),
             max_altitude=max_altitude,
             final_spin_rate=final_spin,
             mean_spin_rate=mean_spin,
@@ -690,11 +696,26 @@ class SpinVisualizationPlotter:
             t, best.dynamic_pressure, "blue", linewidth=2, label="Dynamic Pressure"
         )
 
+        # Add disturbance torque if available
+        if best.disturbance_torque is not None and len(best.disturbance_torque) > 0:
+            # Scale disturbance for visibility (multiply by 1000 to show mN·m)
+            disturbance_scaled = np.array(best.disturbance_torque) * 1000
+            (l3,) = ax2.plot(
+                t[: len(disturbance_scaled)],
+                disturbance_scaled,
+                "red",
+                linewidth=1,
+                alpha=0.7,
+                label="Disturbance (mN·m)",
+            )
+            ax.legend(handles=[l1, l2, l3], loc="upper right")
+        else:
+            ax.legend(handles=[l1, l2], loc="upper right")
+
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Thrust (N)", color="orange")
-        ax2.set_ylabel("Dynamic Pressure (Pa)", color="blue")
+        ax2.set_ylabel("Dynamic Pressure (Pa) / Disturbance (mN·m)", color="blue")
         ax.set_title("Propulsion & Aerodynamics")
-        ax.legend(handles=[l1, l2], loc="upper right")
         ax.grid(True, alpha=0.3)
 
         # 6. Cumulative reward

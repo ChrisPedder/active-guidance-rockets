@@ -126,6 +126,15 @@ class ImprovedRewardWrapper(gym.Wrapper):
             bonus_multiplier = 1.0 + 0.2 * (1.0 - spin_rate / threshold)
             reward += rc.get("low_spin_bonus", 1.0) * bonus_multiplier
 
+        # 3b. Zero-spin bonus (extra reward for getting very close to zero)
+        zero_threshold = rc.get("zero_spin_threshold", 1.0)
+        zero_bonus = rc.get("zero_spin_bonus", 0.0)
+        if zero_bonus > 0 and spin_rate < zero_threshold:
+            # Quadratic scaling: max bonus at 0, decreasing to 0 at threshold
+            # This creates strong gradient toward absolute zero
+            zero_factor = (1.0 - spin_rate / zero_threshold) ** 2
+            reward += zero_bonus * zero_factor
+
         # 4. Control effort penalty
         control_penalty = np.sum(np.abs(action)) * rc.get(
             "control_effort_penalty", -0.01
@@ -737,6 +746,8 @@ def create_environment(
         "spin_penalty_scale": config.reward.spin_penalty_scale,
         "low_spin_bonus": config.reward.low_spin_bonus,
         "low_spin_threshold": config.reward.low_spin_threshold,
+        "zero_spin_bonus": getattr(config.reward, "zero_spin_bonus", 0.0),
+        "zero_spin_threshold": getattr(config.reward, "zero_spin_threshold", 1.0),
         "control_effort_penalty": config.reward.control_effort_penalty,
         "control_smoothness_penalty": config.reward.control_smoothness_penalty,
         "spin_oscillation_penalty": getattr(

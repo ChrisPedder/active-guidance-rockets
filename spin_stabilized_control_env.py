@@ -164,6 +164,10 @@ class SpinStabilizedCameraRocket(gym.Env):
         self.spin_rate_sum = 0.0  # For computing mean
         self.spin_rate_count = 0
 
+        # Atmospheric disturbance tracking
+        self._last_disturbance_torque = 0.0
+        self._last_dynamic_pressure = 0.0
+
         return self._get_observation(), self._get_info()
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
@@ -276,6 +280,10 @@ class SpinStabilizedCameraRocket(gym.Env):
                 self.config.disturbance_scale * np.sqrt(dynamic_pressure) * size_factor
             )
             disturbance = np.random.normal(0, disturbance_std)
+
+        # Store for info dict
+        self._last_disturbance_torque = disturbance
+        self._last_dynamic_pressure = dynamic_pressure
 
         return control_torque + damping_torque + disturbance
 
@@ -428,6 +436,9 @@ class SpinStabilizedCameraRocket(gym.Env):
             else abs(self.roll_rate)
         )
 
+        # Air density at current altitude
+        air_density = 1.225 * np.exp(-self.altitude / 8000)
+
         return {
             "altitude_m": self.altitude,
             "vertical_velocity_ms": self.vertical_velocity,
@@ -446,6 +457,10 @@ class SpinStabilizedCameraRocket(gym.Env):
             "horizontal_camera_quality": h_quality,
             "downward_camera_quality": h_quality,
             "airframe": self.airframe.name,
+            # Atmospheric conditions
+            "dynamic_pressure_Pa": self._last_dynamic_pressure,
+            "disturbance_torque_Nm": self._last_disturbance_torque,
+            "air_density_kg_m3": air_density,
         }
 
     def render(self, mode="human"):

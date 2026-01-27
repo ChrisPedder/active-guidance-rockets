@@ -246,6 +246,9 @@ class RewardConfig:
     # Stability bonuses
     low_spin_bonus: float = 1.0  # Bonus when spin < threshold
     low_spin_threshold: float = 10.0  # deg/s
+    # Zero-spin bonus: extra reward for getting very close to zero
+    zero_spin_bonus: float = 0.0  # Bonus per step when spin < zero_spin_threshold
+    zero_spin_threshold: float = 1.0  # deg/s - threshold for zero-spin bonus
 
     # Control penalties
     control_effort_penalty: float = -0.01  # Penalty for large actions
