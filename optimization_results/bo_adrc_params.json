@@ -1,0 +1,74 @@
+{
+  "controller": "adrc",
+  "baseline_params": {
+    "omega_c": 15.0,
+    "omega_o": 50.0
+  },
+  "results": {
+    "0.0": {
+      "wind_level": 0.0,
+      "controller": "adrc",
+      "params": {
+        "omega_c": 6.310890415965769,
+        "omega_o": 60.649870724984055
+      },
+      "mean_spin": 3.330104252407169,
+      "std_spin": 0.32983613160516606,
+      "objective": 3.989776515617501,
+      "success_rate": 1.0,
+      "n_evaluations": 112
+    },
+    "1.0": {
+      "wind_level": 1.0,
+      "controller": "adrc",
+      "params": {
+        "omega_c": 22.39427771492072,
+        "omega_o": 47.65430534769944
+      },
+      "mean_spin": 10.943499993028919,
+      "std_spin": 4.306521727850972,
+      "objective": 19.556543448730864,
+      "success_rate": 1.0,
+      "n_evaluations": 112
+    },
+    "2.0": {
+      "wind_level": 2.0,
+      "controller": "adrc",
+      "params": {
+        "omega_c": 31.343308971806152,
+        "omega_o": 20.71765344789827
+      },
+      "mean_spin": 25.752925687963398,
+      "std_spin": 12.722709357347053,
+      "objective": 56.19834440265751,
+      "success_rate": 0.7,
+      "n_evaluations": 109
+    },
+    "3.0": {
+      "wind_level": 3.0,
+      "controller": "adrc",
+      "params": {
+        "omega_c": 25.485538689960297,
+        "omega_o": 30.690084853904693
+      },
+      "mean_spin": 22.757107983924904,
+      "std_spin": 7.954706059232321,
+      "objective": 38.66652010238955,
+      "success_rate": 0.8,
+      "n_evaluations": 83
+    },
+    "5.0": {
+      "wind_level": 5.0,
+      "controller": "adrc",
+      "params": {
+        "omega_c": 27.316708597978028,
+        "omega_o": 43.51462052947452
+      },
+      "mean_spin": 21.43778928617068,
+      "std_spin": 11.838917856580288,
+      "objective": 45.11562499933126,
+      "success_rate": 0.8,
+      "n_evaluations": 107
+    }
+  }
+}

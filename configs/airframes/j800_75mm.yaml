@@ -1,0 +1,60 @@
+name: J800 75mm Carbon Fibre
+description: 75mm carbon fibre HPR rocket for AeroTech J800T motor
+components:
+- type: NoseCone
+  name: Nose Cone
+  position: 0.0
+  length: 0.25
+  base_diameter: 0.075
+  shape: ogive
+  thickness: 0.002
+  material: Carbon Fibre
+
+- type: BodyTube
+  name: Upper Body
+  position: 0.25
+  length: 0.55
+  outer_diameter: 0.075
+  inner_diameter: 0.071
+  material: Carbon Fibre
+
+- type: MassObject
+  name: Avionics Bay
+  position: 0.35
+  mass: 0.25
+  length: 0.10
+  radius_of_gyration: 0.025
+
+- type: BodyTube
+  name: Lower Body
+  position: 0.80
+  length: 0.45
+  outer_diameter: 0.075
+  inner_diameter: 0.071
+  material: Carbon Fibre
+
+- type: MassObject
+  name: Recovery and Hardware
+  position: 0.55
+  mass: 0.80
+  length: 0.25
+  radius_of_gyration: 0.030
+
+- type: TrapezoidFinSet
+  name: Fins
+  position: 1.10
+  num_fins: 3
+  root_chord: 0.18
+  tip_chord: 0.08
+  span: 0.10
+  sweep_length: 0.06
+  thickness: 0.003
+  material: Carbon Fibre
+
+- type: MotorMount
+  name: Motor Mount
+  position: 1.05
+  length: 0.35
+  outer_diameter: 0.056
+  inner_diameter: 0.054
+  material: Carbon Fibre

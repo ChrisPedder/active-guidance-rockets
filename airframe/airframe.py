@@ -143,6 +143,7 @@ class RocketAirframe:
         tab_chord_fraction: float = 0.25,
         tab_span_fraction: float = 0.5,
         num_controlled_fins: int = 2,
+        cl_alpha: float = 2 * np.pi,
     ) -> float:
         """
         Get roll control torque per radian of tab deflection.
@@ -152,6 +153,7 @@ class RocketAirframe:
             tab_chord_fraction: Fraction of fin chord that is control tab
             tab_span_fraction: Fraction of fin span with control tab
             num_controlled_fins: Number of fins with active tabs
+            cl_alpha: Lift curve slope (rad^-1), default 2*pi
 
         Returns:
             Control effectiveness (N*m/rad)
@@ -166,13 +168,17 @@ class RocketAirframe:
             tab_chord_fraction,
             tab_span_fraction,
             num_controlled_fins,
+            cl_alpha=cl_alpha,
         )
 
-    def get_aerodynamic_damping_coeff(self) -> float:
+    def get_aerodynamic_damping_coeff(self, cl_alpha: float = 2 * np.pi) -> float:
         """
         Get roll damping coefficient.
 
         Damping torque = -C_damp * omega * q / V
+
+        Args:
+            cl_alpha: Lift curve slope (rad^-1), scales damping proportionally
 
         Returns:
             Damping coefficient (m^4)
@@ -181,7 +187,7 @@ class RocketAirframe:
         if fin_set is None:
             return 0.0
 
-        return fin_set.get_damping_coefficient(self.body_radius)
+        return fin_set.get_damping_coefficient(self.body_radius, cl_alpha=cl_alpha)
 
     def get_frontal_area(self) -> float:
         """Get frontal (cross-sectional) area for drag calculations"""

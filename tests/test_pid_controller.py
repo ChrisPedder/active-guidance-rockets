@@ -23,11 +23,11 @@ class TestPIDConfig:
     """Tests for PIDConfig dataclass."""
 
     def test_default_values(self):
-        """Test default PID gains."""
+        """Test default PID gains match optimized values."""
         config = PIDConfig()
-        assert config.Cprop == 0.01
-        assert config.Cint == 0.001
-        assert config.Cderiv == 0.1
+        assert config.Cprop == 0.005208
+        assert config.Cint == 0.000324
+        assert config.Cderiv == 0.016524
         assert config.max_roll_rate == 100.0
         assert config.max_deflection == 30.0
         assert config.launch_accel_threshold == 20.0
@@ -127,8 +127,8 @@ class TestPIDController:
         action = controller.step(obs, info)
 
         # Proportional control: 10 deg error * 0.1 gain = 1.0 deg
-        # Normalized: 1.0 / 30.0 = 0.033
-        assert action[0] > 0  # Positive action for positive error
+        # Normalized and negated (line 150): -1.0 / 30.0 = -0.033
+        assert action[0] < 0  # Negated: positive error -> negative action
         assert -1.0 <= action[0] <= 1.0
 
     def test_step_derivative_control(self):
@@ -148,8 +148,8 @@ class TestPIDController:
         action = controller.step(obs, info)
 
         # D term: 50 deg/s * 0.1 = 5.0 deg deflection
-        # Normalized: 5.0 / 30.0 = 0.167
-        assert action[0] > 0
+        # Normalized and negated: -5.0 / 30.0 = -0.167
+        assert action[0] < 0  # Negated: positive rate -> negative action
         assert -1.0 <= action[0] <= 1.0
 
     def test_step_integral_control(self):
@@ -193,7 +193,8 @@ class TestPIDController:
         action = controller.step(obs, info)
 
         # Error should be -10 degrees, not 350 degrees
-        assert action[0] < 0
+        # Negated output: negative error -> positive action
+        assert action[0] > 0
 
     def test_step_roll_rate_clamping(self):
         """Test roll rate clamping."""
@@ -211,8 +212,8 @@ class TestPIDController:
         action = controller.step(obs, info)
 
         # Should be clamped to 50 deg/s
-        # D term: 50 * 0.1 = 5.0 deg
-        expected = 5.0 / config.max_deflection
+        # D term: 50 * 0.1 = 5.0 deg, negated: -5.0 / 30.0 = -0.167
+        expected = -5.0 / config.max_deflection
         assert abs(action[0] - expected) < 0.01
 
     def test_step_output_clamping(self):

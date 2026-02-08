@@ -47,7 +47,7 @@ def legacy_physics_config():
         "fin_span": 0.04,
         "fin_root_chord": 0.05,
         "fin_tip_chord": 0.025,
-        "max_tab_deflection": 15.0,
+        "max_tab_deflection": 30.0,
         "disturbance_scale": 0.0001,
     }
 
@@ -91,7 +91,7 @@ components:
 
     return {
         "airframe_file": str(airframe_file),
-        "max_tab_deflection": 15.0,
+        "max_tab_deflection": 30.0,
         "disturbance_scale": 0.0001,
     }
 

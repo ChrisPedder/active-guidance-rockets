@@ -39,7 +39,69 @@ def generate_sweep_configs(
 
     sweeps = []
 
-    if sweep_type == "physics":
+    if sweep_type == "residual":
+        # Sweep residual penalty parameters for SAC passivity tuning
+        # These control when SAC should intervene vs let PID handle it
+        sweeps = [
+            {"name": "baseline", "description": "Default configuration"},
+            # Vary penalty strength
+            {
+                "name": "penalty_1x",
+                "reward.residual_penalty_scale": -1.0,
+                "description": "Weaker residual penalty (-1.0)",
+            },
+            {
+                "name": "penalty_4x",
+                "reward.residual_penalty_scale": -4.0,
+                "description": "4x stronger residual penalty (-4.0)",
+            },
+            {
+                "name": "penalty_8x",
+                "reward.residual_penalty_scale": -8.0,
+                "description": "8x stronger residual penalty (-8.0)",
+            },
+            # Vary wind thresholds
+            {
+                "name": "thresh_1.0",
+                "reward.residual_wind_threshold_low": 1.0,
+                "reward.residual_wind_threshold_high": 2.5,
+                "description": "Lower wind thresholds (1.0-2.5 m/s)",
+            },
+            {
+                "name": "thresh_2.0",
+                "reward.residual_wind_threshold_low": 2.0,
+                "reward.residual_wind_threshold_high": 3.5,
+                "description": "Higher wind thresholds (2.0-3.5 m/s)",
+            },
+            # Vary max_residual
+            {
+                "name": "maxres_0.05",
+                "physics.max_residual": 0.05,
+                "description": "5% max residual correction",
+            },
+            {
+                "name": "maxres_0.15",
+                "physics.max_residual": 0.15,
+                "description": "15% max residual correction",
+            },
+            # Combined configurations
+            {
+                "name": "aggressive_v1",
+                "reward.residual_penalty_scale": -4.0,
+                "reward.residual_wind_threshold_low": 2.0,
+                "physics.max_residual": 0.05,
+                "description": "Strong penalty + high thresh + small max_res",
+            },
+            {
+                "name": "balanced",
+                "reward.residual_penalty_scale": -2.0,
+                "reward.residual_wind_threshold_low": 2.0,
+                "physics.max_residual": 0.1,
+                "description": "Medium penalty + high thresh + medium max_res",
+            },
+        ]
+
+    elif sweep_type == "physics":
         # Sweep mass configurations to find optimal TWR
         motor_specs = MotorConfig.get_motor_specs(base_config.motor.name)
         avg_thrust = motor_specs["average_thrust"]
@@ -210,6 +272,8 @@ def run_sweep(
     dry_run: bool = False,
     parallel: int = 1,
     timesteps_override: Optional[int] = None,
+    algo: str = "ppo",
+    early_stopping: int = 0,
 ):
     """Run sweep experiments"""
 
@@ -220,6 +284,8 @@ def run_sweep(
     sweep_info = {
         "start_time": datetime.now().isoformat(),
         "num_configs": len(sweep_configs),
+        "algorithm": algo,
+        "early_stopping": early_stopping,
         "configs": sweep_configs,
     }
 
@@ -227,9 +293,12 @@ def run_sweep(
         json.dump(sweep_info, f, indent=2)
 
     print(f"\n{'='*70}")
-    print(f"HYPERPARAMETER SWEEP")
+    print(f"HYPERPARAMETER SWEEP ({algo.upper()})")
     print(f"{'='*70}")
     print(f"Number of configurations: {len(sweep_configs)}")
+    print(f"Algorithm: {algo.upper()}")
+    if early_stopping > 0:
+        print(f"Early stopping: after {early_stopping} evals without improvement")
     print(f"Output directory: {output_path}")
     print(f"{'='*70}\n")
 
@@ -248,6 +317,8 @@ def run_sweep(
         # Override timesteps if specified (for quick testing)
         if timesteps_override:
             config.ppo.total_timesteps = timesteps_override
+            if config.sac is not None:
+                config.sac.total_timesteps = timesteps_override
 
         # Save this config
         config_path = output_path / f"{name}_config.yaml"
@@ -255,18 +326,30 @@ def run_sweep(
 
         if dry_run:
             print(f"  [DRY RUN] Would train with config: {config_path}")
+            print(f"            Algorithm: {algo.upper()}")
             continue
 
         # Run training
         try:
-            # Import and run training
-            from train_improved import train
-
             config.logging.experiment_name = f"sweep_{name}"
             config.logging.log_dir = str(output_path / "logs")
             config.logging.save_dir = str(output_path / "models")
 
-            model = train(config)
+            # Select training function based on algorithm
+            if algo == "sac":
+                from train_residual_sac import train_residual_sac
+
+                model = train_residual_sac(
+                    config,
+                    early_stopping_patience=early_stopping,
+                )
+            else:
+                from train_improved import train
+
+                model = train(
+                    config,
+                    early_stopping_patience=early_stopping,
+                )
 
             results.append(
                 {
@@ -323,6 +406,7 @@ Sweep Types:
   ppo       - Sweep PPO hyperparameters (LR, clip, batch size, architecture)
   motors    - Sweep across different motor types
   quick     - Quick test sweep with few configurations
+  residual  - Sweep residual penalty parameters (for SAC passivity tuning)
 
 Examples:
   # Run physics sweep
@@ -342,8 +426,22 @@ Examples:
     parser.add_argument(
         "--sweep",
         type=str,
-        choices=["physics", "reward", "ppo", "motors", "quick"],
+        choices=["physics", "reward", "ppo", "motors", "quick", "residual"],
         help="Type of sweep to run",
+    )
+    parser.add_argument(
+        "--algo",
+        type=str,
+        choices=["ppo", "sac"],
+        default="ppo",
+        help="Algorithm to use (ppo or sac)",
+    )
+    parser.add_argument(
+        "--early-stopping",
+        type=int,
+        default=0,
+        metavar="N",
+        help="Stop training after N evals without improvement (0=disabled)",
     )
     parser.add_argument(
         "--sweep-file", type=str, help="Custom sweep configuration YAML file"
@@ -447,6 +545,8 @@ Examples:
         output_dir=output_dir,
         dry_run=args.dry_run,
         timesteps_override=args.timesteps,
+        algo=args.algo,
+        early_stopping=args.early_stopping,
     )
 
 

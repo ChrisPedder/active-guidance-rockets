@@ -570,6 +570,9 @@ class TestRewardCalculation:
             "altitude_reward_scale": 0.0,
             "spin_penalty_scale": 0.0,
             "control_effort_penalty": -1.0,  # Strong penalty
+            "early_settling_bonus": 0.0,  # Disable so we isolate control effort
+            "low_spin_bonus": 0.0,  # Disable so we isolate control effort
+            "saturation_penalty": 0.0,  # Disable so we isolate control effort
         }
 
         wrapped = ImprovedRewardWrapper(env, reward_config)

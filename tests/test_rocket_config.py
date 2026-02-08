@@ -18,7 +18,7 @@ class TestRocketPhysicsConfig:
         config = RocketPhysicsConfig()
 
         assert config.airframe_file is None
-        assert config.max_tab_deflection == 15.0
+        assert config.max_tab_deflection == 30.0
         assert config.tab_chord_fraction == 0.25
         assert config.tab_span_fraction == 0.5
         assert config.num_controlled_fins == 2
@@ -200,7 +200,7 @@ class TestRocketTrainingConfig:
         assert Path(config.physics.airframe_file).exists()
 
         # Should have preserved other physics params
-        assert config.physics.max_tab_deflection == 15.0
+        assert config.physics.max_tab_deflection == 30.0
         assert config.physics.disturbance_scale == 0.0001
 
     def test_load_new_style_config(
@@ -297,7 +297,7 @@ components:
             "airframe_file": str(airframe_file),
             "dry_mass": 0.1,  # This should be ignored
             "diameter": 0.024,  # This should be ignored
-            "max_tab_deflection": 15.0,
+            "max_tab_deflection": 30.0,
         }
 
         physics_config = RocketTrainingConfig._load_physics_config(physics_data)

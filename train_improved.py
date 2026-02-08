@@ -58,6 +58,7 @@ from realistic_spin_rocket import RealisticMotorRocket
 from motor_loader import Motor
 from rocket_env.sensors import IMUObservationWrapper, IMUConfig
 from pid_controller import PIDController, PIDConfig
+from disturbance_observer import DisturbanceObserver, DOBConfig, estimate_dob_parameters
 
 
 class ImprovedRewardWrapper(gym.Wrapper):
@@ -77,6 +78,7 @@ class ImprovedRewardWrapper(gym.Wrapper):
         self.step_count = 0
         self.settled = False  # Track if we've achieved stable low spin
         self.missed_deadline = False  # Track if we missed settling deadline
+        self.past_apogee = False  # Track if we've passed apogee
 
     def reset(self, **kwargs):
         self.prev_action = None
@@ -85,6 +87,7 @@ class ImprovedRewardWrapper(gym.Wrapper):
         self.step_count = 0
         self.settled = False
         self.missed_deadline = False
+        self.past_apogee = False
         return self.env.reset(**kwargs)
 
     def step(self, action):
@@ -110,12 +113,40 @@ class ImprovedRewardWrapper(gym.Wrapper):
         spin_rate = abs(info.get("roll_rate_deg_s", 0))
         phase = info.get("phase", "boost")
 
+        # Detect apogee: vertical velocity goes negative after burnout.
+        # Once past apogee a parachute deploys and fins can no longer
+        # control roll, so skip all shaping rewards (only terminal rewards apply).
+        if not self.past_apogee:
+            v_vertical = info.get("vertical_velocity_ms", None)
+            if v_vertical is not None and v_vertical < 0 and phase == "coast":
+                self.past_apogee = True
+
+        if self.past_apogee:
+            self.step_count += 1
+            if terminated:
+                if altitude > rc.get("success_altitude", 100.0):
+                    reward += rc.get("success_bonus", 100.0)
+                elif altitude < 1.0:
+                    reward += rc.get("crash_penalty", -50.0)
+            return reward
+
         # 1. Altitude reward (progress toward goal)
         altitude_reward = altitude * rc.get("altitude_reward_scale", 0.01)
         reward += altitude_reward
 
-        # 2. Spin penalty (quadratic - gentle on small errors, harsh on large)
-        spin_penalty = (spin_rate**2) * rc.get("spin_penalty_scale", -0.002)
+        # 2. Spin penalty (Huber-style: quadratic near zero, linear at high spin)
+        # This prevents catastrophic penalties in high-wind episodes while
+        # maintaining strong gradient toward zero for precision.
+        spin_scale = rc.get("spin_penalty_scale", -0.01)
+        huber_threshold = rc.get("spin_penalty_huber_threshold", 20.0)
+        if spin_rate <= huber_threshold:
+            # Quadratic region: strong gradient toward zero
+            spin_penalty = spin_scale * spin_rate**2
+        else:
+            # Linear region: bounded growth, continuous value and gradient
+            spin_penalty = spin_scale * (
+                2 * huber_threshold * spin_rate - huber_threshold**2
+            )
         reward += spin_penalty
 
         # 3. Low spin bonus (tiered bonus for maintaining low spin)
@@ -180,6 +211,75 @@ class ImprovedRewardWrapper(gym.Wrapper):
             elastic_penalty = -(l1_penalty * action_l1 + l2_penalty * action_l2)
             reward += elastic_penalty
 
+        # 7c. Residual penalty: HARD suppression in calm, soft in wind
+        # Anti-reward-hacking: massive penalty below threshold forces SAC to output zero
+        residual_penalty_scale = rc.get("residual_penalty_scale", 0.0)
+        if residual_penalty_scale != 0.0:
+            rl_residual = abs(info.get("rl_residual", 0.0))
+
+            # Check if DOB-based penalty is enabled (disturbance_magnitude in info)
+            use_disturbance_penalty = rc.get("use_disturbance_penalty", False)
+            disturbance_mag = info.get("disturbance_magnitude", None)
+
+            if use_disturbance_penalty and disturbance_mag is not None:
+                # Disturbance-adaptive scaling (DOB-based, observable by policy!)
+                # This is the key improvement: the policy CAN see disturbance_magnitude
+                # in the observation space, so it can learn conditional behavior.
+                dist_threshold_low = rc.get("residual_disturbance_threshold_low", 0.1)
+                dist_threshold_high = rc.get("residual_disturbance_threshold_high", 0.3)
+                residual_min_scale = rc.get("residual_wind_min_scale", 0.1)
+
+                if disturbance_mag < dist_threshold_low:
+                    # HARD suppression: massive penalty forces zero output in calm
+                    residual_penalty = -50.0 * (rl_residual**2)
+                elif disturbance_mag >= dist_threshold_high:
+                    # Reduced penalty in high disturbance - SAC can contribute
+                    residual_penalty = (
+                        residual_penalty_scale * residual_min_scale * (rl_residual**2)
+                    )
+                else:
+                    # Smooth transition between hard and soft penalty
+                    t = (disturbance_mag - dist_threshold_low) / (
+                        dist_threshold_high - dist_threshold_low
+                    )
+                    # Quadratic easing for smoother gradient
+                    t_smooth = t * t * (3 - 2 * t)  # Smoothstep
+                    penalty_scale = (
+                        50.0 * (1 - t_smooth)
+                        + abs(residual_penalty_scale) * residual_min_scale * t_smooth
+                    )
+                    residual_penalty = -penalty_scale * (rl_residual**2)
+
+                reward += residual_penalty
+            else:
+                # Fallback: Wind-adaptive scaling (legacy, not observable by policy)
+                wind_speed = info.get("wind_speed_ms", 0.0)
+                wind_threshold_low = rc.get("residual_wind_threshold_low", 2.0)
+                wind_threshold_high = rc.get("residual_wind_threshold_high", 4.0)
+                residual_wind_min_scale = rc.get("residual_wind_min_scale", 0.1)
+
+                if wind_speed < wind_threshold_low:
+                    # HARD suppression: massive penalty forces zero output in calm conditions
+                    residual_penalty = -100.0 * (rl_residual**2)
+                elif wind_speed >= wind_threshold_high:
+                    # Reduced penalty in high wind - SAC can contribute
+                    residual_penalty = (
+                        residual_penalty_scale
+                        * residual_wind_min_scale
+                        * (rl_residual**2)
+                    )
+                else:
+                    # Linear interpolation between hard and soft penalty
+                    t = (wind_speed - wind_threshold_low) / (
+                        wind_threshold_high - wind_threshold_low
+                    )
+                    wind_scale = 1.0 - t * (1.0 - residual_wind_min_scale)
+                    residual_penalty = (
+                        residual_penalty_scale * wind_scale * (rl_residual**2)
+                    )
+
+                reward += residual_penalty
+
         # 8. Early settling bonus/penalty (reward quick stabilization, punish slow settling)
         time_s = info.get("time_s", self.step_count * 0.01)
         settling_threshold = rc.get("settling_spin_threshold", 5.0)
@@ -204,6 +304,13 @@ class ImprovedRewardWrapper(gym.Wrapper):
             # Apply penalty for missing the settling deadline
             reward += rc.get("settling_deadline_penalty", -50.0)
 
+        # 10b. Continuous near-zero incentive (always active, no threshold cliff)
+        # Provides smooth gradient: 0 deg/s -> max bonus, scales quadratically
+        precision_scale = rc.get("precision_spin_scale", 2.0)
+        if spin_rate < 10.0:
+            precision_bonus = precision_scale * (1.0 - (spin_rate / 10.0) ** 2)
+            reward += precision_bonus
+
         # 10. Early-phase spin penalty multiplier
         # During the settling window, spin is penalized more heavily
         # This creates urgency to settle quickly
@@ -217,12 +324,23 @@ class ImprovedRewardWrapper(gym.Wrapper):
 
         # 10. Terminal rewards
         if terminated:
+            # Episode-level reward based on actual mean spin rate (aligns training with evaluation)
+            mean_spin = info.get("mean_spin_rate_deg_s", spin_rate)
+            if mean_spin < 5.0:
+                reward += 30.0  # Met primary goal: excellent video quality
+            elif mean_spin < 10.0:
+                reward += 10.0  # Acceptable performance
+            elif mean_spin > 20.0:
+                reward -= 20.0  # Failed: video unusable
+
+            # Altitude-based terminal rewards
             if altitude > rc.get("success_altitude", 100.0):
                 reward += rc.get("success_bonus", 100.0)
             elif altitude < 1.0:  # Crash
                 reward += rc.get("crash_penalty", -50.0)
 
-        return reward
+        # Clip total reward to prevent any single component from dominating
+        return float(np.clip(reward, -50.0, 50.0))
 
 
 class ActionRateLimiter(gym.ActionWrapper):
@@ -478,6 +596,7 @@ class ResidualPIDWrapper(gym.Wrapper):
         pid_config: PIDConfig = None,
         max_residual: float = 0.3,
         dt: float = 0.01,
+        use_observations: bool = False,
     ):
         """
         Args:
@@ -485,9 +604,13 @@ class ResidualPIDWrapper(gym.Wrapper):
             pid_config: PID controller configuration
             max_residual: Maximum RL correction magnitude (e.g., 0.3 = ±30% adjustment)
             dt: Timestep for PID integration
+            use_observations: If True, PID reads from observations (noisy IMU)
+                instead of ground-truth info dict
         """
         super().__init__(env)
-        self.pid = PIDController(pid_config or PIDConfig())
+        self.pid = PIDController(
+            pid_config or PIDConfig(), use_observations=use_observations
+        )
         self.max_residual = max_residual
         self.dt = dt
         self._last_info = {}
@@ -553,6 +676,137 @@ class ResidualPIDWrapper(gym.Wrapper):
         info["combined_action"] = self.last_combined_action
 
         return obs, reward, terminated, truncated, info
+
+
+class DisturbanceObserverWrapper(gym.ObservationWrapper):
+    """
+    Wrapper that adds disturbance estimation to the observation space.
+
+    Uses a physics-based observer to estimate external disturbance torque
+    from the discrepancy between expected and actual roll dynamics. This
+    makes wind disturbances observable to the RL policy, enabling it to
+    learn conditional behavior:
+    - Low disturbance -> SAC stays passive (PID is sufficient)
+    - High disturbance -> SAC actively contributes corrections
+
+    The observation space is extended by 2 elements:
+    - disturbance_estimate: Signed estimate normalized to [-1, 1]
+    - disturbance_magnitude: Unsigned magnitude for gating [0, 1]
+
+    Physics basis:
+        tau_disturbance = I * alpha - tau_control - tau_damping
+    """
+
+    def __init__(
+        self,
+        env: gym.Env,
+        dob_config: DOBConfig = None,
+        airframe=None,
+        rocket_config=None,
+    ):
+        """
+        Initialize disturbance observer wrapper.
+
+        Args:
+            env: Environment to wrap
+            dob_config: DOB configuration. If None, will be estimated from
+                        airframe and rocket_config (if provided)
+            airframe: RocketAirframe for parameter estimation
+            rocket_config: RocketConfig for parameter estimation
+        """
+        super().__init__(env)
+
+        # Create or estimate DOB config
+        if dob_config is not None:
+            self.dob_config = dob_config
+        elif airframe is not None:
+            self.dob_config = estimate_dob_parameters(airframe, rocket_config or {})
+        else:
+            # Use defaults
+            self.dob_config = DOBConfig()
+
+        self.dob = DisturbanceObserver(self.dob_config)
+        self._last_info = {}
+
+        # Extend observation space by 2: [disturbance_estimate, disturbance_magnitude]
+        obs_space = env.observation_space
+        new_low = np.concatenate(
+            [
+                obs_space.low,
+                np.array(
+                    [-1.0, 0.0], dtype=np.float32
+                ),  # estimate in [-1,1], magnitude in [0,1]
+            ]
+        )
+        new_high = np.concatenate(
+            [obs_space.high, np.array([1.0, 1.0], dtype=np.float32)]
+        )
+
+        self.observation_space = spaces.Box(
+            low=new_low.astype(np.float32),
+            high=new_high.astype(np.float32),
+            dtype=np.float32,
+        )
+
+        # Track indices for observation components
+        self._base_obs_size = obs_space.shape[0]
+
+    def reset(self, **kwargs):
+        self.dob.reset()
+        self._last_info = {}
+        obs, info = self.env.reset(**kwargs)
+        self._last_info = info
+        # First observation has zero disturbance estimate
+        extended_obs = np.concatenate([obs, np.array([0.0, 0.0], dtype=np.float32)])
+        return extended_obs.astype(np.float32), info
+
+    def observation(self, observation):
+        """Append disturbance estimate to observation."""
+        # Get DOB estimates from cached values
+        estimate = getattr(self, "_cached_estimate", 0.0)
+        magnitude = getattr(self, "_cached_magnitude", 0.0)
+        return np.concatenate(
+            [observation, np.array([estimate, magnitude], dtype=np.float32)]
+        ).astype(np.float32)
+
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+
+        # Extract values needed for DOB update
+        # Handle both raw env and wrapped env observation formats
+        roll_rate = obs[3] if len(obs) > 3 else 0.0  # rad/s
+        roll_accel = obs[4] if len(obs) > 4 else 0.0  # rad/s^2
+        dynamic_pressure = info.get("dynamic_pressure_Pa", 0.0)
+        velocity = info.get("vertical_velocity_ms", 1.0)
+
+        # Get action value (may be scalar or array)
+        action_val = float(action[0]) if hasattr(action, "__len__") else float(action)
+
+        # Update DOB
+        estimate, magnitude = self.dob.update(
+            roll_rate=roll_rate,
+            roll_accel=roll_accel,
+            action=action_val,
+            dynamic_pressure=dynamic_pressure,
+            velocity=velocity,
+        )
+
+        # Cache for observation() method
+        self._cached_estimate = estimate
+        self._cached_magnitude = magnitude
+
+        # Add to info for reward shaping and logging
+        info["disturbance_estimate"] = estimate
+        info["disturbance_magnitude"] = magnitude
+        info["disturbance_raw"] = self.dob.estimate
+        info["disturbance_filtered"] = self.dob.estimate_filtered
+
+        self._last_info = info
+
+        # Extend observation
+        extended_obs = self.observation(obs)
+
+        return extended_obs, reward, terminated, truncated, info
 
 
 class TrainingMetricsCallback(BaseCallback):
@@ -649,13 +903,15 @@ class TrainingMetricsCallback(BaseCallback):
             f"Max Spin Rate: {np.mean(recent_max_spins):.1f} ± {np.std(recent_max_spins):.1f} °/s"
         )
 
-        # Success metrics
+        # Success metrics (aligned with 5 deg/s target)
         high_alt = sum(1 for a in recent_altitudes if a > 50) / n * 100
-        low_mean_spin = sum(1 for s in recent_mean_spins if s < 10) / n * 100
-        low_max_spin = sum(1 for s in recent_max_spins if s < 30) / n * 100
+        excellent_spin = sum(1 for s in recent_mean_spins if s < 5) / n * 100
+        good_spin = sum(1 for s in recent_mean_spins if s < 10) / n * 100
+        low_max_spin = sum(1 for s in recent_max_spins if s < 20) / n * 100
         print(f"High altitude (>50m): {high_alt:.0f}%")
-        print(f"Low mean spin (<10°/s): {low_mean_spin:.0f}%")
-        print(f"Low max spin (<30°/s): {low_max_spin:.0f}%")
+        print(f"Excellent mean spin (<5°/s): {excellent_spin:.0f}%")
+        print(f"Good mean spin (<10°/s): {good_spin:.0f}%")
+        print(f"Low max spin (<20°/s): {low_max_spin:.0f}%")
 
         if self.episode_camera_scores:
             recent_cameras = self.episode_camera_scores[-n:]
@@ -754,6 +1010,16 @@ def create_environment(
         max_roll_rate=getattr(config.physics, "max_roll_rate", 720.0),
         max_episode_time=getattr(config.physics, "max_episode_time", 15.0),
         dt=getattr(config.environment, "dt", 0.01),
+        # Wind settings
+        enable_wind=getattr(config.physics, "enable_wind", False),
+        base_wind_speed=getattr(config.physics, "base_wind_speed", 0.0),
+        max_gust_speed=getattr(config.physics, "max_gust_speed", 0.0),
+        wind_variability=getattr(config.physics, "wind_variability", 0.3),
+        wind_altitude_gradient=getattr(config.physics, "wind_altitude_gradient", 0.0),
+        use_dryden=getattr(config.physics, "use_dryden", False),
+        turbulence_severity=getattr(config.physics, "turbulence_severity", "light"),
+        altitude_profile_alpha=getattr(config.physics, "altitude_profile_alpha", 0.14),
+        reference_altitude=getattr(config.physics, "reference_altitude", 10.0),
     )
 
     # Build motor config dict from MotorConfig dataclass
@@ -811,32 +1077,9 @@ def create_environment(
     # 2. Normalize actions to [-1, 1]
     env = NormalizedActionWrapper(env)
 
-    # 2b. Residual PID (RL learns corrections on top of PID) - RECOMMENDED
-    use_residual_pid = getattr(config.physics, "use_residual_pid", False)
-    if use_residual_pid:
-        max_residual = getattr(config.physics, "max_residual", 0.3)
-        pid_config = PIDConfig(
-            Cprop=getattr(config.physics, "pid_Kp", 0.02),
-            Cint=getattr(config.physics, "pid_Ki", 0.005),
-            Cderiv=getattr(config.physics, "pid_Kd", 0.05),
-        )
-        dt = getattr(config.environment, "dt", 0.01)
-        env = ResidualPIDWrapper(
-            env, pid_config=pid_config, max_residual=max_residual, dt=dt
-        )
-        print(
-            f"Residual PID enabled: max_residual={max_residual}, PID gains=({pid_config.Cprop}, {pid_config.Cint}, {pid_config.Cderiv})"
-        )
-
-    # 2c. Delta actions (agent commands incremental changes) - alternative to residual PID
-    use_delta_actions = getattr(config.physics, "use_delta_actions", False)
-    max_delta_per_step = getattr(config.physics, "max_delta_per_step", 0.1)
-    if use_delta_actions and not use_residual_pid:
-        env = DeltaActionWrapper(env, max_delta=max_delta_per_step)
-        print(f"Delta actions enabled: max_delta={max_delta_per_step} per step")
-
-    # 3. Action smoothing (prevents bang-bang oscillation)
-    # Check for new exponential smoothing parameter first, fall back to rate limiter
+    # 2a. Action smoothing (prevents bang-bang oscillation)
+    # Applied before ResidualPIDWrapper so it smooths only the RL output,
+    # not the already-smooth PID signal.
     action_smoothing_alpha = getattr(config.physics, "action_smoothing_alpha", None)
     action_rate_limit = getattr(config.physics, "action_rate_limit", 0.1)
 
@@ -849,13 +1092,78 @@ def create_environment(
         env = ActionRateLimiter(env, max_rate=action_rate_limit)
         print(f"Action smoothing: rate limit={action_rate_limit} per timestep")
 
-    # 4. Add previous action to observations (helps agent learn incremental control)
+    # 2b. Residual PID (RL learns corrections on top of PID) - RECOMMENDED
+    use_residual_pid = getattr(config.physics, "use_residual_pid", False)
+    if use_residual_pid:
+        max_residual = getattr(config.physics, "max_residual", 0.3)
+        pid_use_obs = getattr(config.physics, "pid_use_observations", False)
+        pid_config = PIDConfig(
+            Cprop=getattr(config.physics, "pid_Kp", 0.005208),
+            Cint=getattr(config.physics, "pid_Ki", 0.000324),
+            Cderiv=getattr(config.physics, "pid_Kd", 0.016524),
+        )
+        dt = getattr(config.environment, "dt", 0.01)
+        env = ResidualPIDWrapper(
+            env,
+            pid_config=pid_config,
+            max_residual=max_residual,
+            dt=dt,
+            use_observations=pid_use_obs,
+        )
+        obs_mode = "observations (noisy IMU)" if pid_use_obs else "ground-truth info"
+        print(
+            f"Residual PID enabled: max_residual={max_residual}, "
+            f"PID gains=({pid_config.Cprop}, {pid_config.Cint}, {pid_config.Cderiv}), "
+            f"reading from {obs_mode}"
+        )
+
+    # 2b2. Disturbance Observer (makes wind observable to policy)
+    use_disturbance_observer = getattr(
+        config.physics, "use_disturbance_observer", False
+    )
+    if use_disturbance_observer:
+        dob_filter_alpha = getattr(config.physics, "dob_filter_alpha", 0.1)
+        dob_max_disturbance = getattr(config.physics, "dob_max_disturbance", 0.01)
+
+        # Create DOB config with estimated or configured parameters
+        dob_config = DOBConfig(
+            filter_alpha=dob_filter_alpha,
+            max_disturbance=dob_max_disturbance,
+        )
+
+        # Try to estimate physics parameters from airframe
+        try:
+            dob_config = estimate_dob_parameters(airframe, rocket_config)
+            dob_config.filter_alpha = dob_filter_alpha
+            dob_config.max_disturbance = dob_max_disturbance
+            print(
+                f"DOB parameters estimated from airframe: I_roll={dob_config.I_roll:.6f}, "
+                f"effectiveness={dob_config.control_effectiveness:.6f}"
+            )
+        except Exception as e:
+            print(f"Could not estimate DOB parameters from airframe: {e}")
+            print(f"Using default DOB config")
+
+        env = DisturbanceObserverWrapper(env, dob_config=dob_config)
+        print(
+            f"Disturbance Observer enabled: filter_alpha={dob_config.filter_alpha}, "
+            f"max_disturbance={dob_config.max_disturbance}"
+        )
+
+    # 2c. Delta actions (agent commands incremental changes) - alternative to residual PID
+    use_delta_actions = getattr(config.physics, "use_delta_actions", False)
+    max_delta_per_step = getattr(config.physics, "max_delta_per_step", 0.1)
+    if use_delta_actions and not use_residual_pid:
+        env = DeltaActionWrapper(env, max_delta=max_delta_per_step)
+        print(f"Delta actions enabled: max_delta={max_delta_per_step} per step")
+
+    # 3. Add previous action to observations (helps agent learn incremental control)
     include_prev_action = getattr(config.physics, "include_previous_action", False)
     if include_prev_action:
         env = PreviousActionWrapper(env)
         print("Observation space extended with previous action")
 
-    # 5. Custom reward function
+    # 4. Custom reward function
     reward_dict = {
         "altitude_reward_scale": config.reward.altitude_reward_scale,
         "spin_penalty_scale": config.reward.spin_penalty_scale,
@@ -881,15 +1189,36 @@ def create_environment(
         "early_phase_spin_multiplier": getattr(
             config.reward, "early_phase_spin_multiplier", 2.0
         ),
+        "precision_spin_scale": getattr(config.reward, "precision_spin_scale", 2.0),
         "action_l1_penalty": getattr(config.reward, "action_l1_penalty", 0.0),
         "action_l2_penalty": getattr(config.reward, "action_l2_penalty", 0.0),
+        "residual_penalty_scale": getattr(config.reward, "residual_penalty_scale", 0.0),
+        "residual_wind_threshold_low": getattr(
+            config.reward, "residual_wind_threshold_low", 0.5
+        ),
+        "residual_wind_threshold_high": getattr(
+            config.reward, "residual_wind_threshold_high", 2.0
+        ),
+        "residual_wind_min_scale": getattr(
+            config.reward, "residual_wind_min_scale", 0.1
+        ),
+        # DOB-based residual penalty (enabled when use_disturbance_observer is true)
+        "use_disturbance_penalty": getattr(
+            config.physics, "use_disturbance_observer", False
+        ),
+        "residual_disturbance_threshold_low": getattr(
+            config.reward, "residual_disturbance_threshold_low", 0.1
+        ),
+        "residual_disturbance_threshold_high": getattr(
+            config.reward, "residual_disturbance_threshold_high", 0.3
+        ),
         "success_bonus": config.reward.success_bonus,
         "crash_penalty": config.reward.crash_penalty,
         "success_altitude": config.environment.max_altitude,
     }
     env = ImprovedRewardWrapper(env, reward_dict)
 
-    # 6. Monitor wrapper (for logging)
+    # 5. Monitor wrapper (for logging)
     env = Monitor(env)
 
     return env

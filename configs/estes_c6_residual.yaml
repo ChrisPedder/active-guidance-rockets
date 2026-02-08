@@ -28,7 +28,7 @@ physics:
   fin_span: 0.04
   fin_root_chord: 0.05
   fin_tip_chord: 0.025
-  max_tab_deflection: 3.6
+  max_tab_deflection: 30.0
   tab_chord_fraction: 0.25
   tab_span_fraction: 0.5
   cd_body: 0.5

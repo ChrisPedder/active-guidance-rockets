@@ -14,9 +14,11 @@ motors/
 experiments/
 sweeps/
 results/
+evaluation_results/
 
 # Claude code
 .claude/
+CLAUDE.md
 
 # Distribution / packaging
 .Python

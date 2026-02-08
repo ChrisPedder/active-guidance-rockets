@@ -17,10 +17,12 @@ REQUIRES: A RocketAirframe instance must be provided for physics calculations.
 import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
-from typing import Tuple, Dict, Any
-from dataclasses import dataclass
+from typing import Tuple, Dict, Any, Optional, List
+from dataclasses import dataclass, field
+from collections import deque
 
 from airframe import RocketAirframe
+from wind_model import WindModel, WindConfig
 
 
 @dataclass
@@ -41,7 +43,7 @@ class RocketConfig:
     # === Control Tab Geometry ===
     tab_chord_fraction: float = 0.25  # Fraction of fin chord that is tab
     tab_span_fraction: float = 0.5  # Fraction of fin span with tab
-    max_tab_deflection: float = 15.0  # Maximum deflection (degrees)
+    max_tab_deflection: float = 30.0  # Maximum deflection (degrees)
     num_controlled_fins: int = 2  # Number of fins with active tabs
 
     # === Physics Tuning ===
@@ -55,6 +57,39 @@ class RocketConfig:
     burn_time: float = 1.85  # s
     propellant_mass: float = 0.012  # kg
     thrust_curve: str = "neutral"  # "neutral", "progressive", "regressive"
+
+    # === Wind ===
+    enable_wind: bool = False
+    base_wind_speed: float = 0.0  # m/s mean wind speed
+    max_gust_speed: float = 0.0  # m/s gust amplitude
+    wind_variability: float = 0.3  # direction change rate
+    wind_altitude_gradient: float = 0.0  # speed increase per 100m altitude
+    use_dryden: bool = False  # Use Dryden turbulence model
+    turbulence_severity: str = "light"  # "light", "moderate", "severe"
+    altitude_profile_alpha: float = 0.14  # Power-law exponent for wind profile
+    reference_altitude: float = 10.0  # Reference altitude for power-law (m)
+    body_shadow_factor: float = (
+        0.90  # Leeward fin q fraction; K_shadow = 1 - this (see docs/wind_roll_torque_analysis.md)
+    )
+
+    # === Mach-dependent aerodynamics ===
+    use_mach_aero: bool = False  # Enable Mach-dependent Cd and Cl_alpha
+    use_isa_full: bool = False  # Use full ISA atmosphere (temp, speed of sound)
+    cd_mach_table: Optional[Dict] = (
+        None  # {mach: [...], cd_boost: [...], cd_coast: [...]}
+    )
+
+    # === Servo dynamics ===
+    servo_time_constant: float = 0.0  # seconds, 0 = instantaneous
+    servo_rate_limit: float = 0.0  # deg/s, 0 = unlimited
+    servo_deadband: float = 0.0  # degrees, 0 = none
+
+    # === Sensor latency ===
+    sensor_delay_steps: int = 0  # 0 = no delay
+
+    # === Observation space bounds (for larger/faster vehicles) ===
+    max_velocity: float = 100.0  # m/s
+    max_dynamic_pressure: float = 3000.0  # Pa
 
     # === Simulation ===
     dt: float = 0.01  # Time step (100 Hz)
@@ -91,15 +126,35 @@ class SpinStabilizedCameraRocket(gym.Env):
         self.airframe = airframe
         self.config = config or RocketConfig()
 
+        # Wind model
+        if self.config.enable_wind:
+            wind_cfg = WindConfig(
+                enable=True,
+                base_speed=self.config.base_wind_speed,
+                max_gust_speed=self.config.max_gust_speed,
+                variability=self.config.wind_variability,
+                altitude_gradient=self.config.wind_altitude_gradient,
+                use_dryden=self.config.use_dryden,
+                turbulence_severity=self.config.turbulence_severity,
+                altitude_profile_alpha=self.config.altitude_profile_alpha,
+                reference_altitude=self.config.reference_altitude,
+                body_shadow_factor=self.config.body_shadow_factor,
+            )
+            self.wind_model: Optional[WindModel] = WindModel(wind_cfg)
+        else:
+            self.wind_model = None
+
         # Action space: normalized tab deflection [-1, 1]
         self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32)
 
-        # Observation space
+        # Observation space (bounds from config for larger/faster vehicles)
+        max_vel = self.config.max_velocity
+        max_q = self.config.max_dynamic_pressure
         self.observation_space = spaces.Box(
             low=np.array(
                 [
                     0.0,  # altitude (m)
-                    -100.0,  # vertical velocity (m/s)
+                    -max_vel,  # vertical velocity (m/s)
                     -np.pi,  # roll angle (rad)
                     -np.deg2rad(self.config.max_roll_rate),  # roll rate (rad/s)
                     -50.0,  # roll acceleration (rad/s²)
@@ -114,11 +169,11 @@ class SpinStabilizedCameraRocket(gym.Env):
             high=np.array(
                 [
                     self.config.max_altitude,
-                    100.0,
+                    max_vel,
                     np.pi,
                     np.deg2rad(self.config.max_roll_rate),
                     50.0,
-                    3000.0,
+                    max_q,
                     self.config.max_episode_time,
                     1.0,
                     1.0,
@@ -128,6 +183,9 @@ class SpinStabilizedCameraRocket(gym.Env):
             ),
             dtype=np.float32,
         )
+
+        # Sensor delay buffer
+        self._obs_buffer = deque(maxlen=max(self.config.sensor_delay_steps + 1, 1))
 
         self.reset()
 
@@ -168,30 +226,146 @@ class SpinStabilizedCameraRocket(gym.Env):
         self._last_disturbance_torque = 0.0
         self._last_dynamic_pressure = 0.0
 
+        # Wind tracking
+        self._last_wind_speed = 0.0
+        self._last_wind_direction = 0.0
+        self._last_wind_torque = 0.0
+
+        # Servo state
+        self._servo_position = 0.0
+
+        # Mach-dependent state (cached per step)
+        self._last_mach = 0.0
+        self._last_speed_of_sound = 340.3
+        self._last_cd = 0.4
+        self._last_cl_alpha = 2.0 * np.pi
+
+        # Sensor delay buffer
+        self._obs_buffer.clear()
+
+        # Reset wind model for new episode
+        if self.wind_model is not None:
+            self.wind_model.reset()
+
         return self._get_observation(), self._get_info()
+
+    def _get_atmosphere(self):
+        """Full ISA atmosphere model. Returns (rho, temperature, speed_of_sound)."""
+        if not self.config.use_isa_full:
+            rho = 1.225 * np.exp(-self.altitude / 8000)
+            return rho, 288.15, 340.3  # approximate, backward compat
+
+        h = max(self.altitude, 0.0)
+        T = 288.15 - 0.0065 * min(h, 11000.0)  # troposphere lapse rate
+        p = 101325.0 * (T / 288.15) ** 5.2561
+        rho = p / (287.05 * T)
+        a = np.sqrt(1.4 * 287.05 * T)
+        return rho, T, a
+
+    def _get_cd(self, mach: float, is_boost: bool) -> float:
+        """Get drag coefficient, optionally Mach-dependent."""
+        if not self.config.use_mach_aero:
+            return 0.4 if is_boost else 0.5  # original behavior
+
+        if self.config.cd_mach_table is not None:
+            table = self.config.cd_mach_table
+            cd_col = table["cd_boost"] if is_boost else table["cd_coast"]
+            return float(np.interp(mach, table["mach"], cd_col))
+
+        # Analytical fallback: constant subsonic
+        return 0.4 if is_boost else 0.5
+
+    def _get_cl_alpha(self, mach: float) -> float:
+        """Get lift curve slope, optionally Mach-dependent."""
+        if not self.config.use_mach_aero:
+            return 2.0 * np.pi  # original behavior
+
+        cl0 = 2.0 * np.pi
+        if mach < 0.8:
+            return cl0 / np.sqrt(max(1.0 - mach**2, 0.04))  # Prandtl-Glauert
+        elif mach <= 1.2:
+            cl_sub = cl0 / np.sqrt(1.0 - 0.8**2)  # value at M=0.8
+            cl_sup = 4.0 / np.sqrt(1.2**2 - 1.0)  # value at M=1.2 (Ackeret)
+            t = (mach - 0.8) / 0.4
+            return cl_sub + (cl_sup - cl_sub) * t  # linear interp
+        else:
+            return 4.0 / np.sqrt(max(mach**2 - 1.0, 0.01))  # Ackeret
+
+    def _update_servo(self, commanded: float, dt: float) -> float:
+        """Apply servo dynamics (lag, rate limit, deadband) to commanded position."""
+        tau = self.config.servo_time_constant
+        has_dynamics = (
+            tau > 0
+            or self.config.servo_rate_limit > 0
+            or self.config.servo_deadband > 0
+        )
+        if not has_dynamics:
+            self._servo_position = np.clip(
+                commanded, -1.0, 1.0
+            )  # instantaneous (backward compat)
+            return self._servo_position
+
+        error = commanded - self._servo_position
+        deadband_norm = self.config.servo_deadband / max(
+            self.config.max_tab_deflection, 1.0
+        )
+        if abs(error) < deadband_norm:
+            return self._servo_position
+
+        # First-order lag
+        if tau > 0:
+            alpha = 1.0 - np.exp(-dt / tau)
+        else:
+            alpha = 1.0
+        desired_delta = error * alpha
+
+        # Rate limiting (convert deg/s to normalized/s)
+        if self.config.servo_rate_limit > 0:
+            max_rate_norm = self.config.servo_rate_limit / max(
+                self.config.max_tab_deflection, 1.0
+            )
+            max_delta = max_rate_norm * dt
+            desired_delta = np.clip(desired_delta, -max_delta, max_delta)
+
+        self._servo_position = np.clip(self._servo_position + desired_delta, -1.0, 1.0)
+        return self._servo_position
 
     def step(self, action: np.ndarray) -> Tuple[np.ndarray, float, bool, bool, Dict]:
         # Process action
         self.previous_action = self.last_action
         self.last_action = float(np.clip(action[0], -1.0, 1.0))
-        self.tab_deflection = self.last_action * np.deg2rad(
-            self.config.max_tab_deflection
-        )
 
         dt = self.config.dt
-        self.time += dt
 
-        # Update propulsion
+        # Apply servo dynamics
+        actual_pos = self._update_servo(self.last_action, dt)
+        self.tab_deflection = actual_pos * np.deg2rad(self.config.max_tab_deflection)
+
+        # Update propulsion before advancing time so thrust is evaluated
+        # at the current time point, not at t+dt.
         thrust, mass = self._update_propulsion()
 
-        # Aerodynamics
-        rho = self._get_air_density()
+        self.time += dt
+
+        # Atmosphere
+        rho, temperature, a = self._get_atmosphere()
         v = max(self.vertical_velocity, 0.1)  # Avoid division issues
         q = 0.5 * rho * v**2
 
+        # Mach number and Mach-dependent aerodynamics
+        mach = v / max(a, 1.0) if v > 0 else 0.0
+        self._last_mach = mach
+        self._last_speed_of_sound = a
+
+        is_boost = self.time < self.config.burn_time
+        cd = self._get_cd(mach, is_boost)
+        self._last_cd = cd
+
+        cl_alpha = self._get_cl_alpha(mach)
+        self._last_cl_alpha = cl_alpha
+
         # Vertical dynamics - use airframe frontal area
         frontal_area = self.airframe.get_frontal_area()
-        cd = 0.4 if self.time < self.config.burn_time else 0.5
         drag = cd * q * frontal_area
 
         self.vertical_acceleration = (thrust - drag - mass * 9.81) / mass
@@ -199,8 +373,8 @@ class SpinStabilizedCameraRocket(gym.Env):
         self.altitude += self.vertical_velocity * dt
         self.altitude = max(0, self.altitude)  # Can't go below ground
 
-        # Roll dynamics - using airframe geometry
-        roll_torque = self._calculate_roll_torque(q)
+        # Roll dynamics - using airframe geometry (with Mach-corrected cl_alpha)
+        roll_torque = self._calculate_roll_torque(q, cl_alpha)
         I_roll = self._calculate_roll_inertia(mass)
 
         self.roll_acceleration = roll_torque / I_roll
@@ -235,9 +409,20 @@ class SpinStabilizedCameraRocket(gym.Env):
         terminated = self._is_terminated()
         truncated = self.time > self.config.max_episode_time
 
-        return self._get_observation(), reward, terminated, truncated, self._get_info()
+        # Observation with optional sensor delay
+        obs = self._get_observation()
+        self._obs_buffer.append(obs.copy())
+        if (
+            self.config.sensor_delay_steps > 0
+            and len(self._obs_buffer) > self.config.sensor_delay_steps
+        ):
+            obs = self._obs_buffer[-1 - self.config.sensor_delay_steps].copy()
 
-    def _calculate_roll_torque(self, dynamic_pressure: float) -> float:
+        return obs, reward, terminated, truncated, self._get_info()
+
+    def _calculate_roll_torque(
+        self, dynamic_pressure: float, cl_alpha: float = 2 * np.pi
+    ) -> float:
         """
         Calculate roll torque using airframe geometry.
 
@@ -245,18 +430,23 @@ class SpinStabilizedCameraRocket(gym.Env):
         - Control torque from deflectable tabs
         - Aerodynamic damping from fins
         - Random disturbance torque
+
+        Args:
+            dynamic_pressure: Dynamic pressure (Pa)
+            cl_alpha: Lift curve slope (rad^-1), may be Mach-corrected
         """
         control_torque = 0.0
         damping_torque = 0.0
         disturbance = 0.0
 
         if dynamic_pressure > 1.0:
-            # Control torque using airframe geometry
+            # Control torque using airframe geometry (with Mach-corrected cl_alpha)
             effectiveness = self.airframe.get_control_effectiveness(
                 dynamic_pressure,
                 tab_chord_fraction=self.config.tab_chord_fraction,
                 tab_span_fraction=self.config.tab_span_fraction,
                 num_controlled_fins=self.config.num_controlled_fins,
+                cl_alpha=cl_alpha,
             )
             control_torque = effectiveness * self.tab_deflection
 
@@ -264,8 +454,10 @@ class SpinStabilizedCameraRocket(gym.Env):
             speed_effectiveness = np.tanh(dynamic_pressure / 200.0)
             control_torque *= speed_effectiveness
 
-            # Aerodynamic damping from airframe
-            damping_coef = self.airframe.get_aerodynamic_damping_coeff()
+            # Aerodynamic damping from airframe (with Mach-corrected cl_alpha)
+            damping_coef = self.airframe.get_aerodynamic_damping_coeff(
+                cl_alpha=cl_alpha
+            )
             damping_coef *= self.config.damping_scale
             damping_torque = (
                 -damping_coef
@@ -281,11 +473,35 @@ class SpinStabilizedCameraRocket(gym.Env):
             )
             disturbance = np.random.normal(0, disturbance_std)
 
+        # Wind torque (pass cl_alpha scaled to ~2.0 convention used by wind_model)
+        wind_torque = 0.0
+        if self.wind_model is not None and dynamic_pressure > 1.0:
+            wind_speed, wind_dir = self.wind_model.get_wind(
+                self.time,
+                self.altitude,
+                rocket_velocity=max(self.vertical_velocity, 1.0),
+            )
+            wind_cl_alpha = (
+                cl_alpha / np.pi
+            )  # wind_model uses cl_alpha ~ 2.0 convention
+            wind_torque = self.wind_model.get_roll_torque(
+                wind_speed,
+                wind_dir,
+                self.roll_angle,
+                self.vertical_velocity,
+                dynamic_pressure,
+                self.airframe,
+                cl_alpha=wind_cl_alpha,
+            )
+            self._last_wind_speed = wind_speed
+            self._last_wind_direction = wind_dir
+            self._last_wind_torque = wind_torque
+
         # Store for info dict
         self._last_disturbance_torque = disturbance
         self._last_dynamic_pressure = dynamic_pressure
 
-        return control_torque + damping_torque + disturbance
+        return control_torque + damping_torque + disturbance + wind_torque
 
     def _calculate_roll_inertia(self, mass: float) -> float:
         """
@@ -322,7 +538,8 @@ class SpinStabilizedCameraRocket(gym.Env):
 
     def _get_air_density(self) -> float:
         """Atmospheric density model (ISA)."""
-        return 1.225 * np.exp(-self.altitude / 8000)
+        rho, _, _ = self._get_atmosphere()
+        return rho
 
     def _calculate_camera_shake(self) -> float:
         """Camera shake metric based on roll rate and acceleration."""
@@ -386,7 +603,8 @@ class SpinStabilizedCameraRocket(gym.Env):
     def _get_observation(self) -> np.ndarray:
         """Get observation vector."""
         rho = self._get_air_density()
-        q = 0.5 * rho * max(self.vertical_velocity, 0) ** 2
+        # Use same velocity floor as step() (v=0.1) so obs q matches physics q
+        q = 0.5 * rho * max(self.vertical_velocity, 0.1) ** 2
 
         thrust_frac = max(
             0, (self.config.burn_time - self.time) / self.config.burn_time
@@ -420,11 +638,11 @@ class SpinStabilizedCameraRocket(gym.Env):
         """Get info dict with flight telemetry."""
         roll_rate_deg = np.rad2deg(abs(self.roll_rate))
 
-        if roll_rate_deg < 10:
+        if roll_rate_deg < 5:
             h_quality = "Excellent - Stable footage"
-        elif roll_rate_deg < 30:
+        elif roll_rate_deg < 10:
             h_quality = "Good - Minor blur"
-        elif roll_rate_deg < 60:
+        elif roll_rate_deg < 20:
             h_quality = "Fair - Noticeable blur"
         else:
             h_quality = "Poor - Severe blur"
@@ -436,12 +654,14 @@ class SpinStabilizedCameraRocket(gym.Env):
             else abs(self.roll_rate)
         )
 
-        # Air density at current altitude
-        air_density = 1.225 * np.exp(-self.altitude / 8000)
+        # Air density at current altitude (use the same model as physics)
+        air_density = self._get_air_density()
 
         return {
             "altitude_m": self.altitude,
             "vertical_velocity_ms": self.vertical_velocity,
+            "roll_angle_rad": self.roll_angle,
+            "vertical_acceleration_ms2": self.vertical_acceleration,
             "roll_rate_deg_s": np.rad2deg(self.roll_rate),
             "mean_spin_rate_deg_s": np.rad2deg(mean_spin_rate),
             "max_spin_rate_deg_s": np.rad2deg(self.max_spin_rate),
@@ -461,6 +681,19 @@ class SpinStabilizedCameraRocket(gym.Env):
             "dynamic_pressure_Pa": self._last_dynamic_pressure,
             "disturbance_torque_Nm": self._last_disturbance_torque,
             "air_density_kg_m3": air_density,
+            # Wind state
+            "wind_speed_ms": self._last_wind_speed,
+            "wind_direction_rad": self._last_wind_direction,
+            "wind_torque_Nm": self._last_wind_torque,
+            # Mach-dependent aero state
+            "mach_number": self._last_mach,
+            "speed_of_sound_ms": self._last_speed_of_sound,
+            "cd": self._last_cd,
+            "cl_alpha": self._last_cl_alpha,
+            # Servo state
+            "servo_position": self._servo_position,
+            "servo_lag_deg": (self.last_action - self._servo_position)
+            * self.config.max_tab_deflection,
         }
 
     def render(self, mode="human"):
@@ -486,7 +719,7 @@ if __name__ == "__main__":
 
     # Create config with physics tuning
     config = RocketConfig(
-        max_tab_deflection=15.0,
+        max_tab_deflection=30.0,
         initial_spin_std=15.0,
         disturbance_scale=0.0001,
     )

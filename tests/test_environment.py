@@ -17,7 +17,7 @@ class TestRocketConfig:
 
         assert config.tab_chord_fraction == 0.25
         assert config.tab_span_fraction == 0.5
-        assert config.max_tab_deflection == 15.0
+        assert config.max_tab_deflection == 30.0
         assert config.dt == 0.01
         assert config.max_roll_rate == 360.0
 

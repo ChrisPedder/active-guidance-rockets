@@ -1,0 +1,253 @@
+# estes_c6_dob_sac.yaml
+#
+# DISTURBANCE OBSERVER + RESIDUAL SAC FOR WIND REJECTION
+#
+# Key insight: Previous Residual RL experiments failed because wind speed
+# was NOT in the observation space. The agent couldn't learn conditional
+# behavior (passive in calm, active in wind) because it couldn't observe wind.
+#
+# Solution: Add a Disturbance Observer (DOB) that estimates external
+# disturbance torque from roll dynamics. This makes wind observable:
+#   tau_disturbance = I * alpha - tau_control - tau_damping
+#
+# The disturbance estimate is added to observations, enabling the policy
+# to learn conditional behavior based on OBSERVABLE disturbance, not
+# unobservable wind speed.
+#
+# Architecture:
+#   - PID: Base stabilization (handles calm conditions well)
+#   - DOB: Estimates disturbance torque, adds to observation space
+#   - SAC: Learns corrections conditioned on disturbance estimate
+#
+# New observation space (12 elements):
+#   [altitude, velocity, roll_angle, roll_rate, roll_accel,
+#    dynamic_pressure, time, thrust_fraction, last_action, camera_shake,
+#    disturbance_estimate,    # Signed disturbance torque (normalized)
+#    disturbance_magnitude]   # |disturbance| for gating (0-1)
+#
+# Expected outcome:
+#   - 0 m/s wind: Match PID (~3.8 deg/s) - SAC stays passive
+#   - 2-3 m/s wind: Beat PID - SAC actively corrects
+#
+# Motor: C-class, 10.0 N-s total impulse
+#        5.4N average thrust, 1.85s burn time
+#
+# Rocket: 98g dry mass, TWR=5.00
+#
+physics:
+  # Airframe file for rocket geometry
+  airframe_file: configs/airframes/estes_alpha.yaml
+  dry_mass: 0.0978
+  propellant_mass: 0.0123
+  diameter: 0.0198
+  length: 0.4
+  num_fins: 4
+  fin_span: 0.04
+  fin_root_chord: 0.05
+  fin_tip_chord: 0.025
+  max_tab_deflection: 30.0
+  tab_chord_fraction: 0.25
+  tab_span_fraction: 0.5
+  cd_body: 0.5
+  cd_fins: 0.01
+  cl_alpha: 2.0
+  control_effectiveness: 1.0
+  disturbance_scale: 0.0001
+  damping_scale: 1.5
+  initial_spin_std: 9.0
+  max_roll_rate: 450.0
+
+  # === RESIDUAL PID ===
+  use_residual_pid: true
+  max_residual: 0.15
+  pid_Kp: 0.005208
+  pid_Ki: 0.000324
+  pid_Kd: 0.016524
+  pid_use_observations: true
+
+  # === DISTURBANCE OBSERVER (NEW!) ===
+  use_disturbance_observer: true
+  dob_filter_alpha: 0.3      # Low-pass filter coefficient (0-1), 3x faster tracking
+  dob_max_disturbance: 0.01  # Expected max disturbance torque for normalization
+
+  # === CONTROL SMOOTHING ===
+  use_delta_actions: false
+  action_smoothing_alpha: 0.08
+  action_rate_limit: 0.0
+  include_previous_action: false
+
+  # === WIND SETTINGS ===
+  enable_wind: true
+  base_wind_speed: 3.0
+  max_gust_speed: 2.0
+  wind_variability: 0.3
+  wind_altitude_gradient: 0.0
+
+motor:
+  name: estes_c6
+  manufacturer: Estes
+  designation: C6
+  thrust_multiplier: 1.0
+  diameter_mm: 18.0
+  length_mm: 70.0
+  total_mass_g: 24.0
+  propellant_mass_g: 12.3
+  case_mass_g: 11.7
+  impulse_class: C
+  total_impulse_Ns: 10.0
+  avg_thrust_N: 5.4
+  max_thrust_N: 14.0
+  burn_time_s: 1.85
+  thrust_curve:
+    time_s:
+    - 0.0
+    - 0.04
+    - 0.13
+    - 0.5
+    - 1.0
+    - 1.5
+    - 1.85
+    thrust_N:
+    - 0.0
+    - 14.0
+    - 12.0
+    - 6.0
+    - 5.0
+    - 4.5
+    - 0.0
+
+environment:
+  dt: 0.01
+  max_episode_steps: 500
+  initial_spin_rate_range:
+  - -18.0
+  - 18.0
+  initial_tilt_range:
+  - -5.0
+  - 5.0
+  enable_wind: true
+  max_wind_speed: 5.0
+  max_gust_speed: 2.5
+  wind_variability: 0.3
+  max_tilt_angle: 45.0
+  min_altitude: -1.0
+  max_altitude: 200
+  normalize_observations: true
+  obs_clip_value: 10.0
+
+reward:
+  altitude_reward_scale: 0.01
+  # Huber-style spin penalty: quadratic below threshold, linear above
+  spin_penalty_scale: -0.01
+  spin_penalty_huber_threshold: 20.0
+  low_spin_bonus: 0.0
+  low_spin_threshold: 5.0
+  zero_spin_bonus: 0.0
+  zero_spin_threshold: 3.0
+  precision_spin_scale: 3.0
+
+  # Control penalties (lighter, PID handles smoothness)
+  control_effort_penalty: -0.005
+  control_smoothness_penalty: -0.02
+  spin_oscillation_penalty: -0.02
+  sign_reversal_penalty: -0.1
+  saturation_penalty: -0.3
+  action_l1_penalty: 0.0
+  action_l2_penalty: 0.0
+
+  # === DISTURBANCE-BASED RESIDUAL PENALTY (KEY CHANGE!) ===
+  # Uses disturbance_magnitude (observable!) instead of wind_speed (not observable)
+  residual_penalty_scale: -10.0
+  # Disturbance thresholds for penalty scaling
+  # Below low: HARD suppression (SAC outputs zero)
+  # Above high: Minimal penalty (SAC contributes freely)
+  # Between: Smooth transition
+  residual_disturbance_threshold_low: 0.15
+  residual_disturbance_threshold_high: 0.4
+  residual_wind_min_scale: 0.1  # 10% penalty at high disturbance
+
+  # Legacy wind thresholds (not used when DOB is enabled, but kept for reference)
+  residual_wind_threshold_low: 1.5
+  residual_wind_threshold_high: 3.0
+
+  # Settling incentives
+  early_settling_bonus: 0.0
+  settling_spin_threshold: 2.0
+  settling_time_limit: 0.5
+  settling_deadline_penalty: 0.0
+  early_phase_spin_multiplier: 2.0
+  success_bonus: 100.0
+  crash_penalty: -50.0
+  use_potential_shaping: false
+  gamma: 0.99
+
+ppo:
+  # PPO config kept for backward compatibility
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  normalize_advantage: true
+  policy_net_arch:
+  - 256
+  - 256
+  value_net_arch:
+  - 256
+  - 256
+  activation: tanh
+  total_timesteps: 2000000
+  n_envs: 8
+  device: auto
+
+sac:
+  learning_rate: 0.0003
+  buffer_size: 500000
+  batch_size: 256
+  tau: 0.005
+  gamma: 0.99
+  # Moderate entropy for exploration of disturbance-conditioned behavior
+  ent_coef: 0.05
+  train_freq: 1
+  gradient_steps: 1
+  # Slightly larger network to handle DOB obs
+  net_arch:
+  - 128
+  - 128
+  total_timesteps: 2000000
+  device: auto
+
+curriculum:
+  enabled: false
+  stages: []
+  episodes_to_evaluate: 100
+  advancement_threshold: 0.8
+
+logging:
+  log_dir: logs
+  save_dir: models
+  tensorboard_log: true
+  save_freq: 10000
+  keep_checkpoints: 5
+  eval_freq: 5000
+  n_eval_episodes: 20
+  log_episode_freq: 10
+  experiment_name: rocket_dob_sac
+  tags:
+  - estes_c6
+  - spin_control
+  - dob_sac
+  - wind
+  - disturbance_observer
+
+sensors:
+  imu_preset: icm_20948
+  control_rate_hz: 100.0
+  derive_acceleration: true
+  enabled: true

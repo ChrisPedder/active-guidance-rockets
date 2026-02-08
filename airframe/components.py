@@ -61,6 +61,10 @@ class Material:
         return cls("ABS Plastic", 1050.0)
 
     @classmethod
+    def carbon_fibre(cls) -> "Material":
+        return cls("Carbon Fibre", 1600.0)
+
+    @classmethod
     def from_name(cls, name: str) -> "Material":
         """Get material by name, with fallback to cardboard"""
         materials = {
@@ -72,6 +76,8 @@ class Material:
             "abs plastic": cls.abs_plastic(),
             "abs": cls.abs_plastic(),
             "plastic": cls.abs_plastic(),
+            "carbon fibre": cls.carbon_fibre(),
+            "carbon fiber": cls.carbon_fibre(),
         }
         return materials.get(name.lower(), cls.cardboard())
 
@@ -248,6 +254,7 @@ class TrapezoidFinSet(Component):
         tab_chord_fraction: float = 0.25,
         tab_span_fraction: float = 0.5,
         num_controlled_fins: int = 2,
+        cl_alpha: float = 2 * np.pi,
     ) -> float:
         """
         Calculate roll torque per radian of tab deflection.
@@ -258,6 +265,7 @@ class TrapezoidFinSet(Component):
             tab_chord_fraction: Fraction of chord that is control tab
             tab_span_fraction: Fraction of span with control tab
             num_controlled_fins: Number of fins with active tabs (typically 2)
+            cl_alpha: Lift curve slope (rad^-1), default 2*pi for thin airfoil
 
         Returns:
             Torque per radian of deflection (N*m/rad)
@@ -267,8 +275,8 @@ class TrapezoidFinSet(Component):
         tab_span = self.span * tab_span_fraction
         tab_area = tab_chord * tab_span
 
-        # Lift coefficient slope for thin airfoil: Cl_alpha = 2*pi
-        Cl_alpha = 2 * np.pi
+        # Lift coefficient slope
+        Cl_alpha = cl_alpha
 
         # Moment arm from axis to tab center
         moment_arm = body_radius + self.span * 0.5
@@ -280,7 +288,9 @@ class TrapezoidFinSet(Component):
         num_active = min(num_controlled_fins, self.num_fins)
         return num_active * force_per_rad * moment_arm
 
-    def get_damping_coefficient(self, body_radius: float) -> float:
+    def get_damping_coefficient(
+        self, body_radius: float, cl_alpha: float = 2 * np.pi
+    ) -> float:
         """
         Get roll damping coefficient.
 
@@ -288,12 +298,14 @@ class TrapezoidFinSet(Component):
 
         Args:
             body_radius: Rocket body radius (m)
+            cl_alpha: Lift curve slope (rad^-1), scales damping proportionally
 
         Returns:
             Damping coefficient (m^4)
         """
         moment_arm = body_radius + self.span / 2
-        return self.total_fin_area * moment_arm**2
+        cl_alpha_ratio = cl_alpha / (2 * np.pi)
+        return self.total_fin_area * moment_arm**2 * cl_alpha_ratio
 
 
 @dataclass

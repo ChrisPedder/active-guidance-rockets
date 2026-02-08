@@ -1,0 +1,64 @@
+# Anti-Reward-Hacking Sweep Configuration
+#
+# These configs test variants of the anti-reward-hacking changes:
+# 1. Removed gameable one-time bonuses
+# 2. Hard residual suppression below wind threshold
+# 3. Episode-level terminal reward based on mean spin rate
+# 4. Reward clipping
+#
+# Usage:
+#   uv run python sweep_hyperparams.py \
+#       --sweep-file configs/antihack_sweep.yaml \
+#       --base-config configs/estes_c6_residual_sac_antihack.yaml \
+#       --algo sac \
+#       --timesteps 100000 \
+#       --early-stopping 10
+#
+# For production training, use longer runs:
+#   --timesteps 500000 --early-stopping 30
+#
+
+description: "Anti-reward-hacking configurations sweep"
+
+sweeps:
+  # === BASELINE (new simplified reward function) ===
+  - name: "antihack_baseline"
+    description: "New simplified reward function with hard suppression"
+    # No overrides - uses base antihack config values
+
+  # === STRICTER RESIDUAL SUPPRESSION ===
+  - name: "antihack_strict"
+    reward.residual_penalty_scale: -10.0
+    reward.residual_wind_threshold_low: 2.5
+    description: "Even stricter residual suppression"
+
+  # === VARY MAX_RESIDUAL ===
+  - name: "antihack_maxres_0.15"
+    physics.max_residual: 0.15
+    description: "More SAC authority in high wind (15%)"
+
+  - name: "antihack_maxres_0.05"
+    physics.max_residual: 0.05
+    description: "Minimal SAC authority (5%)"
+
+  # === BEST COMBINATION ===
+  - name: "antihack_combo"
+    physics.max_residual: 0.15
+    reward.residual_penalty_scale: -10.0
+    reward.residual_wind_threshold_low: 2.5
+    description: "Strong suppression + high authority when active"
+
+  # === REWARD VARIANTS ===
+  - name: "antihack_lower_precision"
+    reward.precision_spin_scale: 1.0
+    description: "Lower precision bonus (simpler reward landscape)"
+
+  - name: "antihack_no_terminal_spin"
+    reward.success_bonus: 100.0
+    reward.crash_penalty: -50.0
+    description: "Higher terminal rewards (original values)"
+
+  # === NETWORK SIZE VARIANTS ===
+  - name: "antihack_larger_net"
+    sac.net_arch: [256, 256]
+    description: "Larger network for more complex policy"

@@ -26,7 +26,7 @@ import argparse
 import yaml
 import os
 
-from stable_baselines3 import PPO
+from stable_baselines3 import PPO, SAC
 from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 import gymnasium as gym
 from gymnasium import spaces
@@ -36,6 +36,7 @@ from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
 from rocket_config import load_config
 from pid_controller import PIDController, PIDConfig
+from rocket_env.sensors import IMUObservationWrapper, IMUConfig
 
 
 @dataclass
@@ -275,7 +276,13 @@ class SpinAgentEvaluator:
             config_path: Path to YAML config file
             vec_normalize_path: Path to VecNormalize stats (optional, auto-detected if not provided)
         """
-        self.model = PPO.load(model_path)
+        # Auto-detect algorithm type (SAC vs PPO) by trying each loader
+        try:
+            self.model = SAC.load(model_path)
+            self.algo = "sac"
+        except Exception:
+            self.model = PPO.load(model_path)
+            self.algo = "ppo"
         self.config_path = config_path
 
         # Auto-detect vec_normalize.pkl if not provided
@@ -322,6 +329,14 @@ class SpinAgentEvaluator:
                 max_roll_rate=getattr(self.config.physics, "max_roll_rate", 720.0),
                 max_episode_time=getattr(self.config.physics, "max_episode_time", 15.0),
                 dt=getattr(self.config.environment, "dt", 0.01),
+                # Wind settings
+                enable_wind=getattr(self.config.physics, "enable_wind", False),
+                base_wind_speed=getattr(self.config.physics, "base_wind_speed", 0.0),
+                max_gust_speed=getattr(self.config.physics, "max_gust_speed", 0.0),
+                wind_variability=getattr(self.config.physics, "wind_variability", 0.3),
+                wind_altitude_gradient=getattr(
+                    self.config.physics, "wind_altitude_gradient", 0.0
+                ),
             )
 
             # Build motor config dict from MotorConfig dataclass
@@ -359,6 +374,23 @@ class SpinAgentEvaluator:
                 "Use --config to specify a config YAML file."
             )
 
+        # IMU sensor noise wrapper (must match training wrapper chain)
+        if getattr(self.config.sensors, "enabled", False):
+            if getattr(self.config.sensors, "imu_custom", None):
+                imu_config = IMUConfig.from_dict(self.config.sensors.imu_custom)
+            else:
+                imu_config = IMUConfig.get_preset(
+                    getattr(self.config.sensors, "imu_preset", "icm_20948")
+                )
+            env = IMUObservationWrapper(
+                env,
+                imu_config=imu_config,
+                control_rate_hz=getattr(self.config.sensors, "control_rate_hz", 100.0),
+                derive_acceleration=getattr(
+                    self.config.sensors, "derive_acceleration", True
+                ),
+            )
+
         env = NormalizedActionWrapper(env)
 
         # Apply residual PID if configured (RL + PID hybrid)
@@ -366,9 +398,9 @@ class SpinAgentEvaluator:
         if use_residual_pid:
             max_residual = getattr(self.config.physics, "max_residual", 0.3)
             pid_config = PIDConfig(
-                Cprop=getattr(self.config.physics, "pid_Kp", 0.02),
-                Cint=getattr(self.config.physics, "pid_Ki", 0.005),
-                Cderiv=getattr(self.config.physics, "pid_Kd", 0.05),
+                Cprop=getattr(self.config.physics, "pid_Kp", 0.005208),
+                Cint=getattr(self.config.physics, "pid_Ki", 0.000324),
+                Cderiv=getattr(self.config.physics, "pid_Kd", 0.016524),
             )
             dt = getattr(self.config.environment, "dt", 0.01)
             env = ResidualPIDWrapper(
@@ -488,12 +520,12 @@ class SpinAgentEvaluator:
         )
         mean_spin = np.mean(np.abs(roll_rates))
 
-        # Camera quality assessment
-        if mean_spin < 10:
+        # Camera quality assessment (aligned with 5 deg/s target)
+        if mean_spin < 5:
             camera_quality = "Excellent"
-        elif mean_spin < 30:
+        elif mean_spin < 10:
             camera_quality = "Good"
-        elif mean_spin < 60:
+        elif mean_spin < 20:
             camera_quality = "Fair"
         else:
             camera_quality = "Poor"
@@ -501,7 +533,7 @@ class SpinAgentEvaluator:
         # Success criteria
         target_altitude = self.config.environment.max_altitude if self.config else 100
         reached_altitude = max_altitude > target_altitude * 0.5
-        low_spin = mean_spin < 30
+        low_spin = mean_spin < 10
         success = reached_altitude and low_spin
 
         return SpinEpisodeData(
@@ -601,7 +633,7 @@ class SpinVisualizationPlotter:
         # 2. Spin rate distribution
         ax = axes[0, 1]
         ax.hist(mean_spins, bins=25, alpha=0.7, edgecolor="black", color="coral")
-        ax.axvline(30, color="green", linestyle="--", label="Good threshold (30°/s)")
+        ax.axvline(5, color="green", linestyle="--", label="Excellent threshold (5°/s)")
         ax.axvline(
             np.mean(mean_spins),
             color="red",
@@ -738,8 +770,14 @@ class SpinVisualizationPlotter:
         ax.plot(t, best.roll_rate, "r-", linewidth=1.5)
         ax.fill_between(t, best.roll_rate, alpha=0.3, color="red")
         ax.axhline(0, color="gray", linestyle="-", alpha=0.5)
-        ax.axhline(30, color="green", linestyle="--", alpha=0.5, label="Good threshold")
-        ax.axhline(-30, color="green", linestyle="--", alpha=0.5)
+        ax.axhline(
+            5,
+            color="green",
+            linestyle="--",
+            alpha=0.5,
+            label="Excellent threshold (5°/s)",
+        )
+        ax.axhline(-5, color="green", linestyle="--", alpha=0.5)
         ax.set_xlabel("Time (s)")
         ax.set_ylabel("Roll Rate (°/s)")
         ax.set_title("Spin Rate")
@@ -976,16 +1014,16 @@ Mean Spin Rate:         {np.mean(spins):.1f} ± {np.std(spins):.1f} °/s
 Best (lowest) Spin:     {np.min(spins):.1f} °/s
 Worst (highest) Spin:   {np.max(spins):.1f} °/s
 
+Episodes with <5°/s:    {sum(s < 5 for s in spins)/len(spins)*100:.1f}%
 Episodes with <10°/s:   {sum(s < 10 for s in spins)/len(spins)*100:.1f}%
-Episodes with <30°/s:   {sum(s < 30 for s in spins)/len(spins)*100:.1f}%
-Episodes with <60°/s:   {sum(s < 60 for s in spins)/len(spins)*100:.1f}%
+Episodes with <20°/s:   {sum(s < 20 for s in spins)/len(spins)*100:.1f}%
 
 CAMERA QUALITY
 ────────────────────────────────────────────────────────────────
-Excellent (<10°/s):     {sum(ep.camera_quality == 'Excellent' for ep in self.episodes)/len(self.episodes)*100:.1f}%
-Good (<30°/s):          {sum(ep.camera_quality == 'Good' for ep in self.episodes)/len(self.episodes)*100:.1f}%
-Fair (<60°/s):          {sum(ep.camera_quality == 'Fair' for ep in self.episodes)/len(self.episodes)*100:.1f}%
-Poor (≥60°/s):          {sum(ep.camera_quality == 'Poor' for ep in self.episodes)/len(self.episodes)*100:.1f}%
+Excellent (<5°/s):      {sum(ep.camera_quality == 'Excellent' for ep in self.episodes)/len(self.episodes)*100:.1f}%
+Good (<10°/s):          {sum(ep.camera_quality == 'Good' for ep in self.episodes)/len(self.episodes)*100:.1f}%
+Fair (<20°/s):          {sum(ep.camera_quality == 'Fair' for ep in self.episodes)/len(self.episodes)*100:.1f}%
+Poor (≥20°/s):          {sum(ep.camera_quality == 'Poor' for ep in self.episodes)/len(self.episodes)*100:.1f}%
 
 REWARD PERFORMANCE
 ────────────────────────────────────────────────────────────────

@@ -11,6 +11,9 @@ This project trains RL agents to stabilize rocket roll (spin) during flight usin
 - Automatic motor configuration from ThrustCurve.org database
 - Physics-based moment of inertia and control effectiveness calculations
 - Progressive difficulty training pipeline
+- **SAC training with wind disturbances** -- direct tab control without PID, wind curriculum
+- **Wind model** with gusts, altitude gradient, and asymmetric fin loading physics
+- **Controller comparison** tool for PID vs PPO vs SAC under varying wind
 
 ## Quick Start
 
@@ -31,6 +34,18 @@ uv run python train_improved.py --config configs/estes_c6_easy.yaml
 
 # 5. Visualize results
 uv run python visualizations/visualize_spin_agent.py models/best_model.zip --n-episodes 50
+```
+
+### SAC Training with Wind (Recommended for New Work)
+
+```bash
+# Train SAC agent with wind curriculum (direct tab control, no PID)
+uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml \
+    --timesteps 2000000 --early-stopping 30
+
+# Compare controllers under wind
+uv run python compare_controllers.py --config configs/estes_c6_sac_wind.yaml \
+    --sac models/rocket_sac_wind_*/best_model.zip --wind-levels 0 2 5 10
 ```
 
 ### Using Your OpenRocket Design
@@ -481,6 +496,116 @@ Key parameters that affect training success:
 
 ---
 
+## SAC Training with Wind Disturbances
+
+SAC (Soft Actor-Critic) is an off-policy algorithm well suited to continuous control. Unlike the PPO pipeline above, SAC directly controls the tabs without a PID controller in the loop. SAC's entropy regularization combined with an action smoothing wrapper naturally produces smooth policies.
+
+### Why SAC + Wind?
+
+A simple rate-damping PID rejects symmetric disturbances well, but crosswind creates **asymmetric fin loading** that couples with the rocket's spin. The resulting periodic roll torque is difficult for a fixed-gain PID to fully reject. SAC can learn non-linear strategies that adapt to the disturbance pattern observed through roll acceleration.
+
+### Wind Model
+
+The `wind_model.py` module generates time-varying wind with:
+- **Base wind speed** randomized per episode (domain randomization)
+- **Gusts** modeled as multi-frequency sinusoids
+- **Direction drift** over time
+- **Altitude gradient** (optional wind shear)
+
+The roll torque physics uses the sideslip angle (`v_wind / v_rocket`) and `sin(wind_direction - roll_angle)` to compute asymmetric fin loading. This creates a periodic disturbance at the rocket's spin frequency.
+
+### Training
+
+```bash
+# Full training run with wind curriculum and early stopping
+uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml \
+    --timesteps 2000000 --early-stopping 30
+
+# Quick smoke test (verify config works)
+uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml --timesteps 10000
+
+# Override SAC hyperparameters
+uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml \
+    --lr 0.0003 --buffer-size 300000 --batch-size 256
+
+# Fine-tune from existing model
+uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml \
+    --load-model models/rocket_sac_wind_*/best_model.zip
+```
+
+### Wind Curriculum
+
+Training uses a 4-stage wind curriculum that progressively increases difficulty:
+
+| Stage | Timesteps | Base Wind | Gusts | Purpose |
+|-------|-----------|-----------|-------|---------|
+| 1 | 0--300K | 0 m/s | 0 m/s | Learn basic spin control |
+| 2 | 300K--800K | 1 m/s | 0.5 m/s | Introduce light disturbance |
+| 3 | 800K--1.5M | 3 m/s | 1.5 m/s | Moderate wind rejection |
+| 4 | 1.5M+ | Config value | Config value | Full wind from YAML |
+
+### SAC Config Reference
+
+The `sac:` section in the YAML config controls SAC hyperparameters:
+
+```yaml
+sac:
+  learning_rate: 0.0003
+  buffer_size: 300000    # Replay buffer size
+  batch_size: 256
+  tau: 0.005             # Soft update coefficient
+  gamma: 0.99
+  ent_coef: auto         # Automatic entropy tuning
+  train_freq: 1          # Update every step
+  gradient_steps: 1
+  net_arch: [256, 256]   # Policy/value network
+  total_timesteps: 2000000
+  device: auto
+```
+
+Key physics settings for SAC direct control (in `physics:` section):
+
+| Parameter | Value | Purpose |
+|-----------|-------|---------|
+| `use_residual_pid` | `false` | SAC controls tabs directly |
+| `action_smoothing_alpha` | `0.15` | Prevents jitter without PID |
+| `include_previous_action` | `true` | SAC knows current actuator position |
+| `enable_wind` | `true` | Activate wind disturbance model |
+| `base_wind_speed` | `3.0` | Mean wind speed (m/s) |
+| `max_gust_speed` | `2.0` | Gust amplitude (m/s) |
+
+### Comparing Controllers
+
+After training, compare PID, PPO, and SAC across wind conditions:
+
+```bash
+# PID baseline only
+uv run python compare_controllers.py --config configs/estes_c6_sac_wind.yaml --pid-only
+
+# SAC vs PID
+uv run python compare_controllers.py --config configs/estes_c6_sac_wind.yaml \
+    --sac models/rocket_sac_wind_*/best_model.zip
+
+# All three controllers
+uv run python compare_controllers.py --config configs/estes_c6_sac_wind.yaml \
+    --sac models/sac_model/best_model.zip \
+    --ppo models/ppo_model/best_model.zip
+
+# Custom wind levels and more episodes
+uv run python compare_controllers.py --config configs/estes_c6_sac_wind.yaml \
+    --sac models/best_model.zip \
+    --wind-levels 0 1 3 5 10 --n-episodes 50 --save-plot comparison.png
+```
+
+Output includes:
+- Mean spin rate and standard deviation per wind level
+- Success rate (spin < 30 deg/s)
+- Settling time (time to reach < 10 deg/s)
+- Control smoothness (mean action change magnitude)
+- Comparison plots
+
+---
+
 ## Monitoring Training
 
 ### TensorBoard
@@ -639,12 +764,19 @@ uv run python visualizations/visualize_spin_agent.py models/best_model.zip \
 
 ### The Control Problem
 
-The rocket experiences random roll disturbances from:
+The rocket experiences roll disturbances from:
 - Asymmetric thrust
-- Wind gusts
-- Manufacturing imperfections
+- Manufacturing imperfections (random torque noise)
+- **Wind** -- crosswind creates asymmetric fin loading through sideslip, producing periodic torque at the spin frequency
 
 The agent controls two tabs on opposite fins that deflect to create a roll torque counteracting disturbances.
+
+The wind model (`wind_model.py`) computes roll torque from:
+```
+sideslip = arctan(v_wind / v_rocket)
+torque = q * A_fin * Cl_alpha * sideslip * r_moment * sin(wind_dir - roll_angle) / n_fins
+```
+This periodic forcing is what makes wind rejection harder than rejecting random noise -- a fixed-gain PID cannot adapt to the changing disturbance frequency as the rocket's spin rate evolves.
 
 ### Key Physics Parameters
 
@@ -652,7 +784,7 @@ The agent controls two tabs on opposite fins that deflect to create a roll torqu
 physics:
   disturbance_scale: 0.0001   # Random torque magnitude
   damping_scale: 1.0          # Aerodynamic roll damping
-  max_tab_deflection: 15.0    # Control authority (degrees)
+  max_tab_deflection: 30.0    # Control authority (degrees)
 ```
 
 ### Physics Calculations
@@ -697,6 +829,8 @@ active-guidance-rockets/
 │   ├── estes_c6.yaml
 │   ├── estes_c6_easy_start.yaml
 │   ├── estes_c6_medium.yaml
+│   ├── estes_c6_sac_wind.yaml       # SAC with wind disturbances
+│   ├── estes_c6_residual.yaml       # Residual PID + RL
 │   ├── aerotech_f40_easy.yaml
 │   ├── ...                          # Generated by generate_motor_config.py
 │   └── airframes/                   # Airframe definitions
@@ -708,11 +842,14 @@ active-guidance-rockets/
 │   ├── airframe.py                  # RocketAirframe class
 │   └── openrocket_parser.py         # .ork file parser (pure Python)
 │
-├── spin_stabilized_control_env.py   # Spin-stabilized rocket environment
+├── spin_stabilized_control_env.py   # Spin-stabilized rocket environment (with wind)
 ├── realistic_spin_rocket.py         # Motor integration
+├── wind_model.py                    # Wind generation and roll torque physics
 ├── thrustcurve_motor_data.py        # Motor data parsing
-├── train_improved.py                # Training script
-├── rocket_config.py                 # Configuration system
+├── train_improved.py                # PPO training script
+├── train_sac.py                     # SAC training script (wind curriculum)
+├── compare_controllers.py           # PID/PPO/SAC comparison under wind
+├── rocket_config.py                 # Configuration system (PPO + SAC configs)
 ├── motor_loader.py                  # Motor loading utilities
 ├── sweep_hyperparams.py             # Hyperparameter sweeps
 │

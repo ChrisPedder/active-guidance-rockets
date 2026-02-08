@@ -257,7 +257,7 @@ def create_environment_from_config(
           airframe_file: "path/to/rocket.ork"  # REQUIRED
           tab_chord_fraction: 0.25
           tab_span_fraction: 0.5
-          max_tab_deflection: 15.0
+          max_tab_deflection: 30.0
           disturbance_scale: 0.0001
           damping_scale: 1.0
 
@@ -302,7 +302,7 @@ def create_environment_from_config(
 
     # Create RocketConfig with physics tuning parameters
     rocket_config = RocketConfig(
-        max_tab_deflection=physics.get("max_tab_deflection", 15.0),
+        max_tab_deflection=physics.get("max_tab_deflection", 30.0),
         tab_chord_fraction=physics.get("tab_chord_fraction", 0.25),
         tab_span_fraction=physics.get("tab_span_fraction", 0.5),
         num_controlled_fins=physics.get("num_controlled_fins", 2),
@@ -355,7 +355,7 @@ if __name__ == "__main__":
 
     # Create config
     config = RocketConfig(
-        max_tab_deflection=15.0,
+        max_tab_deflection=30.0,
         initial_spin_std=15.0,
         disturbance_scale=0.0001,
     )

@@ -1,0 +1,70 @@
+{
+  "baseline": {
+    "kp": 0.005208,
+    "ki": 0.000324,
+    "kd": 0.016524,
+    "score": 181.5039641560826,
+    "weighted_spin": 61.503964156082596,
+    "success_penalty": 120.0,
+    "by_wind": {
+      "0.0": {
+        "mean_spin": 57.66645773860582,
+        "std_spin": 0.637101612385764,
+        "success_rate": 0.0
+      },
+      "1.0": {
+        "mean_spin": 59.355487095087675,
+        "std_spin": 1.0975432176093798,
+        "success_rate": 0.0
+      },
+      "3.0": {
+        "mean_spin": 64.88056027795722,
+        "std_spin": 4.285100522274143,
+        "success_rate": 0.0
+      }
+    },
+    "q_ref": 500.0
+  },
+  "optimized": {
+    "kp": 0.08046097531041844,
+    "ki": 0.009835915136744446,
+    "kd": 0.24755589391057506,
+    "score": 198.75018780678636,
+    "weighted_spin": 78.75018780678634,
+    "success_penalty": 120.0,
+    "by_wind": {
+      "0.0": {
+        "mean_spin": 76.59840727206297,
+        "std_spin": 0.6262768299818039,
+        "success_rate": 0.0
+      },
+      "1.0": {
+        "mean_spin": 77.74072056416902,
+        "std_spin": 1.0618304660675941,
+        "success_rate": 0.0
+      },
+      "3.0": {
+        "mean_spin": 80.4916758998102,
+        "std_spin": 2.682958961831946,
+        "success_rate": 0.0
+      }
+    },
+    "q_ref": 2922.7658017202707
+  },
+  "config_path": "configs/aerotech_j800_wind.yaml",
+  "controller_type": "GS-PID (IMU)",
+  "imu": true,
+  "wind_levels": [
+    0.0,
+    1.0,
+    3.0
+  ],
+  "wind_weights": {
+    "0.0": 0.2,
+    "1.0": 0.35,
+    "3.0": 0.45
+  },
+  "n_episodes": 10,
+  "n_lhs_samples": 80,
+  "lhs_top10": []
+}

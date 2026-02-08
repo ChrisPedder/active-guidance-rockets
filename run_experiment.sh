@@ -411,7 +411,7 @@ print(f'Motor: ${MOTOR_NORMALIZED}')
 print(f'Dry mass: {physics.get(\"dry_mass\", 0.1)*1000:.0f}g')
 print(f'Propellant mass: {physics.get(\"propellant_mass\", 0.01)*1000:.1f}g')
 print(f'Diameter: {physics.get(\"diameter\", 0.024)*1000:.0f}mm')
-print(f'Max tab deflection: {physics.get(\"max_tab_deflection\", 15.0):.1f}°')
+print(f'Max tab deflection: {physics.get(\"max_tab_deflection\", 30.0):.1f}°')
 print(f'Damping scale: {physics.get(\"damping_scale\", 1.0):.1f}')
 print(f'Initial spin std: {physics.get(\"initial_spin_std\", 15.0):.1f}°/s')
 print(f'Max roll rate: {physics.get(\"max_roll_rate\", 360.0):.0f}°/s')
@@ -445,7 +445,7 @@ try:
     config = RocketConfig(
         dry_mass=physics.get('dry_mass', 0.1),
         diameter=physics.get('diameter', 0.024),
-        max_tab_deflection=physics.get('max_tab_deflection', 15.0),
+        max_tab_deflection=physics.get('max_tab_deflection', 30.0),
         disturbance_scale=physics.get('disturbance_scale', 0.0001),
         damping_scale=physics.get('damping_scale', 1.0),
         initial_spin_std=physics.get('initial_spin_std', 15.0),

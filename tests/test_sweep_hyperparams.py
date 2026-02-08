@@ -104,7 +104,7 @@ class TestApplyConfigOverrides:
 
         assert result.physics.max_tab_deflection == 20.0
         # Original should be unchanged
-        assert base_config.physics.max_tab_deflection == 15.0
+        assert base_config.physics.max_tab_deflection == 30.0
 
     def test_apply_multiple_overrides(self, base_config):
         """Test applying multiple overrides."""

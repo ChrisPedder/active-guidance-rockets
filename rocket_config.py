@@ -38,7 +38,7 @@ class RocketPhysicsConfig:
     airframe_file: str = None
 
     # Control surfaces - applied to airframe fins
-    max_tab_deflection: float = 15.0  # degrees
+    max_tab_deflection: float = 30.0  # degrees
     tab_chord_fraction: float = 0.25  # fraction of fin chord
     tab_span_fraction: float = 0.5  # fraction of fin span
     num_controlled_fins: int = 2  # number of fins with active tabs
@@ -69,15 +69,58 @@ class RocketPhysicsConfig:
     # Max delta per timestep (in normalized [-1,1] space). Limits rate of change.
     max_delta_per_step: float = 0.1  # 0.1 = takes 10 steps to go from -1 to 0
 
+    # === Wind ===
+    enable_wind: bool = False
+    base_wind_speed: float = 0.0  # m/s mean wind speed
+    max_gust_speed: float = 0.0  # m/s gust amplitude
+    wind_variability: float = 0.3  # direction change rate
+    wind_altitude_gradient: float = 0.0  # speed increase per 100m altitude
+    use_dryden: bool = False  # Use Dryden turbulence model
+    turbulence_severity: str = "light"  # "light", "moderate", "severe"
+    altitude_profile_alpha: float = 0.14  # Power-law exponent for wind profile
+    reference_altitude: float = 10.0  # Reference altitude for power-law (m)
+    body_shadow_factor: float = (
+        0.90  # Leeward fin q fraction; K_shadow = 1 - this (0.90 → K=0.10)
+    )
+
     # === Residual RL (RL + PID hybrid) ===
     # RL agent learns small corrections on top of PID controller
     use_residual_pid: bool = False
     # Maximum RL correction magnitude (e.g., 0.3 = ±30% of full range)
     max_residual: float = 0.3
     # PID gains for base controller
-    pid_Kp: float = 0.02  # Proportional gain
-    pid_Ki: float = 0.005  # Integral gain
-    pid_Kd: float = 0.05  # Derivative gain
+    pid_Kp: float = 0.005208  # Proportional gain (optimized)
+    pid_Ki: float = 0.000324  # Integral gain (optimized)
+    pid_Kd: float = 0.016524  # Derivative gain (optimized)
+    # When True, PID reads from observations (noisy IMU) instead of ground-truth info dict
+    pid_use_observations: bool = False
+
+    # === Disturbance Observer (DOB) ===
+    # Makes external disturbances (wind) observable to the policy
+    use_disturbance_observer: bool = False
+    # Low-pass filter coefficient for DOB (0-1, lower = smoother)
+    dob_filter_alpha: float = 0.1
+    # Expected maximum disturbance torque (N*m) for normalization
+    dob_max_disturbance: float = 0.01
+
+    # === Mach-dependent aerodynamics ===
+    use_mach_aero: bool = False  # Enable Mach-dependent Cd and Cl_alpha
+    use_isa_full: bool = False  # Use full ISA atmosphere (temp, speed of sound)
+    cd_mach_table: Optional[Dict] = (
+        None  # {mach: [...], cd_boost: [...], cd_coast: [...]}
+    )
+
+    # === Servo dynamics ===
+    servo_time_constant: float = 0.0  # seconds, 0 = instantaneous
+    servo_rate_limit: float = 0.0  # deg/s, 0 = unlimited
+    servo_deadband: float = 0.0  # degrees, 0 = none
+
+    # === Sensor latency ===
+    sensor_delay_steps: int = 0  # 0 = no delay
+
+    # === Observation space bounds (for larger/faster vehicles) ===
+    max_velocity: float = 100.0  # m/s
+    max_dynamic_pressure: float = 3000.0  # Pa
 
     # === Legacy fields (for backward compatibility with old configs) ===
     # These are populated when loading old-style configs that specify
@@ -252,6 +295,9 @@ class RewardConfig:
     # Primary objectives
     altitude_reward_scale: float = 0.01  # Reward per meter altitude
     spin_penalty_scale: float = -0.1  # Penalty per deg/s of spin
+    spin_penalty_huber_threshold: float = (
+        20.0  # Huber threshold: quadratic below, linear above
+    )
 
     # Stability bonuses
     low_spin_bonus: float = 1.0  # Bonus when spin < threshold
@@ -259,6 +305,20 @@ class RewardConfig:
     # Zero-spin bonus: extra reward for getting very close to zero
     zero_spin_bonus: float = 0.0  # Bonus per step when spin < zero_spin_threshold
     zero_spin_threshold: float = 1.0  # deg/s - threshold for zero-spin bonus
+    # Continuous precision bonus: quadratic reward for spin < 10 deg/s
+    precision_spin_scale: float = 2.0  # Scale for continuous near-zero incentive
+    # Residual penalty: quadratic penalty on RL residual magnitude (negative = penalty)
+    residual_penalty_scale: float = 0.0
+    # Wind-conditional residual penalty parameters (legacy, not observable by policy)
+    residual_wind_threshold_low: float = 0.5  # Full penalty below this (m/s)
+    residual_wind_threshold_high: float = 2.0  # Minimal penalty above this (m/s)
+    residual_wind_min_scale: float = 0.1  # 10% penalty multiplier at high wind
+    # Disturbance-based residual penalty (requires use_disturbance_observer: true)
+    # The disturbance magnitude IS observable by the policy, enabling conditional behavior
+    residual_disturbance_threshold_low: float = 0.1  # Full penalty below this magnitude
+    residual_disturbance_threshold_high: float = (
+        0.3  # Minimal penalty above this magnitude
+    )
 
     # Control penalties
     control_effort_penalty: float = -0.01  # Penalty for large actions
@@ -327,6 +387,23 @@ class PPOConfig:
     total_timesteps: int = 500_000
     n_envs: int = 8  # Parallel environments
     device: str = "auto"  # "auto", "cpu", "cuda"
+
+
+@dataclass
+class SACConfig:
+    """SAC algorithm hyperparameters"""
+
+    learning_rate: float = 3e-4
+    buffer_size: int = 300_000
+    batch_size: int = 256
+    tau: float = 0.005
+    gamma: float = 0.99
+    ent_coef: str = "auto"
+    train_freq: int = 1
+    gradient_steps: int = 1
+    net_arch: List[int] = field(default_factory=lambda: [256, 256])
+    total_timesteps: int = 2_000_000
+    device: str = "auto"
 
 
 @dataclass
@@ -434,6 +511,7 @@ class RocketTrainingConfig:
     environment: EnvironmentConfig = field(default_factory=EnvironmentConfig)
     reward: RewardConfig = field(default_factory=RewardConfig)
     ppo: PPOConfig = field(default_factory=PPOConfig)
+    sac: Optional[SACConfig] = None
     curriculum: CurriculumConfig = field(default_factory=CurriculumConfig)
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     sensors: SensorConfig = field(default_factory=SensorConfig)
@@ -460,12 +538,16 @@ class RocketTrainingConfig:
         physics_data = data.get("physics", {})
         physics_config = cls._load_physics_config(physics_data)
 
+        sac_data = data.get("sac")
+        sac_config = SACConfig(**sac_data) if sac_data else None
+
         return cls(
             physics=physics_config,
             motor=MotorConfig(**data.get("motor", {})),
             environment=EnvironmentConfig(**data.get("environment", {})),
             reward=RewardConfig(**data.get("reward", {})),
             ppo=PPOConfig(**data.get("ppo", {})),
+            sac=sac_config,
             curriculum=CurriculumConfig(**data.get("curriculum", {})),
             logging=LoggingConfig(**data.get("logging", {})),
             sensors=SensorConfig(**data.get("sensors", {})),
@@ -508,6 +590,35 @@ class RocketTrainingConfig:
             "pid_Kp",
             "pid_Ki",
             "pid_Kd",
+            "pid_use_observations",
+            # Disturbance Observer fields
+            "use_disturbance_observer",
+            "dob_filter_alpha",
+            "dob_max_disturbance",
+            # Wind fields
+            "enable_wind",
+            "base_wind_speed",
+            "max_gust_speed",
+            "wind_variability",
+            "wind_altitude_gradient",
+            "use_dryden",
+            "turbulence_severity",
+            "altitude_profile_alpha",
+            "reference_altitude",
+            "body_shadow_factor",
+            # Mach-dependent aerodynamics
+            "use_mach_aero",
+            "use_isa_full",
+            "cd_mach_table",
+            # Servo dynamics
+            "servo_time_constant",
+            "servo_rate_limit",
+            "servo_deadband",
+            # Sensor latency
+            "sensor_delay_steps",
+            # Observation space bounds
+            "max_velocity",
+            "max_dynamic_pressure",
         }
 
         # Legacy fields that were in old configs (now in airframe)
@@ -634,7 +745,7 @@ class RocketTrainingConfig:
         return cls(
             physics=RocketPhysicsConfig(
                 airframe_file=airframe_path,
-                max_tab_deflection=15.0,
+                max_tab_deflection=30.0,
                 disturbance_scale=0.0001,
             ),
             motor=MotorConfig(name="estes_c6"),
@@ -658,7 +769,7 @@ class RocketTrainingConfig:
         return cls(
             physics=RocketPhysicsConfig(
                 airframe_file=airframe_path,
-                max_tab_deflection=20.0,
+                max_tab_deflection=30.0,
                 disturbance_scale=0.0001,
             ),
             motor=MotorConfig(name="aerotech_f40"),

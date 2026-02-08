@@ -1,0 +1,181 @@
+# estes_c6_200hz.yaml
+#
+# HARDWARE PARAMETER STUDY: 200 Hz CONTROL LOOP
+#
+# Identical to estes_c6_sac_wind.yaml except:
+#   dt: 0.005 (200 Hz, up from 100 Hz)
+#   control_rate_hz: 200.0
+#
+# At 20 rad/s spin frequency (~3 Hz), 100 Hz sampling introduces
+# ~11 degrees of phase lag per sample. At 200 Hz this halves to ~5.5 degrees.
+#
+physics:
+  dry_mass: 0.0978
+  propellant_mass: 0.0123
+  diameter: 0.0198
+  length: 0.4
+  num_fins: 4
+  fin_span: 0.04
+  fin_root_chord: 0.05
+  fin_tip_chord: 0.025
+  max_tab_deflection: 30.0
+  tab_chord_fraction: 0.25
+  tab_span_fraction: 0.5
+  cd_body: 0.5
+  cd_fins: 0.01
+  cl_alpha: 2.0
+  control_effectiveness: 1.0
+  disturbance_scale: 0.0001
+  damping_scale: 1.5
+  initial_spin_std: 9.0
+  max_roll_rate: 450.0
+  use_residual_pid: false
+  use_delta_actions: false
+  action_smoothing_alpha: 0.15
+  action_rate_limit: 0.0
+  include_previous_action: true
+  enable_wind: true
+  base_wind_speed: 3.0
+  max_gust_speed: 2.0
+  wind_variability: 0.3
+  wind_altitude_gradient: 0.0
+  use_dryden: false
+  turbulence_severity: light
+  altitude_profile_alpha: 0.14
+  reference_altitude: 10.0
+motor:
+  name: estes_c6
+  manufacturer: Estes
+  designation: C6
+  thrust_multiplier: 1.0
+  diameter_mm: 18.0
+  length_mm: 70.0
+  total_mass_g: 24.0
+  propellant_mass_g: 12.3
+  case_mass_g: 11.7
+  impulse_class: C
+  total_impulse_Ns: 10.0
+  avg_thrust_N: 5.4
+  max_thrust_N: 14.0
+  burn_time_s: 1.85
+  thrust_curve:
+    time_s:
+    - 0.0
+    - 0.04
+    - 0.13
+    - 0.5
+    - 1.0
+    - 1.5
+    - 1.85
+    thrust_N:
+    - 0.0
+    - 14.0
+    - 12.0
+    - 6.0
+    - 5.0
+    - 4.5
+    - 0.0
+environment:
+  dt: 0.005
+  max_episode_steps: 1000
+  initial_spin_rate_range:
+  - -18.0
+  - 18.0
+  initial_tilt_range:
+  - -5.0
+  - 5.0
+  enable_wind: true
+  max_wind_speed: 5.0
+  max_gust_speed: 2.5
+  wind_variability: 0.3
+  max_tilt_angle: 45.0
+  min_altitude: -1.0
+  max_altitude: 200
+  normalize_observations: true
+  obs_clip_value: 10.0
+reward:
+  altitude_reward_scale: 0.01
+  spin_penalty_scale: -0.01
+  low_spin_bonus: 3.0
+  low_spin_threshold: 5.0
+  zero_spin_bonus: 10.0
+  zero_spin_threshold: 3.0
+  precision_spin_scale: 2.0
+  control_effort_penalty: -0.01
+  control_smoothness_penalty: -0.02
+  spin_oscillation_penalty: -0.02
+  sign_reversal_penalty: -0.05
+  saturation_penalty: -0.5
+  action_l1_penalty: 0.0
+  action_l2_penalty: 0.0
+  early_settling_bonus: 30.0
+  settling_spin_threshold: 2.0
+  settling_time_limit: 0.5
+  settling_deadline_penalty: -50.0
+  early_phase_spin_multiplier: 2.0
+  success_bonus: 100.0
+  crash_penalty: -50.0
+  use_potential_shaping: false
+  gamma: 0.99
+ppo:
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  normalize_advantage: true
+  policy_net_arch:
+  - 256
+  - 256
+  value_net_arch:
+  - 256
+  - 256
+  activation: tanh
+  total_timesteps: 2000000
+  n_envs: 8
+  device: auto
+sac:
+  learning_rate: 0.0003
+  buffer_size: 300000
+  batch_size: 256
+  tau: 0.005
+  gamma: 0.99
+  ent_coef: auto
+  train_freq: 1
+  gradient_steps: 1
+  net_arch:
+  - 256
+  - 256
+  total_timesteps: 2000000
+  device: auto
+curriculum:
+  enabled: false
+  stages: []
+  episodes_to_evaluate: 100
+  advancement_threshold: 0.8
+logging:
+  log_dir: logs
+  save_dir: models
+  tensorboard_log: true
+  save_freq: 10000
+  keep_checkpoints: 5
+  eval_freq: 5000
+  n_eval_episodes: 20
+  log_episode_freq: 10
+  experiment_name: rocket_sac_wind_200hz
+  tags:
+  - estes_c6
+  - spin_control
+  - 200hz
+  - hardware_study
+sensors:
+  imu_preset: icm_20948
+  control_rate_hz: 200.0
+  derive_acceleration: true
+  enabled: true

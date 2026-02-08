@@ -1,0 +1,217 @@
+# estes_c6_residual_sac_antihack.yaml
+#
+# ANTI-REWARD-HACKING CONFIG FOR RESIDUAL SAC
+#
+# Key changes from estes_c6_residual_sac_wind.yaml:
+# 1. Removed gameable one-time bonuses (early_settling_bonus, settling_deadline_penalty)
+# 2. Removed redundant overlapping bonuses (zero_spin_bonus, low_spin_bonus)
+# 3. Strengthened residual suppression (higher thresholds, stronger penalty)
+# 4. Episode-level terminal reward based on actual mean_spin_rate_deg_s
+# 5. Reward clipping to prevent single component dominance
+#
+# Architecture: PID handles base control, SAC learns wind corrections
+# SAC is hard-suppressed in calm conditions (<2 m/s wind)
+#
+physics:
+  dry_mass: 0.0978
+  propellant_mass: 0.0123
+  diameter: 0.0198
+  length: 0.4
+  num_fins: 4
+  fin_span: 0.04
+  fin_root_chord: 0.05
+  fin_tip_chord: 0.025
+  max_tab_deflection: 30.0
+  tab_chord_fraction: 0.25
+  tab_span_fraction: 0.5
+  cd_body: 0.5
+  cd_fins: 0.01
+  cl_alpha: 2.0
+  control_effectiveness: 1.0
+  disturbance_scale: 0.0001
+  damping_scale: 1.5
+  initial_spin_std: 9.0
+  max_roll_rate: 450.0
+  # === RESIDUAL PID + SAC ===
+  use_residual_pid: true
+  max_residual: 0.1
+  pid_Kp: 0.005208
+  pid_Ki: 0.000324
+  pid_Kd: 0.016524
+  pid_use_observations: true
+  use_delta_actions: false
+  action_smoothing_alpha: 0.08
+  action_rate_limit: 0.0
+  include_previous_action: false
+  # === WIND SETTINGS ===
+  enable_wind: true
+  base_wind_speed: 3.0
+  max_gust_speed: 2.0
+  wind_variability: 0.3
+  wind_altitude_gradient: 0.0
+
+motor:
+  name: estes_c6
+  manufacturer: Estes
+  designation: C6
+  thrust_multiplier: 1.0
+  diameter_mm: 18.0
+  length_mm: 70.0
+  total_mass_g: 24.0
+  propellant_mass_g: 12.3
+  case_mass_g: 11.7
+  impulse_class: C
+  total_impulse_Ns: 10.0
+  avg_thrust_N: 5.4
+  max_thrust_N: 14.0
+  burn_time_s: 1.85
+  thrust_curve:
+    time_s:
+    - 0.0
+    - 0.04
+    - 0.13
+    - 0.5
+    - 1.0
+    - 1.5
+    - 1.85
+    thrust_N:
+    - 0.0
+    - 14.0
+    - 12.0
+    - 6.0
+    - 5.0
+    - 4.5
+    - 0.0
+
+environment:
+  dt: 0.01
+  max_episode_steps: 500
+  initial_spin_rate_range:
+  - -18.0
+  - 18.0
+  initial_tilt_range:
+  - -5.0
+  - 5.0
+  enable_wind: true
+  max_wind_speed: 5.0
+  max_gust_speed: 2.5
+  wind_variability: 0.3
+  max_tilt_angle: 45.0
+  min_altitude: -1.0
+  max_altitude: 200
+  normalize_observations: true
+  obs_clip_value: 10.0
+
+reward:
+  # Reduced altitude reward to avoid dominating spin objective
+  altitude_reward_scale: 0.005
+
+  # Primary signal: Huber-style spin penalty
+  spin_penalty_scale: -0.01
+  spin_penalty_huber_threshold: 20.0
+
+  # REMOVED: Redundant overlapping bonuses (set to 0)
+  low_spin_bonus: 0.0
+  low_spin_threshold: 5.0
+  zero_spin_bonus: 0.0           # Was 10.0 - REMOVED (gameable)
+  zero_spin_threshold: 3.0
+
+  # Single continuous signal for near-zero spin
+  precision_spin_scale: 2.0      # Reduced from 3.0
+
+  # Control penalties (unchanged)
+  control_effort_penalty: -0.005
+  control_smoothness_penalty: -0.02
+  spin_oscillation_penalty: -0.02
+  sign_reversal_penalty: -0.1
+  saturation_penalty: -0.3
+  action_l1_penalty: 0.0
+  action_l2_penalty: 0.0
+
+  # STRENGTHENED residual suppression
+  # Hard suppression below wind_threshold_low via code change
+  residual_penalty_scale: -5.0            # Stronger (was -2.0)
+  residual_wind_threshold_low: 2.0        # Higher (was 1.5)
+  residual_wind_threshold_high: 4.0       # Higher (was 3.0)
+  residual_wind_min_scale: 0.1            # Lower (was 0.2)
+
+  # REMOVED: Gameable one-time events (set to 0)
+  early_settling_bonus: 0.0               # Was 15.0 - REMOVED
+  settling_spin_threshold: 5.0
+  settling_time_limit: 0.5
+  settling_deadline_penalty: 0.0          # Was -15.0 - REMOVED
+  early_phase_spin_multiplier: 1.0        # Disabled (was 2.0)
+
+  # Terminal rewards (reduced to balance with per-step rewards)
+  success_bonus: 50.0                     # Reduced (was 100)
+  crash_penalty: -30.0                    # Reduced (was -50)
+
+  use_potential_shaping: false
+  gamma: 0.99
+
+ppo:
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  normalize_advantage: true
+  policy_net_arch:
+  - 256
+  - 256
+  value_net_arch:
+  - 256
+  - 256
+  activation: tanh
+  total_timesteps: 2000000
+  n_envs: 8
+  device: auto
+
+sac:
+  learning_rate: 0.0003
+  buffer_size: 500000
+  batch_size: 256
+  tau: 0.005
+  gamma: 0.99
+  ent_coef: 0.1
+  train_freq: 1
+  gradient_steps: 1
+  net_arch:
+  - 128
+  - 128
+  total_timesteps: 2000000
+  device: auto
+
+curriculum:
+  enabled: false
+  stages: []
+  episodes_to_evaluate: 100
+  advancement_threshold: 0.8
+
+logging:
+  log_dir: logs
+  save_dir: models
+  tensorboard_log: true
+  save_freq: 10000
+  keep_checkpoints: 5
+  eval_freq: 5000
+  n_eval_episodes: 20
+  log_episode_freq: 10
+  experiment_name: rocket_residual_sac_antihack
+  tags:
+  - estes_c6
+  - spin_control
+  - residual_sac
+  - antihack
+
+sensors:
+  imu_preset: icm_20948
+  control_rate_hz: 100.0
+  derive_acceleration: true
+  enabled: true

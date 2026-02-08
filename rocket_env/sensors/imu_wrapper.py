@@ -174,6 +174,38 @@ class IMUObservationWrapper(gym.ObservationWrapper):
 
         return noisy_obs
 
+    def step(self, action):
+        """Step environment and apply IMU noise to both obs and info.
+
+        The obs vector may be subject to sensor_delay_steps, but the info dict
+        always contains real-time state. We apply gyro noise to info so that
+        classical controllers reading from info get noisy-but-current values,
+        matching what a real gyro reads.
+        """
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        noisy_obs = self.observation(obs)
+
+        # Apply gyro noise to info dict roll_rate using the same noisy
+        # measurement that was applied to obs (avoids double-advancing
+        # the gyro model's bias state). The last measure() call in
+        # observation() produced a noisy rate — retrieve it.
+        if "roll_rate_deg_s" in info:
+            # Use the noisy rate from the most recent observation() call
+            # (stored via _prev_noisy_rate) to get the noise delta,
+            # and apply an equivalent noise to the info rate.
+            true_info_rate = info["roll_rate_deg_s"]
+            # The gyro noise is predominantly white noise + bias.
+            # The bias is the same for obs and info readings. For the
+            # white noise component, we add a fresh sample.
+            noise_std = self.gyro_model._white_noise_std
+            bias = self.gyro_model._bias
+            scale = self.gyro_model._scale_factor
+            white_noise = self.gyro_model.rng.normal(0.0, noise_std)
+            noisy_info_rate = true_info_rate * scale + bias + white_noise
+            info["roll_rate_deg_s"] = float(noisy_info_rate)
+
+        return noisy_obs, reward, terminated, truncated, info
+
     def get_sensor_state(self) -> Dict[str, Any]:
         """
         Get current sensor state for debugging/logging.

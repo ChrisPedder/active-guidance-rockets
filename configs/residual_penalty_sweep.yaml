@@ -1,0 +1,81 @@
+# Residual Penalty Grid Search Configuration
+#
+# This file defines 12 configurations for sweeping residual penalty parameters.
+# Used with sweep_hyperparams.py to find the optimal balance between:
+#   - SAC passivity in calm conditions (let PID do its job)
+#   - SAC activity in windy conditions (add wind-rejection corrections)
+#
+# Usage:
+#   uv run python sweep_hyperparams.py \
+#       --sweep-file configs/residual_penalty_sweep.yaml \
+#       --base-config configs/estes_c6_residual_sac_wind.yaml \
+#       --algo sac \
+#       --timesteps 200000 \
+#       --early-stopping 15
+#
+# Run time: ~12 configs x 10min = ~2 hours
+
+description: "Grid search for residual penalty configurations (SAC passivity tuning)"
+
+sweeps:
+  # === BASELINE (current config) ===
+  - name: "baseline"
+    description: "Current: penalty=-2.0, thresh_low=1.5, max_res=0.1"
+    # No overrides - uses base config values
+
+  # === VARY PENALTY STRENGTH (3 configs) ===
+  - name: "penalty_1x"
+    reward.residual_penalty_scale: -1.0
+    description: "Weaker residual penalty (-1.0)"
+
+  - name: "penalty_4x"
+    reward.residual_penalty_scale: -4.0
+    description: "4x stronger residual penalty (-4.0)"
+
+  - name: "penalty_8x"
+    reward.residual_penalty_scale: -8.0
+    description: "8x stronger residual penalty (-8.0)"
+
+  # === VARY WIND THRESHOLDS (3 configs) ===
+  - name: "thresh_1.0"
+    reward.residual_wind_threshold_low: 1.0
+    reward.residual_wind_threshold_high: 2.5
+    description: "Lower wind thresholds (1.0-2.5 m/s)"
+
+  - name: "thresh_2.0"
+    reward.residual_wind_threshold_low: 2.0
+    reward.residual_wind_threshold_high: 3.5
+    description: "Higher wind thresholds (2.0-3.5 m/s)"
+
+  - name: "thresh_2.5"
+    reward.residual_wind_threshold_low: 2.5
+    reward.residual_wind_threshold_high: 4.0
+    description: "Even higher wind thresholds (2.5-4.0 m/s)"
+
+  # === VARY MAX_RESIDUAL (2 configs) ===
+  - name: "maxres_0.05"
+    physics.max_residual: 0.05
+    description: "5% max residual correction"
+
+  - name: "maxres_0.15"
+    physics.max_residual: 0.15
+    description: "15% max residual correction"
+
+  # === COMBINED AGGRESSIVE PASSIVITY (3 configs) ===
+  - name: "aggressive_v1"
+    reward.residual_penalty_scale: -4.0
+    reward.residual_wind_threshold_low: 2.0
+    physics.max_residual: 0.05
+    description: "Strong penalty + high thresh + small max_res"
+
+  - name: "aggressive_v2"
+    reward.residual_penalty_scale: -8.0
+    reward.residual_wind_threshold_low: 1.5
+    physics.max_residual: 0.05
+    description: "Very strong penalty + medium thresh + small max_res"
+
+  - name: "balanced"
+    reward.residual_penalty_scale: -2.0
+    reward.residual_wind_threshold_low: 2.0
+    physics.max_residual: 0.1
+    description: "Medium penalty + high thresh + medium max_res"

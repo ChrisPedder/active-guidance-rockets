@@ -43,7 +43,7 @@ class TestRealisticMotorRocket:
         from spin_stabilized_control_env import RocketConfig
 
         config = RocketConfig(
-            max_tab_deflection=15.0,
+            max_tab_deflection=30.0,
             initial_spin_std=15.0,
             disturbance_scale=0.0001,
         )
@@ -291,7 +291,7 @@ components:
         config = {
             "physics": {
                 "airframe_file": str(airframe_file),
-                "max_tab_deflection": 15.0,
+                "max_tab_deflection": 30.0,
                 "disturbance_scale": 0.0001,
             },
             "motor": {
@@ -338,7 +338,7 @@ components:
         config = {
             "physics": {
                 # Missing airframe_file
-                "max_tab_deflection": 15.0,
+                "max_tab_deflection": 30.0,
             },
             "motor": {
                 "name": "test_motor",

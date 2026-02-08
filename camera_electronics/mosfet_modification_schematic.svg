@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg viewBox="0 0 900 600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <defs>
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#374151" stroke-width="0.5"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="900" height="600" fill="#1f2937"/>
+  <rect x="0" y="0" width="900" height="600" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="450" y="30" text-anchor="middle" font-size="16" font-weight="bold" fill="#f9fafb" font-family="Arial, sans-serif">
+    DollaTek ESP8266 WiFi Module — MOSFET Modification Schematic
+  </text>
+
+  <!-- Battery Section -->
+  <g transform="translate(30, 80)">
+    <text x="50" y="0" text-anchor="middle" font-size="12" font-weight="bold" fill="#fbbf24" font-family="Arial, sans-serif">POWER SOURCE</text>
+
+    <!-- 2S LiPo -->
+    <rect x="10" y="20" width="80" height="100" rx="6" fill="#451a03" stroke="#f59e0b" stroke-width="2"/>
+    <text x="50" y="45" text-anchor="middle" font-size="11" font-weight="bold" fill="#fbbf24" font-family="Arial, sans-serif">2S LiPo</text>
+    <text x="50" y="62" text-anchor="middle" font-size="10" fill="#fcd34d" font-family="Arial, sans-serif">7.4V</text>
+    <text x="50" y="78" text-anchor="middle" font-size="9" fill="#fcd34d" font-family="Arial, sans-serif">500-1000mAh</text>
+
+    <!-- Battery terminals -->
+    <rect x="25" y="90" width="20" height="12" fill="#ef4444" rx="2"/>
+    <text x="35" y="99" text-anchor="middle" font-size="8" fill="white" font-weight="bold" font-family="Arial, sans-serif">+</text>
+    <rect x="55" y="90" width="20" height="12" fill="#1f2937" rx="2" stroke="#6b7280"/>
+    <text x="65" y="99" text-anchor="middle" font-size="8" fill="white" font-weight="bold" font-family="Arial, sans-serif">−</text>
+
+    <!-- Wire out points -->
+    <circle cx="35" cy="120" r="4" fill="#ef4444"/>
+    <circle cx="65" cy="120" r="4" fill="#374151" stroke="#9ca3af" stroke-width="1"/>
+  </g>
+
+  <!-- Buck Converter -->
+  <g transform="translate(30, 240)">
+    <rect x="0" y="0" width="100" height="80" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="2"/>
+    <text x="50" y="20" text-anchor="middle" font-size="10" font-weight="bold" fill="#93c5fd" font-family="Arial, sans-serif">Buck Converter</text>
+    <text x="50" y="35" text-anchor="middle" font-size="9" fill="#93c5fd" font-family="Arial, sans-serif">7.4V → 5V</text>
+
+    <!-- Input -->
+    <text x="10" y="55" font-size="8" fill="#60a5fa" font-family="Arial, sans-serif">IN+</text>
+    <circle cx="0" cy="52" r="3" fill="#ef4444"/>
+    <text x="10" y="70" font-size="8" fill="#60a5fa" font-family="Arial, sans-serif">IN−</text>
+    <circle cx="0" cy="67" r="3" fill="#374151" stroke="#9ca3af" stroke-width="1"/>
+
+    <!-- Output -->
+    <text x="70" y="55" font-size="8" fill="#60a5fa" font-family="Arial, sans-serif">OUT+</text>
+    <circle cx="100" cy="52" r="3" fill="#22c55e"/>
+    <text x="70" y="70" font-size="8" fill="#60a5fa" font-family="Arial, sans-serif">OUT−</text>
+    <circle cx="100" cy="67" r="3" fill="#374151" stroke="#9ca3af" stroke-width="1"/>
+
+    <text x="50" y="95" text-anchor="middle" font-size="8" fill="#6b7280" font-family="Arial, sans-serif">e.g. LM2596, MP1584</text>
+  </g>
+
+  <!-- Wires from battery to buck converter -->
+  <path d="M 65 200 L 65 230 L 15 230 L 15 292" stroke="#ef4444" stroke-width="2" fill="none"/>
+  <path d="M 95 200 L 95 220 L 25 220 L 25 307" stroke="#6b7280" stroke-width="2" fill="none"/>
+
+  <!-- DollaTek Module -->
+  <g transform="translate(180, 100)">
+    <rect x="0" y="0" width="280" height="280" rx="8" fill="#1e293b" stroke="#475569" stroke-width="2"/>
+    <text x="140" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#f1f5f9" font-family="Arial, sans-serif">DollaTek ESP8266 WiFi Module</text>
+    <text x="140" y="42" text-anchor="middle" font-size="10" fill="#94a3b8" font-family="Arial, sans-serif">(Modified)</text>
+
+    <!-- Power Input Section -->
+    <g transform="translate(15, 55)">
+      <rect x="0" y="0" width="80" height="50" rx="4" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+      <text x="40" y="15" text-anchor="middle" font-size="9" font-weight="bold" fill="#d1d5db" font-family="Arial, sans-serif">Power In</text>
+      <text x="10" y="32" font-size="8" fill="#9ca3af" font-family="Arial, sans-serif">IN+</text>
+      <rect x="28" y="24" width="20" height="10" fill="#22c55e" rx="2"/>
+      <text x="10" y="45" font-size="8" fill="#9ca3af" font-family="Arial, sans-serif">IN−</text>
+      <rect x="28" y="37" width="20" height="10" fill="#374151" rx="2" stroke="#6b7280"/>
+      <circle cx="0" cy="29" r="3" fill="#22c55e"/>
+      <circle cx="0" cy="42" r="3" fill="#374151" stroke="#9ca3af" stroke-width="1"/>
+    </g>
+
+    <!-- ESP8266 Module -->
+    <g transform="translate(110, 55)">
+      <rect x="0" y="0" width="70" height="50" rx="4" fill="#1e40af" stroke="#3b82f6" stroke-width="1"/>
+      <text x="35" y="15" text-anchor="middle" font-size="9" font-weight="bold" fill="#bfdbfe" font-family="Arial, sans-serif">ESP-01S</text>
+      <text x="35" y="28" text-anchor="middle" font-size="8" fill="#93c5fd" font-family="Arial, sans-serif">ESP8266</text>
+      <text x="35" y="42" text-anchor="middle" font-size="7" fill="#60a5fa" font-family="Arial, sans-serif">WiFi AP Mode</text>
+    </g>
+
+    <!-- Original Relay - crossed out -->
+    <g transform="translate(15, 120)">
+      <rect x="0" y="0" width="100" height="70" rx="4" fill="#450a0a" stroke="#dc2626" stroke-width="2" stroke-dasharray="4,2"/>
+      <text x="50" y="18" text-anchor="middle" font-size="9" font-weight="bold" fill="#fca5a5" font-family="Arial, sans-serif">ORIGINAL RELAY</text>
+      <text x="50" y="32" text-anchor="middle" font-size="8" fill="#f87171" font-family="Arial, sans-serif">Songle SRD-05VDC</text>
+      <text x="50" y="45" text-anchor="middle" font-size="7" fill="#ef4444" font-family="Arial, sans-serif">10G Error Operation!</text>
+      <text x="50" y="58" text-anchor="middle" font-size="10" font-weight="bold" fill="#dc2626" font-family="Arial, sans-serif">✗ REMOVE</text>
+      <!-- X through it -->
+      <line x1="5" y1="5" x2="95" y2="65" stroke="#dc2626" stroke-width="3"/>
+      <line x1="95" y1="5" x2="5" y2="65" stroke="#dc2626" stroke-width="3"/>
+    </g>
+
+    <!-- Driver Circuit -->
+    <g transform="translate(130, 120)">
+      <rect x="0" y="0" width="70" height="70" rx="4" fill="#374151" stroke="#4b5563" stroke-width="1"/>
+      <text x="35" y="15" text-anchor="middle" font-size="8" font-weight="bold" fill="#d1d5db" font-family="Arial, sans-serif">Relay Driver</text>
+      <text x="35" y="28" text-anchor="middle" font-size="7" fill="#9ca3af" font-family="Arial, sans-serif">Transistor or</text>
+      <text x="35" y="38" text-anchor="middle" font-size="7" fill="#9ca3af" font-family="Arial, sans-serif">Optocoupler</text>
+      <text x="35" y="55" text-anchor="middle" font-size="8" fill="#22c55e" font-family="Arial, sans-serif">TAP HERE</text>
+      <text x="35" y="65" text-anchor="middle" font-size="7" fill="#22c55e" font-family="Arial, sans-serif">for 5V signal</text>
+      <circle cx="70" cy="50" r="4" fill="#22c55e"/>
+    </g>
+
+    <!-- Output terminals (now modified) -->
+    <g transform="translate(15, 210)">
+      <rect x="0" y="0" width="250" height="55" rx="4" fill="#14532d" stroke="#22c55e" stroke-width="2"/>
+      <text x="125" y="15" text-anchor="middle" font-size="9" font-weight="bold" fill="#86efac" font-family="Arial, sans-serif">OUTPUT → Connect to MOSFET Board</text>
+      <text x="40" y="35" font-size="8" fill="#86efac" font-family="Arial, sans-serif">Signal (5V when ON)</text>
+      <circle cx="140" cy="32" r="4" fill="#22c55e"/>
+      <text x="40" y="48" font-size="8" fill="#86efac" font-family="Arial, sans-serif">GND (common)</text>
+      <circle cx="140" cy="45" r="4" fill="#374151" stroke="#9ca3af" stroke-width="1"/>
+    </g>
+  </g>
+
+  <!-- Wire from buck to dollatek -->
+  <path d="M 130 292 L 155 292 L 155 184 L 180 184" stroke="#22c55e" stroke-width="2" fill="none"/>
+  <path d="M 130 307 L 165 307 L 165 197 L 180 197" stroke="#6b7280" stroke-width="2" fill="none"/>
+
+  <!-- MOSFET Switch Board -->
+  <g transform="translate(520, 140)">
+    <rect x="0" y="0" width="200" height="240" rx="8" fill="#052e16" stroke="#22c55e" stroke-width="3"/>
+    <text x="100" y="25" text-anchor="middle" font-size="14" font-weight="bold" fill="#86efac" font-family="Arial, sans-serif">MOSFET Switch Board</text>
+    <text x="100" y="42" text-anchor="middle" font-size="10" fill="#4ade80" font-family="Arial, sans-serif">(New Addition)</text>
+
+    <!-- Gate resistor -->
+    <g transform="translate(20, 60)">
+      <text x="0" y="0" font-size="9" font-weight="bold" fill="#86efac" font-family="Arial, sans-serif">Gate Resistor</text>
+      <rect x="0" y="10" width="60" height="20" fill="#92400e" rx="3"/>
+      <text x="30" y="24" text-anchor="middle" font-size="9" fill="#fef3c7" font-family="Arial, sans-serif">100Ω</text>
+      <circle cx="0" cy="20" r="3" fill="#22c55e"/>
+      <text x="70" y="25" font-size="7" fill="#6b7280" font-family="Arial, sans-serif">Limits gate current</text>
+    </g>
+
+    <!-- Pull-down resistor -->
+    <g transform="translate(20, 100)">
+      <text x="0" y="0" font-size="9" font-weight="bold" fill="#86efac" font-family="Arial, sans-serif">Pull-Down</text>
+      <rect x="0" y="10" width="60" height="20" fill="#92400e" rx="3"/>
+      <text x="30" y="24" text-anchor="middle" font-size="9" fill="#fef3c7" font-family="Arial, sans-serif">10kΩ</text>
+      <text x="70" y="18" font-size="7" fill="#6b7280" font-family="Arial, sans-serif">Gate to Source</text>
+      <text x="70" y="28" font-size="7" fill="#6b7280" font-family="Arial, sans-serif">(ensures OFF at boot)</text>
+    </g>
+
+    <!-- MOSFET Symbol -->
+    <g transform="translate(50, 145)">
+      <text x="50" y="0" text-anchor="middle" font-size="10" font-weight="bold" fill="#86efac" font-family="Arial, sans-serif">N-Channel MOSFET</text>
+
+      <!-- MOSFET body -->
+      <rect x="30" y="15" width="40" height="60" fill="#1e3a5f" stroke="#3b82f6" stroke-width="2" rx="4"/>
+
+      <!-- Gate -->
+      <line x1="0" y1="45" x2="30" y2="45" stroke="#22c55e" stroke-width="2"/>
+      <text x="8" y="38" font-size="8" fill="#86efac" font-family="Arial, sans-serif">G</text>
+      <circle cx="0" cy="45" r="3" fill="#22c55e"/>
+
+      <!-- Drain -->
+      <line x1="50" y1="15" x2="50" y2="0" stroke="#ef4444" stroke-width="2"/>
+      <text x="58" y="10" font-size="8" fill="#fca5a5" font-family="Arial, sans-serif">D</text>
+      <circle cx="50" cy="0" r="3" fill="#ef4444"/>
+
+      <!-- Source -->
+      <line x1="50" y1="75" x2="50" y2="90" stroke="#6b7280" stroke-width="2"/>
+      <text x="58" y="85" font-size="8" fill="#9ca3af" font-family="Arial, sans-serif">S</text>
+      <circle cx="50" cy="90" r="3" fill="#374151" stroke="#9ca3af" stroke-width="1"/>
+
+      <!-- MOSFET label -->
+      <text x="50" y="50" text-anchor="middle" font-size="8" font-weight="bold" fill="#93c5fd" font-family="Arial, sans-serif">IRLZ44N</text>
+    </g>
+
+    <!-- Connection labels -->
+    <text x="100" y="225" text-anchor="middle" font-size="8" fill="#4ade80" font-family="Arial, sans-serif">Logic-level MOSFET</text>
+    <text x="100" y="235" text-anchor="middle" font-size="7" fill="#22c55e" font-family="Arial, sans-serif">Fully ON with 5V gate</text>
+  </g>
+
+  <!-- Signal wire from DollaTek to MOSFET -->
+  <path d="M 460 342 L 490 342 L 490 330 L 520 330" stroke="#22c55e" stroke-width="2" fill="none"/>
+  <path d="M 460 355 L 500 355 L 500 370 L 570 370 L 570 380" stroke="#6b7280" stroke-width="2" fill="none"/>
+
+  <!-- Wire from gate resistor to MOSFET gate -->
+  <path d="M 540 220 L 540 285 L 570 285" stroke="#22c55e" stroke-width="2" fill="none" stroke-dasharray="4,2"/>
+
+  <!-- Output to Camera -->
+  <g transform="translate(760, 180)">
+    <rect x="0" y="0" width="120" height="140" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="2"/>
+    <text x="60" y="20" text-anchor="middle" font-size="11" font-weight="bold" fill="#93c5fd" font-family="Arial, sans-serif">To RunCam</text>
+    <text x="60" y="35" text-anchor="middle" font-size="10" fill="#60a5fa" font-family="Arial, sans-serif">Split 4</text>
+
+    <!-- VCC -->
+    <rect x="15" y="50" width="90" height="25" fill="#ef4444" rx="4"/>
+    <text x="60" y="67" text-anchor="middle" font-size="10" fill="white" font-weight="bold" font-family="Arial, sans-serif">VCC (Red)</text>
+    <circle cx="0" cy="62" r="4" fill="#ef4444"/>
+
+    <!-- GND -->
+    <rect x="15" y="85" width="90" height="25" fill="#374151" rx="4" stroke="#6b7280"/>
+    <text x="60" y="102" text-anchor="middle" font-size="10" fill="white" font-weight="bold" font-family="Arial, sans-serif">GND (Black)</text>
+    <circle cx="0" cy="97" r="4" fill="#374151" stroke="#9ca3af" stroke-width="1"/>
+
+    <text x="60" y="125" text-anchor="middle" font-size="8" fill="#6b7280" font-family="Arial, sans-serif">Camera draws</text>
+    <text x="60" y="135" text-anchor="middle" font-size="8" fill="#6b7280" font-family="Arial, sans-serif">~650mA @ 7.4V</text>
+  </g>
+
+  <!-- Wire from battery + through MOSFET Drain to Camera VCC -->
+  <path d="M 65 200 L 65 155 L 740 155 L 740 242 L 760 242" stroke="#ef4444" stroke-width="2" fill="none"/>
+  <text x="400" y="148" text-anchor="middle" font-size="8" fill="#ef4444" font-family="Arial, sans-serif">Battery + (7.4V) → MOSFET Drain → Camera VCC</text>
+
+  <!-- Junction at MOSFET drain -->
+  <circle cx="620" cy="155" r="4" fill="#ef4444"/>
+  <path d="M 620 155 L 620 285" stroke="#ef4444" stroke-width="2" fill="none"/>
+
+  <!-- Wire from MOSFET Source to common GND -->
+  <path d="M 620 380 L 620 420 L 400 420 L 400 470" stroke="#6b7280" stroke-width="2" fill="none"/>
+
+  <!-- Wire from Camera GND to common GND -->
+  <path d="M 760 297 L 740 297 L 740 420 L 620 420" stroke="#6b7280" stroke-width="2" fill="none"/>
+
+  <!-- Common Ground Symbol -->
+  <g transform="translate(380, 470)">
+    <line x1="20" y1="0" x2="20" y2="10" stroke="#6b7280" stroke-width="2"/>
+    <line x1="5" y1="10" x2="35" y2="10" stroke="#6b7280" stroke-width="3"/>
+    <line x1="10" y1="16" x2="30" y2="16" stroke="#6b7280" stroke-width="2"/>
+    <line x1="15" y1="22" x2="25" y2="22" stroke="#6b7280" stroke-width="1"/>
+    <text x="20" y="40" text-anchor="middle" font-size="9" fill="#9ca3af" font-family="Arial, sans-serif">Common GND</text>
+  </g>
+
+  <!-- Wire from battery GND to common -->
+  <path d="M 95 200 L 95 220 L 300 220 L 300 470 L 380 470" stroke="#6b7280" stroke-width="2" fill="none"/>
+
+  <!-- Legend -->
+  <g transform="translate(30, 520)">
+    <text x="0" y="0" font-size="11" font-weight="bold" fill="#f1f5f9" font-family="Arial, sans-serif">Wire Color Legend:</text>
+    <line x1="0" y1="15" x2="30" y2="15" stroke="#ef4444" stroke-width="3"/>
+    <text x="40" y="19" font-size="9" fill="#fca5a5" font-family="Arial, sans-serif">Battery + / High side (7.4V)</text>
+    <line x1="200" y1="15" x2="230" y2="15" stroke="#22c55e" stroke-width="3"/>
+    <text x="240" y="19" font-size="9" fill="#86efac" font-family="Arial, sans-serif">5V Signal / Regulated power</text>
+    <line x1="440" y1="15" x2="470" y2="15" stroke="#6b7280" stroke-width="3"/>
+    <text x="480" y="19" font-size="9" fill="#9ca3af" font-family="Arial, sans-serif">Ground (common)</text>
+  </g>
+
+  <!-- Key Points -->
+  <g transform="translate(30, 560)">
+    <text x="0" y="0" font-size="10" font-weight="bold" fill="#fbbf24" font-family="Arial, sans-serif">Key Points:</text>
+    <text x="0" y="15" font-size="8" fill="#fcd34d" font-family="Arial, sans-serif">• MOSFET switches the HIGH side (Battery+ to Camera VCC)</text>
+    <text x="300" y="15" font-size="8" fill="#fcd34d" font-family="Arial, sans-serif">• 10kΩ pull-down ensures camera OFF during ESP boot</text>
+    <text x="600" y="15" font-size="8" fill="#fcd34d" font-family="Arial, sans-serif">• IRLZ44N fully saturates with 5V gate drive</text>
+  </g>
+</svg>

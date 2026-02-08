@@ -1,0 +1,152 @@
+# aerotech_j800_wind.yaml
+#
+# 75mm CARBON FIBRE HPR ROCKET WITH AEROTECH J800T MOTOR
+#
+# This config enables Mach-dependent aerodynamics, servo dynamics,
+# and sensor latency for realistic HPR simulation.
+#
+# Motor: J-class, 1229 N-s total impulse
+#        696.5N average thrust, 1.8s burn time
+#
+# Rocket: ~2.5 kg dry mass, ~3.1 kg launch mass, TWR ~23
+#
+physics:
+  airframe_file: configs/airframes/j800_75mm.yaml
+  max_tab_deflection: 30.0
+  tab_chord_fraction: 0.25
+  tab_span_fraction: 0.5
+  num_controlled_fins: 3
+  disturbance_scale: 0.0001
+  damping_scale: 1.5
+  initial_spin_std: 9.0
+  max_roll_rate: 720.0
+  max_episode_time: 30.0
+  # --- Mach-dependent aerodynamics ---
+  use_mach_aero: true
+  use_isa_full: true
+  cd_mach_table:
+    mach:     [0.0, 0.6, 0.8, 0.9, 1.0, 1.05, 1.2, 1.5, 2.0]
+    cd_boost: [0.40, 0.40, 0.42, 0.55, 0.75, 0.82, 0.70, 0.55, 0.48]
+    cd_coast: [0.50, 0.50, 0.52, 0.65, 0.85, 0.92, 0.80, 0.65, 0.58]
+  # --- Servo dynamics ---
+  servo_time_constant: 0.020
+  servo_rate_limit: 500.0
+  servo_deadband: 0.5
+  # --- Sensor latency ---
+  sensor_delay_steps: 2
+  # --- Observation bounds for HPR ---
+  max_velocity: 400.0
+  max_dynamic_pressure: 80000.0
+  # === WIND SETTINGS ===
+  enable_wind: true
+  base_wind_speed: 3.0
+  max_gust_speed: 2.0
+  wind_variability: 0.3
+motor:
+  name: aerotech_j800t
+  manufacturer: AeroTech
+  designation: J800T
+  thrust_multiplier: 1.0
+  diameter_mm: 54.0
+  length_mm: 326.0
+  total_mass_g: 618.0
+  propellant_mass_g: 450.0
+  case_mass_g: 168.0
+  impulse_class: J
+  total_impulse_Ns: 1229.0
+  avg_thrust_N: 696.5
+  max_thrust_N: 1001.0
+  burn_time_s: 1.8
+  thrust_curve:
+    time_s:   [0.0, 0.02, 0.05, 0.1, 0.2, 0.5, 0.8, 1.0, 1.2, 1.5, 1.7, 1.8]
+    thrust_N: [0.0, 200.0, 600.0, 900.0, 1001.0, 850.0, 750.0, 700.0, 650.0, 500.0, 200.0, 0.0]
+environment:
+  dt: 0.01
+  max_episode_steps: 3000
+  initial_spin_rate_range:
+  - -18.0
+  - 18.0
+  initial_tilt_range:
+  - -5.0
+  - 5.0
+  enable_wind: true
+  max_wind_speed: 5.0
+  max_gust_speed: 2.5
+  wind_variability: 0.3
+  max_tilt_angle: 45.0
+  min_altitude: -1.0
+  max_altitude: 5000
+  normalize_observations: true
+  obs_clip_value: 10.0
+reward:
+  altitude_reward_scale: 0.01
+  spin_penalty_scale: -0.01
+  low_spin_bonus: 3.0
+  low_spin_threshold: 5.0
+  zero_spin_bonus: 10.0
+  zero_spin_threshold: 3.0
+  precision_spin_scale: 2.0
+  control_effort_penalty: -0.01
+  control_smoothness_penalty: -0.02
+  spin_oscillation_penalty: -0.02
+  sign_reversal_penalty: -0.05
+  saturation_penalty: -0.5
+  action_l1_penalty: 0.0
+  action_l2_penalty: 0.0
+  early_settling_bonus: 30.0
+  settling_spin_threshold: 2.0
+  settling_time_limit: 0.5
+  settling_deadline_penalty: -50.0
+  early_phase_spin_multiplier: 2.0
+  success_bonus: 100.0
+  crash_penalty: -50.0
+  use_potential_shaping: false
+  gamma: 0.99
+ppo:
+  learning_rate: 0.0003
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  clip_range_vf: null
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+  normalize_advantage: true
+  policy_net_arch:
+  - 256
+  - 256
+  value_net_arch:
+  - 256
+  - 256
+  activation: tanh
+  total_timesteps: 2000000
+  n_envs: 8
+  device: auto
+curriculum:
+  enabled: false
+  stages: []
+  episodes_to_evaluate: 100
+  advancement_threshold: 0.8
+logging:
+  log_dir: logs
+  save_dir: models
+  tensorboard_log: true
+  save_freq: 10000
+  keep_checkpoints: 5
+  eval_freq: 5000
+  n_eval_episodes: 20
+  log_episode_freq: 10
+  experiment_name: rocket_j800_wind
+  tags:
+  - aerotech_j800
+  - spin_control
+  - hpr
+  - wind
+sensors:
+  imu_preset: icm_20948
+  control_rate_hz: 100.0
+  derive_acceleration: true
+  enabled: true
