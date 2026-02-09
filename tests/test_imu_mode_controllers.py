@@ -1,12 +1,13 @@
 """
-Tests for IMU observation mode across all controller types.
+Tests for IMU noise robustness across all controller types.
 
 Verifies that:
-1. All controllers (PID, GS-PID, ADRC) function correctly
-   when reading from the observation array instead of the info dict
-2. Controllers produce physically reasonable actions with noisy observations
-3. IMU noise degrades performance gracefully (within 20% of ground-truth)
-4. The --imu flag in compare_controllers.py correctly propagates to all controllers
+1. IMU noise degrades performance gracefully (within 20% of ground-truth)
+2. Controllers remain stable even with elevated noise levels
+
+Note: Basic observation mode tests (launch detection, reading from obs array)
+are in the individual controller test files (test_pid_controller.py,
+test_gain_scheduled_pid.py, test_adrc_controller.py).
 """
 
 import pytest
@@ -31,17 +32,6 @@ def make_obs(roll_angle=0.0, roll_rate=0.0, q=500.0):
     return obs
 
 
-def add_gyro_noise(obs, noise_std=0.003):
-    """Add realistic gyro noise to obs[3] (roll rate).
-
-    Default noise_std=0.003 rad/s ≈ 0.17 deg/s, consistent with
-    ICM-20948 at 100 Hz (0.015 deg/s/√Hz * √100Hz ≈ 0.15 deg/s).
-    """
-    noisy = obs.copy()
-    noisy[3] += np.random.normal(0, noise_std)
-    return noisy
-
-
 def make_info(roll_angle_rad=0.0, roll_rate_deg_s=0.0, accel=50.0, q=500.0):
     """Create a standard info dict."""
     return {
@@ -50,110 +40,6 @@ def make_info(roll_angle_rad=0.0, roll_rate_deg_s=0.0, accel=50.0, q=500.0):
         "vertical_acceleration_ms2": accel,
         "dynamic_pressure_Pa": q,
     }
-
-
-class TestPIDObservationMode:
-    """Test PIDController in observation mode."""
-
-    def test_launches_immediately_in_obs_mode(self):
-        """Observation mode should detect launch on first step."""
-        ctrl = PIDController(use_observations=True)
-        obs = make_obs(roll_angle=0.1, roll_rate=0.0)
-        ctrl.step(obs, {})
-        assert ctrl.launch_detected is True
-
-    def test_reads_roll_angle_from_obs2(self):
-        """Should read roll angle from obs[2]."""
-        ctrl = PIDController(use_observations=True)
-        obs = make_obs(roll_angle=0.0, roll_rate=np.radians(20.0))
-        action = ctrl.step(obs, {})
-        # With positive roll rate, PID should oppose it
-        assert action[0] != 0.0
-
-    def test_produces_action_with_noisy_obs(self):
-        """Should produce reasonable action despite gyro noise."""
-        ctrl = PIDController(use_observations=True)
-        np.random.seed(42)
-        obs = add_gyro_noise(make_obs(roll_angle=0.0, roll_rate=np.radians(20.0)))
-        action = ctrl.step(obs, {})
-        assert -1.0 <= action[0] <= 1.0
-        assert action[0] != 0.0
-
-
-class TestGainScheduledPIDObservationMode:
-    """Test GainScheduledPIDController in observation mode."""
-
-    def test_launches_immediately_in_obs_mode(self):
-        ctrl = GainScheduledPIDController(use_observations=True)
-        obs = make_obs(roll_angle=0.1)
-        ctrl.step(obs, {})
-        assert ctrl.launch_detected is True
-
-    def test_reads_q_from_obs5(self):
-        """Gain scheduling should use dynamic pressure from obs[5]."""
-        config = PIDConfig(Cprop=0.0, Cint=0.0, Cderiv=0.1)
-
-        ctrl_low = GainScheduledPIDController(config, use_observations=True)
-        obs_low = make_obs(roll_rate=np.radians(20.0), q=100.0)
-        action_low = ctrl_low.step(obs_low, {})
-
-        ctrl_high = GainScheduledPIDController(config, use_observations=True)
-        obs_high = make_obs(roll_rate=np.radians(20.0), q=1000.0)
-        action_high = ctrl_high.step(obs_high, {})
-
-        # Low q should give larger action (gains scaled up)
-        assert abs(action_low[0]) > abs(
-            action_high[0]
-        ), f"Low q should give larger action: |{action_low[0]:.4f}| vs |{action_high[0]:.4f}|"
-
-    def test_produces_action_with_noisy_obs(self):
-        ctrl = GainScheduledPIDController(use_observations=True)
-        np.random.seed(42)
-        obs = add_gyro_noise(make_obs(roll_rate=np.radians(20.0)))
-        action = ctrl.step(obs, {})
-        assert -1.0 <= action[0] <= 1.0
-        assert action[0] != 0.0
-
-
-class TestADRCObservationMode:
-    """Test ADRCController in observation mode."""
-
-    def test_launches_immediately_in_obs_mode(self):
-        config = ADRCConfig(b0=100.0, use_observations=True)
-        ctrl = ADRCController(config)
-        obs = make_obs(roll_angle=0.1, roll_rate=0.0)
-        ctrl.step(obs, {})
-        assert ctrl.launch_detected is True
-
-    def test_reads_roll_from_obs(self):
-        config = ADRCConfig(b0=100.0, use_observations=True)
-        ctrl = ADRCController(config)
-        obs = make_obs(roll_angle=0.0, roll_rate=np.radians(20.0))
-        action = ctrl.step(obs, {})
-        assert action[0] != 0.0
-
-    def test_reads_q_from_obs5_for_dynamic_b0(self):
-        """With b0_per_pa set, should read q from obs[5]."""
-        config = ADRCConfig(b0=100.0, b0_per_pa=0.5, use_observations=True)
-
-        ctrl_low = ADRCController(config)
-        obs_low = make_obs(roll_rate=np.radians(20.0), q=200.0)
-        action_low = ctrl_low.step(obs_low, {})
-
-        ctrl_high = ADRCController(config)
-        obs_high = make_obs(roll_rate=np.radians(20.0), q=800.0)
-        action_high = ctrl_high.step(obs_high, {})
-
-        # Different q -> different b0 -> different action
-        assert abs(action_low[0] - action_high[0]) > 0.001
-
-    def test_produces_action_with_noisy_obs(self):
-        config = ADRCConfig(b0=100.0, use_observations=True)
-        ctrl = ADRCController(config)
-        np.random.seed(42)
-        obs = add_gyro_noise(make_obs(roll_rate=np.radians(20.0)))
-        action = ctrl.step(obs, {})
-        assert -1.0 <= action[0] <= 1.0
 
 
 class TestIMUNoiseRobustness:

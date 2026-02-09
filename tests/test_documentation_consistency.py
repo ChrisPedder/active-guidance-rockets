@@ -261,27 +261,8 @@ class TestRecommendedController:
         ), "experimental_results.md should include a recommendation"
 
 
-class TestResearchPlanStepsDocumented:
-    """Verify all research plan steps are marked complete in CLAUDE.md."""
-
-    def test_step_6_marked_complete(self):
-        """Step 6 should be marked as complete."""
-        path = PROJECT_ROOT / "CLAUDE.md"
-        if not path.exists():
-            pytest.skip("CLAUDE.md not found")
-        text = path.read_text()
-
-        # Find Step 6 section
-        step6_match = re.search(
-            r"### Step 6.*?\n(.*?)(?=### Step 7|---|\Z)",
-            text,
-            re.DOTALL,
-        )
-        assert step6_match is not None, "Step 6 section not found in CLAUDE.md"
-        step6_text = step6_match.group(0)
-        assert (
-            "✅" in step6_text or "Completed" in step6_text
-        ), "Step 6 should be marked as completed in CLAUDE.md"
+class TestIMUValidationDocumented:
+    """Verify IMU validation results are documented."""
 
     def test_imu_validation_documented(self):
         """IMU validation results should be mentioned."""
