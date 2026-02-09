@@ -8,7 +8,7 @@ import pytest
 import numpy as np
 from unittest.mock import Mock, patch, MagicMock
 
-from pid_controller import (
+from controllers.pid_controller import (
     PIDConfig,
     PIDController,
     EpisodeResult,
@@ -386,7 +386,7 @@ class TestPlotComparison:
 
         matplotlib.use("Agg")  # Non-interactive backend
 
-        from pid_controller import plot_comparison
+        from controllers.pid_controller import plot_comparison
 
         results = [
             EpisodeResult(
@@ -411,7 +411,7 @@ class TestPlotComparison:
 
         matplotlib.use("Agg")
 
-        from pid_controller import plot_comparison
+        from controllers.pid_controller import plot_comparison
 
         pid_results = [
             EpisodeResult(
@@ -457,6 +457,6 @@ class TestMainFunction:
         import argparse
 
         # Just verify the function exists and has proper structure
-        from pid_controller import main
+        from controllers.pid_controller import main
 
         assert callable(main)

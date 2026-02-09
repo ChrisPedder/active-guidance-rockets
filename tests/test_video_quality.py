@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from video_quality_metric import (
+from controllers.video_quality_metric import (
     CameraPreset,
     EpisodeVideoQuality,
     FrameQuality,

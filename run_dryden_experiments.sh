@@ -105,7 +105,7 @@ for severity in "${SEVERITIES[@]}"; do
 
     echo "--- [${severity}] Step 1/6: PID gain optimization ---"
     run_logged "${logfile}" \
-        uv run python optimize_pid.py \
+        uv run python optimization/optimize_pid.py \
             --config "${config}" \
             --wind-levels ${=WIND_LEVELS} \
             --n-episodes "${N_OPT_EPISODES}" \
@@ -139,7 +139,7 @@ for severity in "${SEVERITIES[@]}"; do
 
     echo "--- [${severity}] Step 3/6: Bayesian optimization (GS-PID) ---"
     run_logged "${logfile}" \
-        uv run python bayesian_optimize.py \
+        uv run python optimization/bayesian_optimize.py \
             --config "${config}" \
             --controller gs-pid \
             --wind-level ${=WIND_LEVELS} \

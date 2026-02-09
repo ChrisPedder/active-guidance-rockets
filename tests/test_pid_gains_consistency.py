@@ -26,7 +26,7 @@ class TestPIDConfigDefaults:
 
     def test_pid_config_defaults(self):
         """PIDConfig defaults must be the optimized gains."""
-        from pid_controller import PIDConfig
+        from controllers.pid_controller import PIDConfig
 
         config = PIDConfig()
         assert config.Cprop == OPTIMIZED_KP, (
@@ -116,7 +116,7 @@ class TestArgparseDefaults:
 
     def test_pid_controller_argparse_defaults(self):
         """pid_controller.py argparse defaults must use optimized gains."""
-        filepath = Path("pid_controller.py")
+        filepath = Path("controllers/pid_controller.py")
         if not filepath.exists():
             pytest.skip("pid_controller.py not found")
 
@@ -149,9 +149,9 @@ class TestGetAttrFallbacks:
     # Files and their expected getattr patterns for PID gains
     FILES_WITH_FALLBACKS = [
         "visualizations/visualize_spin_agent.py",
-        "optimize_pid.py",
-        "train_residual_sac.py",
-        "train_improved.py",
+        "optimization/optimize_pid.py",
+        "training/train_residual_sac.py",
+        "training/train_improved.py",
     ]
 
     @staticmethod
@@ -209,7 +209,7 @@ class TestPIDControllerWithOptimizedGains:
     def test_optimized_gains_produce_corrective_action(self):
         """PID with default (optimized) gains should produce corrective action
         for a typical initial spin rate."""
-        from pid_controller import PIDController, PIDConfig
+        from controllers.pid_controller import PIDController, PIDConfig
         import numpy as np
 
         controller = PIDController()  # Uses optimized defaults

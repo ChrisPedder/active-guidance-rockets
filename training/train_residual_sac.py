@@ -1,22 +1,34 @@
 #!/usr/bin/env python3
 """
-SAC Training Script for Rocket Spin Control with Wind Disturbances
+Residual SAC Training Script for Rocket Spin Control with Wind Disturbances
 
-Architecture: SAC directly controls tabs (no PID in loop).
-SAC's entropy regularization + action smoothing wrapper naturally
-produce smooth policies. Wind curriculum progressively increases
-difficulty during training.
+Architecture: PID handles base control (using ground truth from info dict),
+SAC learns small wind-rejection corrections on top. Inherits PID's strong
+zero-wind performance and focuses SAC on asymmetric wind disturbance rejection.
+
+Wrapper chain (via create_environment):
+    RealisticMotorRocket
+      -> IMUObservationWrapper
+      -> NormalizedActionWrapper
+      -> ExponentialSmoothingWrapper(alpha from config, smooths RL output only)
+      -> ResidualPIDWrapper(max_residual=0.2, PID gains from config)
+      -> ImprovedRewardWrapper
+      -> Monitor
+
+Wind: Uniform random sampling from [0, base_speed] per episode.
+    SAC learns both when to intervene (high wind) and when to stay quiet (low/no wind)
+    throughout training.
 
 Usage:
-    # Train with wind curriculum
-    uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml
+    # Train with uniform random wind
+    uv run python train_residual_sac.py --config configs/estes_c6_residual_sac_wind.yaml
 
     # Quick smoke test
-    uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml --timesteps 10000
+    uv run python train_residual_sac.py --config configs/estes_c6_residual_sac_wind.yaml --timesteps 10000
 
     # Override SAC hyperparameters
-    uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml \
-        --timesteps 2000000 --early-stopping 30 \
+    uv run python train_residual_sac.py --config configs/estes_c6_residual_sac_wind.yaml \\
+        --timesteps 2000000 --early-stopping 30 \\
         --lr 0.0003 --buffer-size 300000 --batch-size 256
 """
 
@@ -26,7 +38,6 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
-import torch
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
@@ -35,146 +46,130 @@ from stable_baselines3.common.callbacks import (
     EvalCallback,
     CallbackList,
     CheckpointCallback,
-    StopTrainingOnNoModelImprovement,
 )
-from stable_baselines3.common.monitor import Monitor
 
 from rocket_config import RocketTrainingConfig, load_config
-from train_improved import (
-    create_environment,
-    TrainingMetricsCallback,
-    ImprovedRewardWrapper,
-    NormalizedActionWrapper,
-    ExponentialSmoothingWrapper,
-    PreviousActionWrapper,
-)
+from training.train_improved import create_environment, TrainingMetricsCallback
 
 
-class WindCurriculumCallback(BaseCallback):
+class MovingAverageEarlyStoppingCallback(BaseCallback):
     """
-    Callback that progressively increases wind during training.
+    Early stopping based on moving average of eval rewards.
 
-    Stages:
-        1. 0-300K steps: No wind (learn basic control)
-        2. 300K-800K: Light wind (1 m/s base)
-        3. 800K-1.5M: Moderate wind (3 m/s base)
-        4. 1.5M+: Full wind from config
+    More robust than SB3's StopTrainingOnNoModelImprovement which compares
+    each eval against a single best value.  With high-variance evals (common
+    in wind-disturbed rocket control), a single lucky eval sets an unreachable
+    bar and triggers premature stopping.
+
+    This callback tracks a rolling window of eval rewards and stops only when
+    the moving average hasn't improved for ``max_no_improvement_evals`` evals.
+
+    Used as ``callback_after_eval`` in EvalCallback -- accesses
+    ``self.parent.last_mean_reward`` after each evaluation round.
     """
 
     def __init__(
         self,
-        config: RocketTrainingConfig,
+        window_size: int = 20,
+        max_no_improvement_evals: int = 40,
+        min_evals: int = 20,
         verbose: int = 0,
     ):
         super().__init__(verbose)
-        self.config = config
-        self.current_stage = 0
+        self.window_size = window_size
+        self.max_no_improvement_evals = max_no_improvement_evals
+        self.min_evals = min_evals
 
-        # Wind curriculum stages: (step_threshold, base_wind_speed, max_gust_speed)
-        final_base = getattr(config.physics, "base_wind_speed", 3.0)
-        final_gust = getattr(config.physics, "max_gust_speed", 2.0)
+        # State (reset on curriculum stage transitions via .reset())
+        self.eval_rewards: list = []
+        self.best_moving_avg: float = -np.inf
+        self.no_improvement_evals: int = 0
+        self.n_evals: int = 0
 
-        self.stages = [
-            (0, 0.0, 0.0),  # Stage 1: No wind
-            (300_000, 1.0, 0.5),  # Stage 2: Light wind
-            (800_000, min(3.0, final_base), min(1.5, final_gust)),  # Stage 3: Moderate
-            (1_500_000, final_base, final_gust),  # Stage 4: Full wind
-        ]
+        # EMA tracking (reacts faster to improvements than windowed MA)
+        self.ema_reward: float | None = None
+        self.ema_alpha: float = 0.15  # ~7 eval half-life
 
     def _on_step(self) -> bool:
-        # Check if we should advance to next stage
-        new_stage = self.current_stage
-        for i, (threshold, _, _) in enumerate(self.stages):
-            if self.num_timesteps >= threshold:
-                new_stage = i
+        """Called by EvalCallback after each evaluation round."""
+        last_reward = self.parent.last_mean_reward
+        self.eval_rewards.append(last_reward)
+        self.n_evals += 1
 
-        if new_stage != self.current_stage:
-            self.current_stage = new_stage
-            _, base_speed, gust_speed = self.stages[new_stage]
-
-            # Update wind in all training environments
-            self._update_wind(base_speed, gust_speed)
-
+        # Need a full window before tracking improvement
+        if self.n_evals < self.min_evals:
             if self.verbose > 0:
                 print(
-                    f"\n>>> WIND CURRICULUM: Stage {new_stage + 1}/4 "
-                    f"at step {self.num_timesteps:,} - "
-                    f"wind={base_speed:.1f} m/s, gusts={gust_speed:.1f} m/s"
+                    f"  Moving avg early stop: warming up "
+                    f"({self.n_evals}/{self.min_evals} evals)"
                 )
+            return True
+
+        # Exponential moving average (reacts faster to improvements)
+        if self.ema_reward is None:
+            self.ema_reward = last_reward
+        else:
+            self.ema_reward = (
+                self.ema_alpha * last_reward + (1 - self.ema_alpha) * self.ema_reward
+            )
+        current_avg = self.ema_reward
+
+        if current_avg > self.best_moving_avg:
+            self.best_moving_avg = current_avg
+            self.no_improvement_evals = 0
+        else:
+            self.no_improvement_evals += 1
+
+        if self.verbose > 0:
+            print(
+                f"  EMA reward: {current_avg:.1f} "
+                f"(best: {self.best_moving_avg:.1f}, "
+                f"no improvement: {self.no_improvement_evals}"
+                f"/{self.max_no_improvement_evals})"
+            )
+
+        if self.no_improvement_evals >= self.max_no_improvement_evals:
+            if self.verbose > 0:
+                print(
+                    f"Stopping training: EMA hasn't improved "
+                    f"for {self.no_improvement_evals} evals "
+                    f"(best EMA: {self.best_moving_avg:.1f})"
+                )
+            return False
 
         return True
 
-    def _update_wind(self, base_speed: float, gust_speed: float):
-        """Update wind parameters in all wrapped environments."""
-        # Access underlying environments through VecEnv
-        vec_env = self.model.get_env()
-        for i in range(vec_env.num_envs):
-            env = vec_env.envs[i]
-            # Walk through wrappers to find the base environment
-            base_env = env
-            while hasattr(base_env, "env"):
-                base_env = base_env.env
-
-            # Update wind model config
-            if hasattr(base_env, "wind_model") and base_env.wind_model is not None:
-                base_env.wind_model.config.base_speed = base_speed
-                base_env.wind_model.config.max_gust_speed = gust_speed
-            elif hasattr(base_env, "config"):
-                # Wind was disabled, need to enable it
-                from wind_model import WindModel, WindConfig
-
-                base_env.config.enable_wind = base_speed > 0
-                base_env.config.base_wind_speed = base_speed
-                base_env.config.max_gust_speed = gust_speed
-                if base_speed > 0 and base_env.wind_model is None:
-                    wind_cfg = WindConfig(
-                        enable=True,
-                        base_speed=base_speed,
-                        max_gust_speed=gust_speed,
-                        variability=getattr(base_env.config, "wind_variability", 0.3),
-                    )
-                    base_env.wind_model = WindModel(wind_cfg)
+    def reset(self):
+        """Reset state for curriculum stage transitions."""
+        self.eval_rewards.clear()
+        self.best_moving_avg = -np.inf
+        self.no_improvement_evals = 0
+        self.n_evals = 0
+        self.ema_reward = None
 
 
-def create_sac_environment(
-    config: RocketTrainingConfig,
-    wind_override: Optional[dict] = None,
-) -> Monitor:
-    """
-    Create environment for SAC training.
-
-    Uses the same wrapper chain as create_environment from train_improved.py
-    but ensures wind config is properly passed through.
-
-    Args:
-        config: Training configuration
-        wind_override: Optional dict to override wind settings
-            e.g. {"base_wind_speed": 0.0, "max_gust_speed": 0.0}
-    """
-    # Apply wind overrides if provided
-    if wind_override:
-        for key, val in wind_override.items():
-            if hasattr(config.physics, key):
-                setattr(config.physics, key, val)
-
-    return create_environment(config)
-
-
-def train_sac(
+def train_residual_sac(
     config: RocketTrainingConfig,
     early_stopping_patience: int = 0,
     load_model_path: Optional[str] = None,
 ):
-    """Main SAC training function.
+    """Main residual SAC training function.
 
     Args:
-        config: Training configuration (must have sac section)
+        config: Training configuration (must have sac section and use_residual_pid: true)
         early_stopping_patience: Stop if no improvement for N evals (0=disabled)
         load_model_path: Optional path to pre-trained model for fine-tuning
     """
     sac_cfg = config.sac
     if sac_cfg is None:
         print("ERROR: No 'sac' section in config. Add SAC hyperparameters.")
+        return None
+
+    # Verify residual PID is enabled
+    if not getattr(config.physics, "use_residual_pid", False):
+        print("WARNING: use_residual_pid is not enabled in config.")
+        print("  This script is designed for residual SAC (PID + RL corrections).")
+        print("  Set use_residual_pid: true in your config.")
         return None
 
     # Validate
@@ -197,11 +192,20 @@ def train_sac(
     save_dir.mkdir(parents=True, exist_ok=True)
     config.save(save_dir / "config.yaml")
 
+    max_residual = getattr(config.physics, "max_residual", 0.2)
+    pid_Kp = getattr(config.physics, "pid_Kp", 0.005208)
+    pid_Ki = getattr(config.physics, "pid_Ki", 0.000324)
+    pid_Kd = getattr(config.physics, "pid_Kd", 0.016524)
+
     print(f"\n{'='*70}")
-    print("SAC ROCKET SPIN CONTROL TRAINING")
+    print("RESIDUAL SAC ROCKET SPIN CONTROL TRAINING")
     print(f"{'='*70}")
     print(f"Motor: {config.motor.name}")
-    print(f"Algorithm: SAC (direct control, no PID)")
+    print(f"Algorithm: Residual SAC (PID base + RL corrections)")
+    print(f"PID gains: Kp={pid_Kp}, Ki={pid_Ki}, Kd={pid_Kd}")
+    print(f"Max residual: {max_residual}")
+    print(f"Entropy coef: {sac_cfg.ent_coef}")
+    print(f"Network: {sac_cfg.net_arch}")
     print(f"Wind: {'enabled' if config.physics.enable_wind else 'disabled'}")
     if config.physics.enable_wind:
         print(f"  Base wind: {config.physics.base_wind_speed:.1f} m/s")
@@ -211,10 +215,9 @@ def train_sac(
     print(f"Save directory: {save_dir}")
     print(f"{'='*70}\n")
 
-    # Create training environment (single env for SAC - off-policy doesn't
-    # benefit much from parallel envs during collection)
+    # Create training environment (single env for SAC)
     def make_env():
-        return create_sac_environment(config)
+        return create_environment(config)
 
     train_env = DummyVecEnv([make_env])
 
@@ -299,21 +302,26 @@ def train_sac(
     metrics_callback = TrainingMetricsCallback(config, verbose=1)
     callbacks.append(metrics_callback)
 
-    # Wind curriculum
+    # Uniform random wind sampling (no curriculum)
     if config.physics.enable_wind:
-        wind_callback = WindCurriculumCallback(config, verbose=1)
-        callbacks.append(wind_callback)
-        print("Wind curriculum enabled (4 stages)")
+        print(
+            f"Uniform random wind enabled: [0, {config.physics.base_wind_speed:.1f}] m/s "
+            f"(sampled per episode)"
+        )
 
-    # Early stopping
+    # Early stopping (moving average -- robust to high-variance evals)
     stop_callback = None
     if early_stopping_patience > 0:
-        stop_callback = StopTrainingOnNoModelImprovement(
+        stop_callback = MovingAverageEarlyStoppingCallback(
+            window_size=20,
             max_no_improvement_evals=early_stopping_patience,
-            min_evals=early_stopping_patience,
+            min_evals=20,
             verbose=1,
         )
-        print(f"Early stopping: {early_stopping_patience} evals without improvement")
+        print(
+            f"Early stopping: EMA (alpha=0.15), "
+            f"patience={early_stopping_patience} evals without improvement"
+        )
 
     # Eval callback
     eval_callback = EvalCallback(
@@ -333,13 +341,13 @@ def train_sac(
     checkpoint_callback = CheckpointCallback(
         save_freq=config.logging.save_freq,
         save_path=str(save_dir / "checkpoints"),
-        name_prefix="rocket_sac",
+        name_prefix="rocket_residual_sac",
         save_vecnormalize=True,
     )
     callbacks.append(checkpoint_callback)
 
     # Train
-    print("Starting SAC training...")
+    print("Starting residual SAC training...")
     model.learn(
         total_timesteps=sac_cfg.total_timesteps,
         callback=CallbackList(callbacks),
@@ -365,7 +373,8 @@ def train_sac(
     print(f"\nTo compare controllers:")
     print(
         f"  uv run python compare_controllers.py "
-        f"--sac {save_dir}/best_model.zip --config {save_dir}/config.yaml"
+        f"--residual-sac {save_dir}/best_model.zip "
+        f"--config {save_dir}/config.yaml"
     )
     print(f"{'='*70}\n")
 
@@ -377,24 +386,24 @@ def train_sac(
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Train SAC agent for rocket spin control with wind",
+        description="Train residual SAC agent (PID + RL corrections) for rocket spin control",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Train with wind curriculum
-  uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml
+  uv run python train_residual_sac.py --config configs/estes_c6_residual_sac_wind.yaml
 
   # Quick smoke test
-  uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml --timesteps 10000
+  uv run python train_residual_sac.py --config configs/estes_c6_residual_sac_wind.yaml --timesteps 10000
 
   # Override hyperparameters
-  uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml \\
+  uv run python train_residual_sac.py --config configs/estes_c6_residual_sac_wind.yaml \\
       --timesteps 2000000 --early-stopping 30 \\
       --lr 0.0003 --buffer-size 300000 --batch-size 256
 
   # Fine-tune from existing model
-  uv run python train_sac.py --config configs/estes_c6_sac_wind.yaml \\
-      --load-model models/rocket_sac_wind_*/best_model.zip
+  uv run python train_residual_sac.py --config configs/estes_c6_residual_sac_wind.yaml \\
+      --load-model models/rocket_residual_sac_wind_*/best_model.zip
         """,
     )
 
@@ -438,7 +447,7 @@ Examples:
     if args.device is not None:
         config.sac.device = args.device
 
-    train_sac(
+    train_residual_sac(
         config,
         early_stopping_patience=args.early_stopping,
         load_model_path=args.load_model,

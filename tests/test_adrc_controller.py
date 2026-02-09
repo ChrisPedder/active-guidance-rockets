@@ -12,7 +12,7 @@ Verifies that:
 import pytest
 import numpy as np
 
-from adrc_controller import ADRCController, ADRCConfig, estimate_adrc_config
+from controllers.adrc_controller import ADRCController, ADRCConfig, estimate_adrc_config
 
 
 # --- Helpers ---

@@ -106,7 +106,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 [tool.coverage.run]
 source = ["."]
-omit = ["tests/*", "examples/*", ".venv/*", "slides/*", "train_improved.py", "sweep_hyperparams.py"]
+omit = ["tests/*", "examples/*", ".venv/*", "slides/*", "training/train_improved.py", "training/sweep_hyperparams.py"]
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",

@@ -510,7 +510,7 @@ if [[ "$SKIP_TRAINING" == false ]]; then
 
     print_step "Starting PPO training with $TIMESTEPS timesteps..."
 
-    TRAIN_CMD="uv run python train_improved.py --config $CONFIG_FILE --timesteps $TIMESTEPS --n-envs $N_ENVS"
+    TRAIN_CMD="uv run python training/train_improved.py --config $CONFIG_FILE --timesteps $TIMESTEPS --n-envs $N_ENVS"
 
     if [[ -n "$MODEL_PATH" ]]; then
         TRAIN_CMD="$TRAIN_CMD --load-model $MODEL_PATH"
@@ -639,7 +639,7 @@ python visualize_spin_agent.py $EXPERIMENT_DIR/best_model.zip \\
     --n-episodes 100
 
 # Continue training with medium difficulty
-python train_improved.py \\
+python training/train_improved.py \\
     --config configs/${MOTOR_NORMALIZED}_medium.yaml \\
     --load-model $EXPERIMENT_DIR/best_model.zip
 

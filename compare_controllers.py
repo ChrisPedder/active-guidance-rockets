@@ -51,26 +51,16 @@ import copy
 from rocket_config import RocketTrainingConfig, load_config
 from spin_stabilized_control_env import RocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
-from pid_controller import (
+from controllers.pid_controller import (
     PIDController,
     GainScheduledPIDController,
     LeadCompensatedGSPIDController,
     PIDConfig,
 )
-from adrc_controller import ADRCController, ADRCConfig, estimate_adrc_config
-from wind_feedforward import WindFeedforwardADRC, WindFeedforwardConfig
-from wind_estimator import NNFeedforwardADRC, load_estimator
-from online_identification import B0Estimator, B0EstimatorConfig
-from repetitive_controller import RepetitiveGSPIDController, RepetitiveConfig
-from ensemble_controller import EnsembleController, EnsembleConfig
-from fourier_adaptive import FourierAdaptiveADRC, FourierAdaptiveConfig
-from gp_disturbance import GPFeedforwardController, GPDisturbanceConfig
-from sta_smc_controller import STASMCController, STASMCConfig
-from cascade_dob import CascadeDOBController, CascadeDOBConfig
-from fll_controller import FLLController, FLLConfig
-from hinf_controller import HinfController, HinfConfig
+from controllers.adrc_controller import ADRCController, ADRCConfig, estimate_adrc_config
+from controllers.ensemble_controller import EnsembleController, EnsembleConfig
 from wind_model import WindModel, WindConfig
-from train_improved import create_environment
+from training.train_improved import create_environment
 from rocket_env.sensors import IMUObservationWrapper, IMUConfig
 
 
@@ -502,18 +492,8 @@ def plot_comparison(
         "DOB SAC": "orange",
         "ADRC": "darkgreen",
         "ADRC (IMU)": "limegreen",
-        "ADRC+FF": "forestgreen",
-        "ADRC+FF (IMU)": "springgreen",
         "Lead GS-PID": "darkorange",
         "Lead GS-PID (IMU)": "orange",
-        "ADRC+RLS": "teal",
-        "ADRC+RLS (IMU)": "lightseagreen",
-        "ADRC+FF+RLS": "darkslategray",
-        "ADRC+FF+RLS (IMU)": "cadetblue",
-        "ADRC+NN": "darkviolet",
-        "ADRC+NN (IMU)": "mediumpurple",
-        "Rep GS-PID": "crimson",
-        "Rep GS-PID (IMU)": "lightcoral",
         "Ensemble": "goldenrod",
         "Ensemble (IMU)": "gold",
         "Optimized GS-PID": "darkred",
@@ -522,18 +502,6 @@ def plot_comparison(
         "Optimized ADRC (IMU)": "royalblue",
         "Optimized Ensemble": "darkgoldenrod",
         "Optimized Ensemble (IMU)": "khaki",
-        "Fourier ADRC": "darkcyan",
-        "Fourier ADRC (IMU)": "cyan",
-        "GP GS-PID": "sienna",
-        "GP GS-PID (IMU)": "sandybrown",
-        "STA-SMC": "maroon",
-        "STA-SMC (IMU)": "salmon",
-        "CDO GS-PID": "olive",
-        "CDO GS-PID (IMU)": "yellowgreen",
-        "FLL GS-PID": "navy",
-        "FLL GS-PID (IMU)": "cornflowerblue",
-        "H-inf": "darkgoldenrod",
-        "H-inf (IMU)": "goldenrod",
     }
 
     for name, results in all_results.items():
@@ -658,63 +626,9 @@ def main():
     )
     parser.add_argument("--adrc", action="store_true", help="Include ADRC controller")
     parser.add_argument(
-        "--adrc-ff",
-        action="store_true",
-        help="Include ADRC + wind feedforward controller",
-    )
-    parser.add_argument(
-        "--adrc-nn",
-        type=str,
-        help="Include ADRC + NN wind estimator (path to .pt model)",
-    )
-    parser.add_argument(
-        "--rls-b0",
-        action="store_true",
-        help="Use online RLS b0 identification for ADRC controllers",
-    )
-    parser.add_argument(
-        "--repetitive",
-        action="store_true",
-        help="Include repetitive (resonant) GS-PID controller",
-    )
-    parser.add_argument(
-        "--repetitive-krc",
-        type=float,
-        default=0.5,
-        help="Repetitive controller gain K_rc",
-    )
-    parser.add_argument(
         "--ensemble",
         action="store_true",
         help="Include multi-controller ensemble with switching",
-    )
-    parser.add_argument(
-        "--fourier-ff",
-        action="store_true",
-        help="Include Fourier-domain adaptive ADRC controller",
-    )
-    parser.add_argument(
-        "--gp-ff",
-        action="store_true",
-        help="Include GP-based uncertainty-gated GS-PID controller",
-    )
-    parser.add_argument(
-        "--sta-smc",
-        action="store_true",
-        help="Include Super-Twisting Sliding Mode controller",
-    )
-    parser.add_argument(
-        "--cascade-dob",
-        action="store_true",
-        help="Include Cascade Disturbance Observer controller",
-    )
-    parser.add_argument(
-        "--fll", action="store_true", help="Include Frequency-Locked Loop controller"
-    )
-    parser.add_argument(
-        "--hinf",
-        action="store_true",
-        help="Include H-infinity (LQG/LTR) robust controller",
     )
     parser.add_argument(
         "--optimized-params",
@@ -726,9 +640,6 @@ def main():
     )
     parser.add_argument(
         "--adrc-omega-o", type=float, default=50.0, help="ADRC observer bandwidth"
-    )
-    parser.add_argument(
-        "--ff-gain", type=float, default=0.5, help="Feedforward gain K_ff (0-1)"
     )
     parser.add_argument(
         "--pid-only", action="store_true", help="Only test PID baseline"
@@ -769,7 +680,7 @@ def main():
     parser.add_argument(
         "--imu",
         action="store_true",
-        help="Run ALL classical controllers (PID, GS-PID, ADRC, ADRC+FF) using "
+        help="Run ALL classical controllers (PID, GS-PID, ADRC, etc.) using "
         "noisy IMU observations instead of ground-truth state",
     )
     parser.add_argument(
@@ -861,33 +772,6 @@ def main():
         )
         all_results[lead_label] = lead_results
 
-    # Repetitive GS-PID (if requested)
-    if args.repetitive and not args.pid_only:
-        rep_label = f"Rep GS-PID{imu_suffix}"
-        print(f"\nEvaluating {rep_label} controller (K_rc={args.repetitive_krc})...")
-        rep_pid_config = PIDConfig(
-            Cprop=args.pid_Kp,
-            Cint=args.pid_Ki,
-            Cderiv=args.pid_Kd,
-            q_ref=args.pid_qref,
-        )
-        rep_config = RepetitiveConfig(K_rc=args.repetitive_krc)
-        rep_ctrl = RepetitiveGSPIDController(
-            rep_pid_config,
-            rep_config,
-            use_observations=use_imu,
-        )
-        rep_results = evaluate_controller(
-            config,
-            rep_label,
-            args.wind_levels,
-            args.n_episodes,
-            controller=rep_ctrl,
-            use_observations=use_imu,
-            collect_spin_series=collect_spin,
-        )
-        all_results[rep_label] = rep_results
-
     # Ensemble controller (if requested)
     if args.ensemble and not args.pid_only:
         ens_label = f"Ensemble{imu_suffix}"
@@ -929,191 +813,6 @@ def main():
             collect_spin_series=collect_spin,
         )
         all_results[ens_label] = ens_results
-
-    # Fourier-domain adaptive ADRC (if requested)
-    if args.fourier_ff and not args.pid_only:
-        fourier_label = f"Fourier ADRC{imu_suffix}"
-        print(f"\nEvaluating {fourier_label} controller...")
-        airframe_fourier = config.physics.resolve_airframe()
-        adrc_fourier_config = estimate_adrc_config(
-            airframe_fourier,
-            config.physics,
-            omega_c=args.adrc_omega_c,
-            omega_o=args.adrc_omega_o,
-        )
-        adrc_fourier_config.use_observations = use_imu
-        fourier_config = FourierAdaptiveConfig(K_ff=args.ff_gain)
-        print(
-            f"  Estimated b0={adrc_fourier_config.b0:.1f} (b0_per_pa={adrc_fourier_config.b0_per_pa:.4f})"
-        )
-        fourier_ctrl = FourierAdaptiveADRC(adrc_fourier_config, fourier_config)
-        fourier_results = evaluate_controller(
-            config,
-            fourier_label,
-            args.wind_levels,
-            args.n_episodes,
-            controller=fourier_ctrl,
-            use_observations=use_imu,
-            collect_spin_series=collect_spin,
-        )
-        all_results[fourier_label] = fourier_results
-
-    # GP-based uncertainty-gated GS-PID (if requested)
-    if args.gp_ff and not args.pid_only:
-        gp_label = f"GP GS-PID{imu_suffix}"
-        print(f"\nEvaluating {gp_label} controller...")
-        gp_pid_config = PIDConfig(
-            Cprop=args.pid_Kp,
-            Cint=args.pid_Ki,
-            Cderiv=args.pid_Kd,
-            q_ref=args.pid_qref,
-        )
-        gp_config = GPDisturbanceConfig(K_ff=args.ff_gain)
-        gp_ctrl = GPFeedforwardController(
-            gp_pid_config, gp_config, use_observations=use_imu
-        )
-        gp_results = evaluate_controller(
-            config,
-            gp_label,
-            args.wind_levels,
-            args.n_episodes,
-            controller=gp_ctrl,
-            use_observations=use_imu,
-            collect_spin_series=collect_spin,
-        )
-        all_results[gp_label] = gp_results
-
-    # STA-SMC (if requested)
-    if args.sta_smc and not args.pid_only:
-        smc_label = f"STA-SMC{imu_suffix}"
-        print(f"\nEvaluating {smc_label} controller...")
-        airframe_smc = config.physics.resolve_airframe()
-        adrc_smc_config = estimate_adrc_config(
-            airframe_smc,
-            config.physics,
-            omega_c=args.adrc_omega_c,
-            omega_o=args.adrc_omega_o,
-        )
-        smc_config = STASMCConfig(
-            b0=adrc_smc_config.b0,
-            b0_per_pa=adrc_smc_config.b0_per_pa,
-            use_observations=use_imu,
-        )
-        smc_ctrl = STASMCController(smc_config)
-        smc_results = evaluate_controller(
-            config,
-            smc_label,
-            args.wind_levels,
-            args.n_episodes,
-            controller=smc_ctrl,
-            use_observations=use_imu,
-            collect_spin_series=collect_spin,
-        )
-        all_results[smc_label] = smc_results
-
-    # Cascade DOB (if requested)
-    if args.cascade_dob and not args.pid_only:
-        cdo_label = f"CDO GS-PID{imu_suffix}"
-        print(f"\nEvaluating {cdo_label} controller...")
-        airframe_cdo = config.physics.resolve_airframe()
-        adrc_cdo_config = estimate_adrc_config(
-            airframe_cdo,
-            config.physics,
-            omega_c=args.adrc_omega_c,
-            omega_o=args.adrc_omega_o,
-        )
-        cdo_pid_config = PIDConfig(
-            Cprop=args.pid_Kp,
-            Cint=args.pid_Ki,
-            Cderiv=args.pid_Kd,
-            q_ref=args.pid_qref,
-        )
-        cdo_config = CascadeDOBConfig(
-            K_ff=args.ff_gain,
-            b0=adrc_cdo_config.b0,
-            b0_per_pa=adrc_cdo_config.b0_per_pa,
-        )
-        cdo_ctrl = CascadeDOBController(
-            cdo_pid_config,
-            cdo_config,
-            use_observations=use_imu,
-        )
-        cdo_results = evaluate_controller(
-            config,
-            cdo_label,
-            args.wind_levels,
-            args.n_episodes,
-            controller=cdo_ctrl,
-            use_observations=use_imu,
-            collect_spin_series=collect_spin,
-        )
-        all_results[cdo_label] = cdo_results
-
-    # FLL (if requested)
-    if args.fll and not args.pid_only:
-        fll_label = f"FLL GS-PID{imu_suffix}"
-        print(f"\nEvaluating {fll_label} controller...")
-        airframe_fll = config.physics.resolve_airframe()
-        adrc_fll_config = estimate_adrc_config(
-            airframe_fll,
-            config.physics,
-            omega_c=args.adrc_omega_c,
-            omega_o=args.adrc_omega_o,
-        )
-        fll_pid_config = PIDConfig(
-            Cprop=args.pid_Kp,
-            Cint=args.pid_Ki,
-            Cderiv=args.pid_Kd,
-            q_ref=args.pid_qref,
-        )
-        fll_config = FLLConfig(
-            K_ff=args.ff_gain,
-            b0=adrc_fll_config.b0,
-            b0_per_pa=adrc_fll_config.b0_per_pa,
-        )
-        fll_ctrl = FLLController(
-            fll_pid_config,
-            fll_config,
-            use_observations=use_imu,
-        )
-        fll_results = evaluate_controller(
-            config,
-            fll_label,
-            args.wind_levels,
-            args.n_episodes,
-            controller=fll_ctrl,
-            use_observations=use_imu,
-            collect_spin_series=collect_spin,
-        )
-        all_results[fll_label] = fll_results
-
-    # H-infinity / LQG/LTR (if requested)
-    if args.hinf and not args.pid_only:
-        hinf_label = f"H-inf{imu_suffix}"
-        print(f"\nEvaluating {hinf_label} controller...")
-        airframe_hinf = config.physics.resolve_airframe()
-        adrc_hinf_config = estimate_adrc_config(
-            airframe_hinf,
-            config.physics,
-            omega_c=args.adrc_omega_c,
-            omega_o=args.adrc_omega_o,
-        )
-        hinf_config = HinfConfig(
-            b0=adrc_hinf_config.b0,
-            b0_per_pa=adrc_hinf_config.b0_per_pa,
-            use_observations=use_imu,
-        )
-        hinf_ctrl = HinfController(hinf_config)
-        hinf_results = evaluate_controller(
-            config,
-            hinf_label,
-            args.wind_levels,
-            args.n_episodes,
-            controller=hinf_ctrl,
-            use_observations=use_imu,
-            collect_spin_series=collect_spin,
-        )
-        all_results[hinf_label] = hinf_results
 
     # Optimized parameters (from bayesian_optimize.py)
     if args.optimized_params and not args.pid_only:
@@ -1208,129 +907,25 @@ def main():
             omega_o=args.adrc_omega_o,
         )
         adrc_config.use_observations = use_imu
+        adrc_label = f"ADRC{imu_suffix}"
+        print(
+            f"\nEvaluating {adrc_label} (omega_c={args.adrc_omega_c}, omega_o={args.adrc_omega_o})..."
+        )
         print(
             f"  Estimated b0={adrc_config.b0:.1f} rad/s^2 per unit action"
             f" (b0_per_pa={adrc_config.b0_per_pa:.4f})"
         )
-
-        if args.rls_b0:
-            rls_label = f"ADRC+RLS{imu_suffix}"
-            print(
-                f"\nEvaluating {rls_label} (omega_c={args.adrc_omega_c}, omega_o={args.adrc_omega_o})..."
-            )
-            b0_est = B0Estimator(B0EstimatorConfig(b0_init=adrc_config.b0))
-            adrc_rls_ctrl = ADRCController(adrc_config, b0_estimator=b0_est)
-            adrc_rls_results = evaluate_controller(
-                config,
-                rls_label,
-                args.wind_levels,
-                args.n_episodes,
-                controller=adrc_rls_ctrl,
-                use_observations=use_imu,
-                collect_spin_series=collect_spin,
-            )
-            all_results[rls_label] = adrc_rls_results
-        else:
-            adrc_label = f"ADRC{imu_suffix}"
-            print(
-                f"\nEvaluating {adrc_label} (omega_c={args.adrc_omega_c}, omega_o={args.adrc_omega_o})..."
-            )
-            adrc_ctrl = ADRCController(adrc_config)
-            adrc_results = evaluate_controller(
-                config,
-                adrc_label,
-                args.wind_levels,
-                args.n_episodes,
-                controller=adrc_ctrl,
-                use_observations=use_imu,
-                collect_spin_series=collect_spin,
-            )
-            all_results[adrc_label] = adrc_results
-
-    # ADRC + Wind Feedforward (if requested)
-    if args.adrc_ff and not args.pid_only:
-        airframe_ff = config.physics.resolve_airframe()
-        rocket_cfg_ff = config.physics
-        adrc_ff_config = estimate_adrc_config(
-            airframe_ff,
-            rocket_cfg_ff,
-            omega_c=args.adrc_omega_c,
-            omega_o=args.adrc_omega_o,
-        )
-        adrc_ff_config.use_observations = use_imu
-        ff_config = WindFeedforwardConfig(K_ff=args.ff_gain)
-        print(
-            f"  Estimated b0={adrc_ff_config.b0:.1f} (b0_per_pa={adrc_ff_config.b0_per_pa:.4f})"
-        )
-
-        if args.rls_b0:
-            ff_rls_label = f"ADRC+FF+RLS{imu_suffix}"
-            print(f"\nEvaluating {ff_rls_label} (K_ff={args.ff_gain})...")
-            b0_est_ff = B0Estimator(B0EstimatorConfig(b0_init=adrc_ff_config.b0))
-            adrc_ff_rls_ctrl = WindFeedforwardADRC(
-                adrc_ff_config, ff_config, b0_estimator=b0_est_ff
-            )
-            adrc_ff_rls_results = evaluate_controller(
-                config,
-                ff_rls_label,
-                args.wind_levels,
-                args.n_episodes,
-                controller=adrc_ff_rls_ctrl,
-                use_observations=use_imu,
-                collect_spin_series=collect_spin,
-            )
-            all_results[ff_rls_label] = adrc_ff_rls_results
-        else:
-            ff_label = f"ADRC+FF{imu_suffix}"
-            print(f"\nEvaluating {ff_label} (K_ff={args.ff_gain})...")
-            adrc_ff_ctrl = WindFeedforwardADRC(adrc_ff_config, ff_config)
-            adrc_ff_results = evaluate_controller(
-                config,
-                ff_label,
-                args.wind_levels,
-                args.n_episodes,
-                controller=adrc_ff_ctrl,
-                use_observations=use_imu,
-                collect_spin_series=collect_spin,
-            )
-            all_results[ff_label] = adrc_ff_results
-
-    # ADRC + NN Wind Estimator (if model path provided)
-    if args.adrc_nn and not args.pid_only:
-        nn_label = f"ADRC+NN{imu_suffix}"
-        print(f"\nEvaluating {nn_label} (model={args.adrc_nn})...")
-        airframe = config.physics.resolve_airframe()
-        rocket_cfg = config.physics
-        adrc_nn_config = estimate_adrc_config(
-            airframe,
-            rocket_cfg,
-            omega_c=args.adrc_omega_c,
-            omega_o=args.adrc_omega_o,
-        )
-        adrc_nn_config.use_observations = use_imu
-        estimator, est_config = load_estimator(args.adrc_nn)
-        print(
-            f"  Estimated b0={adrc_nn_config.b0:.1f} (b0_per_pa={adrc_nn_config.b0_per_pa:.4f})"
-        )
-        print(
-            f"  NN estimator: window={est_config.window_size}, hidden={est_config.hidden_size}"
-        )
-        adrc_nn_ctrl = NNFeedforwardADRC(
-            adrc_nn_config,
-            estimator,
-            K_ff=args.ff_gain,
-            warmup_steps=est_config.warmup_steps,
-        )
-        adrc_nn_results = evaluate_controller(
+        adrc_ctrl = ADRCController(adrc_config)
+        adrc_results = evaluate_controller(
             config,
-            nn_label,
+            adrc_label,
             args.wind_levels,
             args.n_episodes,
-            controller=adrc_nn_ctrl,
+            controller=adrc_ctrl,
             use_observations=use_imu,
             collect_spin_series=collect_spin,
         )
-        all_results[nn_label] = adrc_nn_results
+        all_results[adrc_label] = adrc_results
 
     # PPO (if provided)
     if args.ppo and not args.pid_only:

@@ -2,7 +2,7 @@
 Tests for IMU observation mode across all controller types.
 
 Verifies that:
-1. All controllers (PID, GS-PID, ADRC, ADRC+FF) function correctly
+1. All controllers (PID, GS-PID, ADRC) function correctly
    when reading from the observation array instead of the info dict
 2. Controllers produce physically reasonable actions with noisy observations
 3. IMU noise degrades performance gracefully (within 20% of ground-truth)
@@ -12,10 +12,12 @@ Verifies that:
 import pytest
 import numpy as np
 
-from pid_controller import PIDController, GainScheduledPIDController, PIDConfig
-from adrc_controller import ADRCController, ADRCConfig
-from wind_feedforward import WindFeedforwardADRC, WindFeedforwardConfig
-
+from controllers.pid_controller import (
+    PIDController,
+    GainScheduledPIDController,
+    PIDConfig,
+)
+from controllers.adrc_controller import ADRCController, ADRCConfig
 
 # --- Helpers ---
 
@@ -154,37 +156,6 @@ class TestADRCObservationMode:
         assert -1.0 <= action[0] <= 1.0
 
 
-class TestADRCFFObservationMode:
-    """Test WindFeedforwardADRC in observation mode."""
-
-    def test_launches_immediately_in_obs_mode(self):
-        config = ADRCConfig(b0=100.0, use_observations=True)
-        ctrl = WindFeedforwardADRC(config)
-        obs = make_obs(roll_angle=0.1)
-        ctrl.step(obs, {})
-        assert ctrl.launch_detected is True
-
-    def test_reads_roll_angle_for_feedforward(self):
-        """Feedforward should read roll angle from obs[2]."""
-        config = ADRCConfig(b0=100.0, use_observations=True)
-        ff_cfg = WindFeedforwardConfig(K_ff=0.5, warmup_steps=0)
-        ctrl = WindFeedforwardADRC(config, ff_cfg)
-        ctrl.coeff_cos = 10.0
-        ctrl._step_count = 100
-
-        obs = make_obs(roll_angle=0.0, roll_rate=np.radians(10.0))
-        action = ctrl.step(obs, {})
-        assert action[0] != 0.0
-
-    def test_produces_action_with_noisy_obs(self):
-        config = ADRCConfig(b0=100.0, use_observations=True)
-        ctrl = WindFeedforwardADRC(config)
-        np.random.seed(42)
-        obs = add_gyro_noise(make_obs(roll_rate=np.radians(20.0)))
-        action = ctrl.step(obs, {})
-        assert -1.0 <= action[0] <= 1.0
-
-
 class TestIMUNoiseRobustness:
     """Test that controllers are robust to realistic IMU noise levels.
 
@@ -288,30 +259,6 @@ class TestIMUNoiseRobustness:
 
         config2 = ADRCConfig(omega_c=15.0, omega_o=50.0, b0=b0, use_observations=True)
         ctrl_imu = ADRCController(config2)
-        rates_imu = self._run_simulation(ctrl_imu, b0, dt, 300, noise_std=0.003)
-
-        mean_gt = np.mean(rates_gt)
-        mean_imu = np.mean(rates_imu)
-
-        if mean_gt > 1.0:
-            assert mean_imu < mean_gt * 1.2
-        else:
-            assert mean_imu < 2.0
-
-    def test_adrc_ff_imu_within_20pct(self):
-        """ADRC+FF with noisy obs should be within 20% of ground-truth."""
-        b0 = 100.0
-        dt = 0.01
-        np.random.seed(42)
-
-        adrc_cfg = ADRCConfig(omega_c=15.0, omega_o=50.0, b0=b0, use_observations=True)
-        ff_cfg = WindFeedforwardConfig(K_ff=0.5, warmup_steps=20)
-
-        ctrl_gt = WindFeedforwardADRC(adrc_cfg, ff_cfg)
-        rates_gt = self._run_simulation(ctrl_gt, b0, dt, 300, noise_std=0.0)
-
-        adrc_cfg2 = ADRCConfig(omega_c=15.0, omega_o=50.0, b0=b0, use_observations=True)
-        ctrl_imu = WindFeedforwardADRC(adrc_cfg2, ff_cfg)
         rates_imu = self._run_simulation(ctrl_imu, b0, dt, 300, noise_std=0.003)
 
         mean_gt = np.mean(rates_gt)

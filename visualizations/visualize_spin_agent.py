@@ -35,7 +35,7 @@ from gymnasium import spaces
 from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
 from rocket_config import load_config
-from pid_controller import PIDController, PIDConfig
+from controllers.pid_controller import PIDController, PIDConfig
 from rocket_env.sensors import IMUObservationWrapper, IMUConfig
 
 

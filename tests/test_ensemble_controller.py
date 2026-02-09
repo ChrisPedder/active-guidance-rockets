@@ -16,8 +16,12 @@ Verifies:
 import numpy as np
 import pytest
 
-from ensemble_controller import EnsembleController, EnsembleConfig
-from pid_controller import PIDConfig, PIDController, GainScheduledPIDController
+from controllers.ensemble_controller import EnsembleController, EnsembleConfig
+from controllers.pid_controller import (
+    PIDConfig,
+    PIDController,
+    GainScheduledPIDController,
+)
 
 
 class SimpleController:
@@ -286,7 +290,7 @@ class TestCompareControllersIntegration:
     """Test compare_controllers.py integration."""
 
     def test_controller_importable(self):
-        from ensemble_controller import EnsembleController, EnsembleConfig
+        from controllers.ensemble_controller import EnsembleController, EnsembleConfig
 
         ctrl = EnsembleController(
             [SimpleController(), SimpleController()],

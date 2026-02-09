@@ -9,7 +9,11 @@ physically correct behavior across the flight envelope.
 import pytest
 import numpy as np
 
-from pid_controller import GainScheduledPIDController, PIDController, PIDConfig
+from controllers.pid_controller import (
+    GainScheduledPIDController,
+    PIDController,
+    PIDConfig,
+)
 
 
 class TestGainScaling:

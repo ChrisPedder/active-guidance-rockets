@@ -24,7 +24,7 @@ class TestGenerateSweepConfigs:
 
     def test_generate_reward_sweep(self, base_config):
         """Test generating reward sweep configurations."""
-        from sweep_hyperparams import generate_sweep_configs
+        from training.sweep_hyperparams import generate_sweep_configs
 
         sweeps = generate_sweep_configs("reward", base_config)
 
@@ -38,7 +38,7 @@ class TestGenerateSweepConfigs:
 
     def test_generate_ppo_sweep(self, base_config):
         """Test generating PPO sweep configurations."""
-        from sweep_hyperparams import generate_sweep_configs
+        from training.sweep_hyperparams import generate_sweep_configs
 
         sweeps = generate_sweep_configs("ppo", base_config)
 
@@ -52,7 +52,7 @@ class TestGenerateSweepConfigs:
 
     def test_generate_motors_sweep(self, base_config):
         """Test generating motors sweep configurations."""
-        from sweep_hyperparams import generate_sweep_configs
+        from training.sweep_hyperparams import generate_sweep_configs
 
         sweeps = generate_sweep_configs("motors", base_config)
 
@@ -62,7 +62,7 @@ class TestGenerateSweepConfigs:
 
     def test_generate_quick_sweep(self, base_config):
         """Test generating quick sweep configurations."""
-        from sweep_hyperparams import generate_sweep_configs
+        from training.sweep_hyperparams import generate_sweep_configs
 
         sweeps = generate_sweep_configs("quick", base_config)
 
@@ -75,7 +75,7 @@ class TestGenerateSweepConfigs:
 
     def test_unknown_sweep_type_error(self, base_config):
         """Test that unknown sweep type raises error."""
-        from sweep_hyperparams import generate_sweep_configs
+        from training.sweep_hyperparams import generate_sweep_configs
 
         with pytest.raises(ValueError, match="Unknown sweep type"):
             generate_sweep_configs("nonexistent", base_config)
@@ -93,7 +93,7 @@ class TestApplyConfigOverrides:
 
     def test_apply_single_override(self, base_config):
         """Test applying a single override."""
-        from sweep_hyperparams import apply_config_overrides
+        from training.sweep_hyperparams import apply_config_overrides
 
         overrides = {
             "name": "test",
@@ -108,7 +108,7 @@ class TestApplyConfigOverrides:
 
     def test_apply_multiple_overrides(self, base_config):
         """Test applying multiple overrides."""
-        from sweep_hyperparams import apply_config_overrides
+        from training.sweep_hyperparams import apply_config_overrides
 
         overrides = {
             "name": "multi_test",
@@ -125,7 +125,7 @@ class TestApplyConfigOverrides:
 
     def test_name_and_description_ignored(self, base_config):
         """Test that name and description keys are ignored."""
-        from sweep_hyperparams import apply_config_overrides
+        from training.sweep_hyperparams import apply_config_overrides
 
         original_deflection = base_config.physics.max_tab_deflection
 
@@ -145,7 +145,7 @@ class TestLoadSweepFromYaml:
 
     def test_load_valid_yaml(self, tmp_path):
         """Test loading a valid sweep YAML file."""
-        from sweep_hyperparams import load_sweep_from_yaml
+        from training.sweep_hyperparams import load_sweep_from_yaml
 
         sweep_content = {
             "description": "Test sweep",
@@ -167,7 +167,7 @@ class TestLoadSweepFromYaml:
 
     def test_load_yaml_missing_sweeps(self, tmp_path):
         """Test loading YAML without sweeps key."""
-        from sweep_hyperparams import load_sweep_from_yaml
+        from training.sweep_hyperparams import load_sweep_from_yaml
 
         content = {"description": "No sweeps here"}
 
@@ -192,7 +192,7 @@ class TestRunSweepDryRun:
 
     def test_run_sweep_dry_run(self, tmp_path, base_config):
         """Test running sweep in dry run mode."""
-        from sweep_hyperparams import run_sweep
+        from training.sweep_hyperparams import run_sweep
 
         sweep_configs = [
             {"name": "test1", "description": "First test"},
@@ -219,7 +219,7 @@ class TestRunSweepDryRun:
 
     def test_run_sweep_creates_config_files(self, tmp_path, base_config):
         """Test that sweep creates config files."""
-        from sweep_hyperparams import run_sweep
+        from training.sweep_hyperparams import run_sweep
 
         sweep_configs = [
             {"name": "config_a", "physics.dry_mass": 0.1},
@@ -250,7 +250,7 @@ class TestSweepConfigContent:
 
     def test_reward_sweep_has_valid_scales(self, base_config):
         """Test that reward sweep generates valid scale values."""
-        from sweep_hyperparams import generate_sweep_configs
+        from training.sweep_hyperparams import generate_sweep_configs
 
         sweeps = generate_sweep_configs("reward", base_config)
 
@@ -265,7 +265,7 @@ class TestSweepConfigContent:
 
     def test_ppo_sweep_has_valid_lr(self, base_config):
         """Test that PPO sweep generates valid learning rates."""
-        from sweep_hyperparams import generate_sweep_configs
+        from training.sweep_hyperparams import generate_sweep_configs
 
         sweeps = generate_sweep_configs("ppo", base_config)
 
@@ -287,7 +287,7 @@ class TestSweepConfigDescriptions:
 
     def test_sweeps_have_descriptions(self, base_config):
         """Test that sweep configs have descriptions."""
-        from sweep_hyperparams import generate_sweep_configs
+        from training.sweep_hyperparams import generate_sweep_configs
 
         # Only test sweep types that don't require motor specs
         for sweep_type in ["reward", "ppo", "motors", "quick"]:
@@ -310,7 +310,10 @@ class TestSweepIntegration:
 
     def test_apply_and_save_configs(self, tmp_path, base_config):
         """Test applying overrides and saving configs."""
-        from sweep_hyperparams import generate_sweep_configs, apply_config_overrides
+        from training.sweep_hyperparams import (
+            generate_sweep_configs,
+            apply_config_overrides,
+        )
 
         sweeps = generate_sweep_configs("quick", base_config)
 

@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 from pathlib import Path
 
-from bayesian_optimize import (
+from optimization.bayesian_optimize import (
     GS_PID_BOUNDS,
     ADRC_BOUNDS,
     ENSEMBLE_BOUNDS,
@@ -222,7 +222,7 @@ class TestCompareControllersIntegration:
         assert "Optimized GS-PID" in source
 
     def test_lookup_table_importable(self):
-        from bayesian_optimize import ParamLookupTable
+        from optimization.bayesian_optimize import ParamLookupTable
 
         table = ParamLookupTable(controller="gs-pid")
         assert hasattr(table, "get_params")

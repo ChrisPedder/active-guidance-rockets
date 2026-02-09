@@ -57,9 +57,9 @@ from compare_controllers import (
     run_controller_episode,
     EpisodeMetrics,
 )
-from pid_controller import PIDConfig, GainScheduledPIDController
-from adrc_controller import ADRCController, ADRCConfig, estimate_adrc_config
-from ensemble_controller import EnsembleController, EnsembleConfig
+from controllers.pid_controller import PIDConfig, GainScheduledPIDController
+from controllers.adrc_controller import ADRCController, ADRCConfig, estimate_adrc_config
+from controllers.ensemble_controller import EnsembleController, EnsembleConfig
 from rocket_config import load_config
 
 

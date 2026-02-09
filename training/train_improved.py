@@ -57,8 +57,12 @@ from spin_stabilized_control_env import RocketConfig as CompositeRocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
 from motor_loader import Motor
 from rocket_env.sensors import IMUObservationWrapper, IMUConfig
-from pid_controller import PIDController, PIDConfig
-from disturbance_observer import DisturbanceObserver, DOBConfig, estimate_dob_parameters
+from controllers.pid_controller import PIDController, PIDConfig
+from controllers.disturbance_observer import (
+    DisturbanceObserver,
+    DOBConfig,
+    estimate_dob_parameters,
+)
 
 
 class ImprovedRewardWrapper(gym.Wrapper):

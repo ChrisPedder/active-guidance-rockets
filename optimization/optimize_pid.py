@@ -32,7 +32,11 @@ from compare_controllers import (
     run_controller_episode,
     EpisodeMetrics,
 )
-from pid_controller import PIDConfig, PIDController, GainScheduledPIDController
+from controllers.pid_controller import (
+    PIDConfig,
+    PIDController,
+    GainScheduledPIDController,
+)
 from rocket_config import load_config
 
 

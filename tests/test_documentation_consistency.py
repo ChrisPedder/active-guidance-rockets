@@ -22,37 +22,30 @@ class TestDocumentedControllersExist:
     """Verify all controller classes referenced in docs exist in code."""
 
     def test_pid_controller_exists(self):
-        from pid_controller import PIDController
+        from controllers.pid_controller import PIDController
 
         ctrl = PIDController()
         assert hasattr(ctrl, "step")
 
     def test_gain_scheduled_pid_exists(self):
-        from pid_controller import GainScheduledPIDController
+        from controllers.pid_controller import GainScheduledPIDController
 
         ctrl = GainScheduledPIDController()
         assert hasattr(ctrl, "step")
 
     def test_adrc_controller_exists(self):
-        from adrc_controller import ADRCController, ADRCConfig
+        from controllers.adrc_controller import ADRCController, ADRCConfig
 
         ctrl = ADRCController(ADRCConfig(b0=100.0))
         assert hasattr(ctrl, "step")
 
-    def test_wind_feedforward_adrc_exists(self):
-        from wind_feedforward import WindFeedforwardADRC, WindFeedforwardConfig
-        from adrc_controller import ADRCConfig
-
-        ctrl = WindFeedforwardADRC(ADRCConfig(b0=100.0))
-        assert hasattr(ctrl, "step")
-
     def test_estimate_adrc_config_exists(self):
-        from adrc_controller import estimate_adrc_config
+        from controllers.adrc_controller import estimate_adrc_config
 
         assert callable(estimate_adrc_config)
 
     def test_pid_config_exists(self):
-        from pid_controller import PIDConfig
+        from controllers.pid_controller import PIDConfig
 
         config = PIDConfig()
         assert hasattr(config, "Cprop")
@@ -61,14 +54,14 @@ class TestDocumentedControllersExist:
 
     def test_adrc_config_has_dynamic_b0(self):
         """CLAUDE.md documents dynamic b0 via b0_per_pa. Verify it exists."""
-        from adrc_controller import ADRCConfig
+        from controllers.adrc_controller import ADRCConfig
 
         config = ADRCConfig(b0=100.0, b0_per_pa=0.5)
         assert config.b0_per_pa == 0.5
 
     def test_adrc_config_has_use_observations(self):
         """CLAUDE.md documents use_observations for IMU mode."""
-        from adrc_controller import ADRCConfig
+        from controllers.adrc_controller import ADRCConfig
 
         config = ADRCConfig(b0=100.0, use_observations=True)
         assert config.use_observations is True
@@ -94,20 +87,10 @@ class TestDocumentedCLIFlags:
             "--adrc" in compare_source
         ), "CLAUDE.md documents --adrc flag but it's missing from compare_controllers.py"
 
-    def test_adrc_ff_flag(self, compare_source):
-        assert (
-            "--adrc-ff" in compare_source
-        ), "CLAUDE.md documents --adrc-ff flag but it's missing from compare_controllers.py"
-
     def test_imu_flag(self, compare_source):
         assert (
             "--imu" in compare_source
         ), "CLAUDE.md documents --imu flag but it's missing from compare_controllers.py"
-
-    def test_adrc_nn_flag(self, compare_source):
-        assert (
-            "--adrc-nn" in compare_source
-        ), "CLAUDE.md documents --adrc-nn flag but it's missing from compare_controllers.py"
 
     def test_wind_levels_flag(self, compare_source):
         assert "--wind-levels" in compare_source
@@ -150,10 +133,8 @@ class TestDocumentedFilesExist:
     """Verify files referenced in documentation actually exist."""
 
     FILES_REFERENCED = [
-        "pid_controller.py",
-        "adrc_controller.py",
-        "wind_feedforward.py",
-        "wind_estimator.py",
+        "controllers/pid_controller.py",
+        "controllers/adrc_controller.py",
         "compare_controllers.py",
         "experimental_results.md",
     ]

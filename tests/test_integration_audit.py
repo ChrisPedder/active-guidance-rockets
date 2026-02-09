@@ -23,7 +23,11 @@ from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
 from realistic_spin_rocket import RealisticMotorRocket
 from airframe import RocketAirframe
 from wind_model import WindModel, WindConfig
-from pid_controller import PIDController, PIDConfig, GainScheduledPIDController
+from controllers.pid_controller import (
+    PIDController,
+    PIDConfig,
+    GainScheduledPIDController,
+)
 from rocket_config import load_config
 
 
@@ -1273,62 +1277,20 @@ class TestCrossCuttingIntegration:
 class TestAuditFixRegressions:
     """Regression tests to prevent re-introduction of audit findings."""
 
-    def test_all_controllers_use_info_for_roll_rate_in_imu_mode(self):
-        """Controllers in IMU mode must read roll rate from the info dict
-        (noisy but current), not from obs[3] (subject to sensor_delay_steps).
+    def test_adrc_uses_info_for_roll_rate_in_imu_mode(self):
+        """ADRC in IMU mode must use info dict roll_rate at initialization.
 
         ADRC uses the ESO which estimates rate from successive angle
         observations, so it only uses info roll_rate at initialization.
-        STA-SMC and H-inf read roll_rate directly each step.
 
         Regression test for audit fix #5.
         """
-        from sta_smc_controller import STASMCController, STASMCConfig
-        from hinf_controller import HinfController, HinfConfig
+        from controllers.adrc_controller import ADRCController, ADRCConfig
 
         obs = np.zeros(10, dtype=np.float32)
         obs[2] = 0.1  # small roll angle error
         obs[3] = np.deg2rad(50.0)  # delayed: 50 deg/s
         obs[5] = 500.0  # dynamic pressure
-
-        info_10 = {
-            "roll_rate_deg_s": 10.0,
-            "dynamic_pressure_Pa": 500.0,
-            "roll_angle_rad": 0.1,
-            "vertical_acceleration_ms2": 30.0,
-        }
-        info_50 = {
-            "roll_rate_deg_s": 50.0,
-            "dynamic_pressure_Pa": 500.0,
-            "roll_angle_rad": 0.1,
-            "vertical_acceleration_ms2": 30.0,
-        }
-
-        # STA-SMC and H-inf read roll_rate directly from info each step
-        controllers = [
-            ("STA-SMC", lambda: STASMCController(STASMCConfig(use_observations=True))),
-            ("H-inf", lambda: HinfController(HinfConfig(use_observations=True))),
-        ]
-
-        for name, make_ctrl in controllers:
-            ctrl1 = make_ctrl()
-            ctrl1.launch_detected = True
-            ctrl1.target_angle = 0.0
-            action_10 = ctrl1.step(obs, info_10, dt=0.01)
-
-            ctrl2 = make_ctrl()
-            ctrl2.launch_detected = True
-            ctrl2.target_angle = 0.0
-            action_50 = ctrl2.step(obs, info_50, dt=0.01)
-
-            assert abs(action_10[0] - action_50[0]) > 1e-6, (
-                f"{name}: IMU mode must use info dict roll_rate, not obs[3]. "
-                f"action@10deg/s={action_10[0]:.4f}, action@50deg/s={action_50[0]:.4f}"
-            )
-
-        # ADRC uses info roll_rate at initialization — verify ESO z2
-        # is initialized from info, not from obs[3].
-        from adrc_controller import ADRCController, ADRCConfig
 
         ctrl = ADRCController(ADRCConfig(use_observations=True))
         # launch_detected=False so first step triggers initialization
@@ -1347,143 +1309,16 @@ class TestAuditFixRegressions:
             f"got z2={ctrl.z2:.3f}"
         )
 
-    def test_fll_uses_info_for_roll_rate(self):
-        """FLL controller must read roll rate from info dict in IMU mode."""
-        from fll_controller import FLLController, FLLConfig
-        from pid_controller import PIDConfig
-
-        obs = np.zeros(10, dtype=np.float32)
-        obs[3] = np.deg2rad(50.0)  # delayed
-        obs[5] = 500.0
-
-        fll1 = FLLController(
-            pid_config=PIDConfig(), fll_config=FLLConfig(), use_observations=True
-        )
-        fll1.base_ctrl.launch_detected = True
-        fll1._step_count = 1  # skip warmup check
-
-        info10 = {
-            "roll_rate_deg_s": 10.0,
-            "dynamic_pressure_Pa": 500.0,
-            "roll_angle_rad": 0.0,
-            "vertical_acceleration_ms2": 30.0,
-        }
-        action_10 = fll1.step(obs, info10, dt=0.01)
-
-        fll2 = FLLController(
-            pid_config=PIDConfig(), fll_config=FLLConfig(), use_observations=True
-        )
-        fll2.base_ctrl.launch_detected = True
-        fll2._step_count = 1
-
-        info50 = {
-            "roll_rate_deg_s": 50.0,
-            "dynamic_pressure_Pa": 500.0,
-            "roll_angle_rad": 0.0,
-            "vertical_acceleration_ms2": 30.0,
-        }
-        action_50 = fll2.step(obs, info50, dt=0.01)
-
-        # Actions should differ because FLL uses different roll rate
-        assert (
-            abs(action_10[0] - action_50[0]) > 1e-6
-        ), "FLL must use info dict for roll rate in IMU mode"
-
-    def test_fourier_adrc_uses_info_for_roll_rate(self):
-        """Fourier ADRC must read roll rate from info dict in IMU mode."""
-        from fourier_adaptive import FourierAdaptiveADRC, FourierAdaptiveConfig
-        from adrc_controller import ADRCConfig
-
-        obs = np.zeros(10, dtype=np.float32)
-        obs[3] = np.deg2rad(50.0)  # delayed
-        obs[5] = 500.0
-
-        cfg = ADRCConfig(use_observations=True)
-        fc = FourierAdaptiveConfig()
-
-        ctrl1 = FourierAdaptiveADRC(cfg, fc)
-        ctrl1.adrc.launch_detected = True
-        ctrl1.adrc.target_angle = 0.0
-        ctrl1._step_count = fc.warmup_steps + 1  # past warmup
-
-        info10 = {
-            "roll_rate_deg_s": 10.0,
-            "dynamic_pressure_Pa": 500.0,
-            "roll_angle_rad": 0.0,
-            "vertical_acceleration_ms2": 30.0,
-        }
-        ctrl1.step(obs, info10, dt=0.01)
-        omega1 = ctrl1._omega_spin_est
-
-        ctrl2 = FourierAdaptiveADRC(cfg, fc)
-        ctrl2.adrc.launch_detected = True
-        ctrl2.adrc.target_angle = 0.0
-        ctrl2._step_count = fc.warmup_steps + 1
-
-        info50 = {
-            "roll_rate_deg_s": 50.0,
-            "dynamic_pressure_Pa": 500.0,
-            "roll_angle_rad": 0.0,
-            "vertical_acceleration_ms2": 30.0,
-        }
-        ctrl2.step(obs, info50, dt=0.01)
-        omega2 = ctrl2._omega_spin_est
-
-        # Spin frequency estimate should differ
-        assert abs(omega1 - omega2) > 0.01, (
-            f"Fourier ADRC must use info for roll rate: "
-            f"omega_est@10={omega1:.4f}, omega_est@50={omega2:.4f}"
-        )
-
-    def test_gp_uses_info_for_roll_rate(self):
-        """GP feedforward must read roll rate from info dict in IMU mode."""
-        from gp_disturbance import GPFeedforwardController, GPDisturbanceConfig
-
-        obs = np.zeros(10, dtype=np.float32)
-        obs[3] = np.deg2rad(50.0)  # delayed
-        obs[5] = 500.0
-
-        gp1 = GPFeedforwardController(
-            pid_config=PIDConfig(),
-            gp_config=GPDisturbanceConfig(),
-            use_observations=True,
-        )
-        gp1.launch_detected = True
-        gp1._step_count = 5
-
-        info10 = {
-            "roll_rate_deg_s": 10.0,
-            "dynamic_pressure_Pa": 500.0,
-            "roll_angle_rad": 0.0,
-        }
-        action1 = gp1.step(obs, info10, dt=0.01)
-
-        gp2 = GPFeedforwardController(
-            pid_config=PIDConfig(),
-            gp_config=GPDisturbanceConfig(),
-            use_observations=True,
-        )
-        gp2.launch_detected = True
-        gp2._step_count = 5
-
-        info50 = {
-            "roll_rate_deg_s": 50.0,
-            "dynamic_pressure_Pa": 500.0,
-            "roll_angle_rad": 0.0,
-        }
-        action2 = gp2.step(obs, info50, dt=0.01)
-
-        # Actions should differ (base GS-PID uses info for roll rate)
-        assert (
-            abs(action1[0] - action2[0]) > 1e-6
-        ), "GP feedforward must use info dict for roll rate in IMU mode"
-
     def test_ensemble_uses_info_for_performance(self):
         """Ensemble controller must read roll rate from info dict for
         performance monitoring, not from obs[3].
         """
-        from ensemble_controller import EnsembleController, EnsembleConfig
-        from pid_controller import PIDController, PIDConfig, GainScheduledPIDController
+        from controllers.ensemble_controller import EnsembleController, EnsembleConfig
+        from controllers.pid_controller import (
+            PIDController,
+            PIDConfig,
+            GainScheduledPIDController,
+        )
 
         pid1 = PIDController(PIDConfig(), use_observations=False)
         pid1.launch_detected = True

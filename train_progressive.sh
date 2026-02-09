@@ -122,7 +122,7 @@ train_stage() {
     echo ""
 
     # Build command
-    local cmd="uv run python train_improved.py --config $config --timesteps $timesteps $LR_FLAG"
+    local cmd="uv run python training/train_improved.py --config $config --timesteps $timesteps $LR_FLAG"
     if [[ -n "$load_model" ]]; then
         cmd="$cmd --load-model $load_model"
     fi

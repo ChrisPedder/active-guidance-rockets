@@ -50,7 +50,7 @@ class TestImprovedRewardWrapper:
 
     def test_wrapper_creation(self, mock_env):
         """Test creating ImprovedRewardWrapper."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         reward_config = {
             "altitude_reward_scale": 0.01,
@@ -69,7 +69,7 @@ class TestImprovedRewardWrapper:
 
     def test_wrapper_reset(self, mock_env):
         """Test wrapper reset."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         reward_config = {"altitude_reward_scale": 0.01}
         wrapped = ImprovedRewardWrapper(mock_env, reward_config)
@@ -82,7 +82,7 @@ class TestImprovedRewardWrapper:
 
     def test_wrapper_step(self, mock_env):
         """Test wrapper step modifies reward."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         reward_config = {
             "altitude_reward_scale": 0.01,
@@ -102,7 +102,7 @@ class TestImprovedRewardWrapper:
 
     def test_wrapper_tracks_previous_action(self, mock_env):
         """Test that wrapper tracks previous action."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         reward_config = {"control_smoothness_penalty": -0.05}
         wrapped = ImprovedRewardWrapper(mock_env, reward_config)
@@ -121,7 +121,7 @@ class TestImprovedRewardWrapper:
 
     def test_terminal_success_bonus(self, mock_env):
         """Test success bonus on terminal state."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         class TerminatingEnv(gym.Env):
             def __init__(self):
@@ -189,7 +189,7 @@ class TestNormalizedActionWrapper:
 
     def test_wrapper_normalizes_action_space(self, mock_env):
         """Test that wrapper normalizes action space to [-1, 1]."""
-        from train_improved import NormalizedActionWrapper
+        from training.train_improved import NormalizedActionWrapper
 
         wrapped = NormalizedActionWrapper(mock_env)
 
@@ -198,7 +198,7 @@ class TestNormalizedActionWrapper:
 
     def test_wrapper_scales_actions(self, mock_env):
         """Test that wrapper correctly scales actions."""
-        from train_improved import NormalizedActionWrapper
+        from training.train_improved import NormalizedActionWrapper
 
         wrapped = NormalizedActionWrapper(mock_env)
         wrapped.reset()
@@ -232,7 +232,7 @@ class TestTrainingMetricsCallback:
 
     def test_callback_creation(self, mock_config):
         """Test creating TrainingMetricsCallback."""
-        from train_improved import TrainingMetricsCallback
+        from training.train_improved import TrainingMetricsCallback
 
         callback = TrainingMetricsCallback(mock_config, verbose=0)
 
@@ -242,7 +242,7 @@ class TestTrainingMetricsCallback:
 
     def test_callback_tracks_metrics(self, mock_config):
         """Test that callback tracks episode metrics."""
-        from train_improved import TrainingMetricsCallback
+        from training.train_improved import TrainingMetricsCallback
 
         callback = TrainingMetricsCallback(mock_config, verbose=0)
 
@@ -268,7 +268,7 @@ class TestTrainingMetricsCallback:
 
     def test_callback_camera_quality_scoring(self, mock_config):
         """Test camera quality scoring."""
-        from train_improved import TrainingMetricsCallback
+        from training.train_improved import TrainingMetricsCallback
 
         callback = TrainingMetricsCallback(mock_config, verbose=0)
 
@@ -314,7 +314,7 @@ class TestWrapperIntegration:
 
     def test_normalized_action_with_real_env(self, real_env):
         """Test NormalizedActionWrapper with real environment."""
-        from train_improved import NormalizedActionWrapper
+        from training.train_improved import NormalizedActionWrapper
 
         wrapped = NormalizedActionWrapper(real_env)
 
@@ -330,7 +330,7 @@ class TestWrapperIntegration:
 
     def test_reward_wrapper_with_real_env(self, real_env):
         """Test ImprovedRewardWrapper with real environment."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         reward_config = {
             "altitude_reward_scale": 0.01,
@@ -355,7 +355,10 @@ class TestWrapperIntegration:
 
     def test_stacked_wrappers(self, real_env):
         """Test stacking multiple wrappers."""
-        from train_improved import ImprovedRewardWrapper, NormalizedActionWrapper
+        from training.train_improved import (
+            ImprovedRewardWrapper,
+            NormalizedActionWrapper,
+        )
 
         reward_config = {
             "altitude_reward_scale": 0.01,
@@ -380,7 +383,7 @@ class TestRewardCalculation:
 
     def test_altitude_reward_component(self):
         """Test altitude reward component."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         class SimpleEnv(gym.Env):
             def __init__(self):
@@ -419,7 +422,7 @@ class TestRewardCalculation:
 
     def test_spin_penalty_component(self):
         """Test spin penalty component."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         class SpinnyEnv(gym.Env):
             def __init__(self):
@@ -460,7 +463,7 @@ class TestRewardCalculation:
 
     def test_low_spin_bonus(self):
         """Test low spin bonus."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         class LowSpinEnv(gym.Env):
             def __init__(self):
@@ -501,7 +504,7 @@ class TestRewardCalculation:
 
     def test_crash_penalty(self):
         """Test crash penalty on termination with low altitude."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         class CrashEnv(gym.Env):
             def __init__(self):
@@ -542,7 +545,7 @@ class TestRewardCalculation:
 
     def test_control_effort_penalty(self):
         """Test control effort penalty."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         class ControlEnv(gym.Env):
             def __init__(self):
@@ -589,7 +592,7 @@ class TestRewardCalculation:
 
     def test_control_smoothness_penalty(self):
         """Test control smoothness penalty for action changes."""
-        from train_improved import ImprovedRewardWrapper
+        from training.train_improved import ImprovedRewardWrapper
 
         class SmoothEnv(gym.Env):
             def __init__(self):
