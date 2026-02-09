@@ -82,10 +82,10 @@ class TestArgparseDefaults:
             # Match patterns like: add_argument("--pid-Kp", type=float, default=0.05, ...)
             # or: add_argument("--Cprop", type=float, default=0.05, ...)
             pattern = (
-                rf'add_argument\(["\']--{re.escape(arg_name)}["\']'
+                rf'add_argument\(\s*["\']--{re.escape(arg_name)}["\']'
                 rf".*?default\s*=\s*([0-9.]+)"
             )
-            match = re.search(pattern, source)
+            match = re.search(pattern, source, re.DOTALL)
             if match:
                 defaults[arg_name] = float(match.group(1))
 
