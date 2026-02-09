@@ -9,66 +9,66 @@
       "wind_level": 0.0,
       "controller": "adrc",
       "params": {
-        "omega_c": 6.310890415965769,
-        "omega_o": 60.649870724984055
+        "omega_c": 8.366179288199726,
+        "omega_o": 74.52151487772774
       },
-      "mean_spin": 3.330104252407169,
-      "std_spin": 0.32983613160516606,
-      "objective": 3.989776515617501,
+      "mean_spin": 3.5802588520122716,
+      "std_spin": 0.4018149857638489,
+      "objective": 4.383888823539969,
       "success_rate": 1.0,
-      "n_evaluations": 112
+      "n_evaluations": 124
     },
     "1.0": {
       "wind_level": 1.0,
       "controller": "adrc",
       "params": {
-        "omega_c": 22.39427771492072,
+        "omega_c": 20.348487808097275,
         "omega_o": 47.65430534769944
       },
-      "mean_spin": 10.943499993028919,
-      "std_spin": 4.306521727850972,
-      "objective": 19.556543448730864,
+      "mean_spin": 5.158132440641022,
+      "std_spin": 1.542985594762346,
+      "objective": 8.244103630165714,
       "success_rate": 1.0,
-      "n_evaluations": 112
+      "n_evaluations": 103
     },
     "2.0": {
       "wind_level": 2.0,
       "controller": "adrc",
       "params": {
-        "omega_c": 31.343308971806152,
-        "omega_o": 20.71765344789827
+        "omega_c": 10.766509065171125,
+        "omega_o": 64.76606873407535
       },
-      "mean_spin": 25.752925687963398,
-      "std_spin": 12.722709357347053,
-      "objective": 56.19834440265751,
-      "success_rate": 0.7,
-      "n_evaluations": 109
+      "mean_spin": 7.449788115490018,
+      "std_spin": 3.076233721786184,
+      "objective": 13.602255559062385,
+      "success_rate": 1.0,
+      "n_evaluations": 112
     },
     "3.0": {
       "wind_level": 3.0,
       "controller": "adrc",
       "params": {
-        "omega_c": 25.485538689960297,
-        "omega_o": 30.690084853904693
+        "omega_c": 7.682585412105983,
+        "omega_o": 56.07621173089031
       },
-      "mean_spin": 22.757107983924904,
-      "std_spin": 7.954706059232321,
-      "objective": 38.66652010238955,
-      "success_rate": 0.8,
-      "n_evaluations": 83
+      "mean_spin": 9.586979390003934,
+      "std_spin": 5.51325386496669,
+      "objective": 20.613487119937314,
+      "success_rate": 1.0,
+      "n_evaluations": 136
     },
     "5.0": {
       "wind_level": 5.0,
       "controller": "adrc",
       "params": {
-        "omega_c": 27.316708597978028,
-        "omega_o": 43.51462052947452
+        "omega_c": 14.105193221905507,
+        "omega_o": 49.462698791589
       },
-      "mean_spin": 21.43778928617068,
-      "std_spin": 11.838917856580288,
-      "objective": 45.11562499933126,
-      "success_rate": 0.8,
-      "n_evaluations": 107
+      "mean_spin": 12.681121533455165,
+      "std_spin": 5.036327780904139,
+      "objective": 22.753777095263445,
+      "success_rate": 1.0,
+      "n_evaluations": 103
     }
   }
 }
