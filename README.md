@@ -230,6 +230,68 @@ Stored in `optimization_results/*.json`.
 
 ---
 
+## Visualizations
+
+Three animated visualization scripts in `visualizations/` provide insight into simulation behavior. All support `--rocket estes_alpha` or `--rocket j800`, `--controller pid` or `--controller gs-pid`, and a `--save` flag to write output files to `visualizations/outputs/`.
+
+### Roll Rate Monte Carlo (`roll_rate_montecarlo.py`)
+
+Shows |roll rate| vs time for multiple simulation runs under increasing wind. Traces are drawn one at a time with a brief pause, then the plot clears and repeats at the next wind level. The fixed y-axis makes wind-degradation visible at a glance.
+
+```bash
+# Display on screen
+uv run python visualizations/roll_rate_montecarlo.py --rocket estes_alpha --controller gs-pid
+
+# Save as GIF
+uv run python visualizations/roll_rate_montecarlo.py --rocket j800 --controller pid --save
+
+# Custom settings
+uv run python visualizations/roll_rate_montecarlo.py --rocket estes_alpha --controller pid \
+    --n-runs 10 --wind-levels 1 2 3 --format mp4 --save
+```
+
+**Arguments:** `--rocket`, `--controller`, `--n-runs` (default 10), `--wind-levels` (default 1 2 3), `--save`, `--format` (gif/mp4).
+
+### Wind Field Visualization (`wind_field_visualization.py`)
+
+Visualizes the wind model (sinusoidal or Dryden) to show what disturbances the rocket faces. Three panels: wind speed vs altitude, wind direction vs altitude, and a time-series at a fixed altitude. Altitude profiles accumulate as time-stamped snapshots.
+
+```bash
+# Display on screen
+uv run python visualizations/wind_field_visualization.py --rocket estes_alpha
+
+# Dryden turbulence at 5 m/s
+uv run python visualizations/wind_field_visualization.py --rocket j800 \
+    --wind-speed 5.0 --dryden --severity moderate --save
+
+# Custom fixed altitude for time-series panel
+uv run python visualizations/wind_field_visualization.py --rocket estes_alpha \
+    --wind-speed 3.0 --fixed-altitude 100 --save
+```
+
+**Arguments:** `--rocket`, `--wind-speed` (default 2.0), `--dryden`, `--severity` (light/moderate/severe), `--fixed-altitude`, `--save`, `--format`.
+
+### Trajectory Monte Carlo (`trajectory_montecarlo.py`)
+
+Shows 3D flight paths (or 2D panel views) for multiple runs under varying wind. Lateral drift is estimated from wind speed and direction. The 2D mode shows x-z, y-z, and x-y (ground track) subplots which are often easier to interpret than the 3D view.
+
+```bash
+# 3D animated plot
+uv run python visualizations/trajectory_montecarlo.py --rocket estes_alpha --controller gs-pid
+
+# 2D panel view, saved
+uv run python visualizations/trajectory_montecarlo.py --rocket j800 --controller pid \
+    --mode 2d --save
+
+# Both 3D and 2D
+uv run python visualizations/trajectory_montecarlo.py --rocket estes_alpha --controller gs-pid \
+    --mode both --wind-levels 1 2 3 --n-runs 10 --save
+```
+
+**Arguments:** `--rocket`, `--controller`, `--n-runs` (default 10), `--wind-levels` (default 1 2 3), `--mode` (3d/2d/both), `--save`, `--format`.
+
+---
+
 ## Project Structure
 
 ```
