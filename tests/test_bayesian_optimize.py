@@ -20,11 +20,14 @@ from optimization.bayesian_optimize import (
     GS_PID_BOUNDS,
     ADRC_BOUNDS,
     ENSEMBLE_BOUNDS,
+    EVALUATORS,
     ParamLookupTable,
     OptimizationResult,
     compute_objective,
+    evaluate_gs_pid,
     get_baseline_params,
 )
+from rocket_config import load_config
 
 
 class TestParameterBounds:
@@ -208,6 +211,28 @@ class TestBaselineParams:
     def test_unknown_raises(self):
         with pytest.raises(ValueError):
             get_baseline_params("unknown-controller")
+
+
+class TestEvaluators:
+    """Test evaluator registrations and functions."""
+
+    def test_evaluators_registered(self):
+        assert "gs-pid" in EVALUATORS
+        assert "adrc" in EVALUATORS
+        assert "ensemble" in EVALUATORS
+        for name, (fn, bounds) in EVALUATORS.items():
+            assert callable(fn)
+            assert isinstance(bounds, dict)
+
+    def test_evaluate_gs_pid_smoke(self):
+        config = load_config("configs/estes_c6_sac_wind.yaml")
+        params = {"Kp": 0.0203, "Ki": 0.0002, "Kd": 0.0118, "q_ref": 500.0}
+        mean_spin, std_spin, success_rate = evaluate_gs_pid(
+            params, config, wind_level=0.0, n_episodes=2
+        )
+        assert mean_spin >= 0
+        assert std_spin >= 0
+        assert 0.0 <= success_rate <= 1.0
 
 
 class TestCompareControllersIntegration:
