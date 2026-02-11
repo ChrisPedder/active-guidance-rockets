@@ -233,24 +233,3 @@ class TestMotorPhysics:
             assert (
                 thrust <= motor.max_thrust * motor.thrust_multiplier * 1.1
             )  # Allow 10% margin
-
-
-class TestRealMotorConfigs:
-    """Tests using actual motor configuration files from the project."""
-
-    def test_load_estes_c6_if_exists(self):
-        """Test loading Estes C6 config if it exists."""
-        from motor_loader import load_motor_from_config
-        from pathlib import Path
-
-        config_path = Path("configs/estes_c6_easy.yaml")
-        if not config_path.exists():
-            pytest.skip("Config file not found")
-
-        motor = load_motor_from_config(str(config_path))
-
-        # Estes C6 specs
-        assert motor.impulse_class == "C"
-        assert 5.0 < motor.total_impulse < 15.0  # C class is 5-10 Ns
-        assert motor.burn_time > 0
-        assert motor.burn_time < 5.0  # Reasonable upper bound

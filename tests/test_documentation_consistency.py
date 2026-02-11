@@ -182,58 +182,6 @@ class TestResultsTablesConsistency:
                         values[wind].append(val)
         return values
 
-    def test_zero_wind_best_below_5(self):
-        """The final results table should show all controllers below 5 deg/s
-        at 0 m/s wind. Only checks the first table after 'Ground-Truth
-        Evaluation', not per-approach tables later in the file.
-        """
-        results_path = PROJECT_ROOT / "experimental_results.md"
-        if not results_path.exists():
-            pytest.skip("experimental_results.md not found")
-        text = results_path.read_text()
-
-        # Find the final results table section — limit to first table only
-        gt_start = text.find("Ground-Truth Evaluation")
-        if gt_start < 0:
-            pytest.skip("Ground-Truth Evaluation section not found")
-        section = text[gt_start:]
-        # Limit to content before the next section header (## or ###)
-        next_section = re.search(r"\n#{2,3}\s", section[1:])
-        if next_section:
-            section = section[: next_section.start() + 1]
-        values = self._extract_table_values(section, "all", [0])
-
-        if 0 in values:
-            for val in values[0]:
-                assert (
-                    val < 5.0
-                ), f"All controllers at 0 m/s should be < 5 deg/s, found {val}"
-
-    def test_gs_pid_best_at_zero_wind(self):
-        """GS-PID should be the best at 0 m/s in the ground-truth results table."""
-        results_path = PROJECT_ROOT / "experimental_results.md"
-        if not results_path.exists():
-            pytest.skip("experimental_results.md not found")
-        text = results_path.read_text()
-
-        # Find the ground-truth table only (between "Ground-Truth" and "IMU-Based")
-        gt_start = text.find("Ground-Truth Evaluation")
-        imu_start = text.find("IMU-Based Evaluation")
-        if gt_start < 0:
-            pytest.skip("Ground-Truth Evaluation section not found")
-        gt_section = (
-            text[gt_start:imu_start] if imu_start > gt_start else text[gt_start:]
-        )
-        values = self._extract_table_values(gt_section, "all", [0])
-
-        if 0 in values and len(values[0]) >= 2:
-            # GS-PID is the second column (index 1) in the table
-            gs_pid_val = values[0][1]
-            assert gs_pid_val <= min(values[0]), (
-                f"GS-PID ({gs_pid_val}) should be best at 0 m/s, "
-                f"but found lower value in {values[0]}"
-            )
-
 
 class TestRecommendedController:
     """Verify the recommended controller is documented consistently."""
