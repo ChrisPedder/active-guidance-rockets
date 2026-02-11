@@ -78,9 +78,19 @@ At all spin rates achieved (3-18 deg/s), Gyroflow post-stabilization produces **
 
 ### Wind Model Note
 
-The primary results above use a **sinusoidal gust model** (deterministic dual-frequency gusts). Dryden continuous turbulence (MIL-HDBK-1797) was evaluated separately at light, moderate, and severe severity levels — see `experimental_results.md` for full Dryden results. Key finding: ADRC outperforms GS-PID under Dryden turbulence on Estes (broadband disturbance plays to the ESO's strengths) but still catastrophically fails on J800 regardless of wind model.
+The primary results above use a **sinusoidal gust model** (deterministic dual-frequency gusts). Dryden continuous turbulence (MIL-HDBK-1797) was evaluated separately — see `experimental_results.md` for full Dryden results.
 
-All RL models (Residual SAC, Standalone SAC) and PID gain optimizations were trained and optimized under the sinusoidal wind model.
+All RL models (Residual SAC, Standalone SAC) and PID gain optimizations were trained under the sinusoidal wind model. When evaluated under Dryden moderate turbulence on J800, the RL models generalize well:
+
+| Wind (m/s) | PID (Dryden) | GS-PID (Dryden) | Residual SAC (Dryden) | Standalone SAC (Dryden) |
+|------------|-------------|-----------------|----------------------|------------------------|
+| 0 | 12.8 ± 1.0 | 10.5 ± 0.5 | **3.7 ± 0.2** | 5.4 ± 0.2 |
+| 1 | 14.1 ± 1.3 | 11.2 ± 1.0 | **4.3 ± 0.5** | 5.7 ± 0.4 |
+| 2 | 15.2 ± 2.6 | 12.0 ± 1.4 | **4.8 ± 1.2** | 6.3 ± 0.8 |
+| 3 | 15.5 ± 2.9 | 13.5 ± 2.2 | **6.1 ± 2.2** | 7.3 ± 1.8 |
+| 5 | 15.9 ± 4.1 | 13.3 ± 2.4 | **8.5 ± 4.0** | 9.3 ± 2.9 |
+
+Residual SAC maintains < 5 deg/s at 0-1 m/s under Dryden (vs 0-2 m/s under sinusoidal). Performance degrades 35-50% at 3-5 m/s due to the stochastic nature of Dryden turbulence, but RL still outperforms classical controllers by 2-3x. On Estes, ADRC outperforms GS-PID under Dryden turbulence (broadband disturbance plays to the ESO's strengths) but still catastrophically fails on J800 regardless of wind model.
 
 ---
 
@@ -187,12 +197,19 @@ uv run python visualizations/wind_field_visualization.py --rocket j800 \
 Test under MIL-HDBK-1797 continuous turbulence instead of sinusoidal wind:
 
 ```bash
+# Estes C6 with Dryden turbulence
 uv run python compare_controllers.py --config configs/estes_c6_dryden_moderate.yaml \
     --gain-scheduled --adrc --ensemble --imu \
     --wind-levels 0 1 2 3 5 --n-episodes 50
+
+# J800 with Dryden turbulence (RL models)
+uv run python compare_controllers.py --config configs/aerotech_j800_dryden_moderate.yaml \
+    --pid-Kp 0.0213 --pid-Ki 0.0050 --pid-Kd 0.0271 --pid-qref 13268 \
+    --gain-scheduled --imu \
+    --wind-levels 0 1 2 3 5 --n-episodes 50
 ```
 
-Severity options: `dryden_light`, `dryden_moderate`, `dryden_severe`.
+Severity options (Estes): `dryden_light`, `dryden_moderate`, `dryden_severe`.
 
 ### Hardware Parameter Studies
 
@@ -266,7 +283,8 @@ Stored in `optimization_results/*.json`.
 ├── configs/                        # YAML environment configs
 │   ├── estes_c6_sac_wind.yaml      # Main Estes config (sinusoidal wind)
 │   ├── aerotech_j800_wind.yaml     # Main J800 config (sinusoidal wind)
-│   ├── estes_c6_dryden_*.yaml      # Dryden turbulence (light/moderate/severe)
+│   ├── estes_c6_dryden_*.yaml      # Estes Dryden turbulence (light/moderate/severe)
+│   ├── aerotech_j800_dryden_moderate.yaml  # J800 Dryden moderate turbulence
 │   ├── estes_c6_4fin.yaml          # Hardware study: 4 active fins
 │   ├── estes_c6_200hz.yaml         # Hardware study: 200 Hz loop
 │   ├── estes_c6_4fin_200hz.yaml    # Hardware study: combined

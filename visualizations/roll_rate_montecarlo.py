@@ -22,6 +22,7 @@ Usage:
 import argparse
 import sys
 import os
+from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -31,7 +32,7 @@ import matplotlib.animation as animation
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from rocket_config import load_config
-from compare_controllers import create_env
+from compare_controllers import create_env, create_wrapped_env, load_rl_model
 from controllers.pid_controller import (
     PIDController,
     GainScheduledPIDController,
@@ -99,14 +100,50 @@ def run_episode(config, wind_speed, controller_name, pid_config, seed):
     return np.array(times), np.array(roll_rates)
 
 
-def collect_data(config, wind_levels, n_runs, controller_name, pid_config):
+def run_episode_rl(config, wind_speed, model, vec_normalize, seed):
+    """Run a single episode with an RL model and return (times, roll_rates_deg_s)."""
+    env = create_wrapped_env(config, wind_speed)
+    obs, info = env.reset(seed=seed)
+
+    times = []
+    roll_rates = []
+
+    while True:
+        if vec_normalize is not None:
+            obs_normalized = vec_normalize.normalize_obs(obs.reshape(1, -1))[0]
+        else:
+            obs_normalized = obs
+
+        action, _ = model.predict(obs_normalized, deterministic=True)
+        obs, reward, terminated, truncated, info = env.step(action)
+        times.append(info.get("time_s", 0.0))
+        roll_rates.append(abs(info.get("roll_rate_deg_s", 0.0)))
+        if terminated or truncated:
+            break
+
+    env.close()
+    return np.array(times), np.array(roll_rates)
+
+
+def collect_data(
+    config,
+    wind_levels,
+    n_runs,
+    controller_name,
+    pid_config,
+    model=None,
+    vec_normalize=None,
+):
     """Collect roll rate traces for all wind levels and runs."""
     data = {}
     for ws in wind_levels:
         traces = []
         for i in range(n_runs):
             seed = 1000 * int(ws) + i
-            t, rr = run_episode(config, ws, controller_name, pid_config, seed)
+            if model is not None:
+                t, rr = run_episode_rl(config, ws, model, vec_normalize, seed)
+            else:
+                t, rr = run_episode(config, ws, controller_name, pid_config, seed)
             traces.append((t, rr))
             print(
                 f"  Wind {ws} m/s, run {i+1}/{n_runs}: " f"mean={rr.mean():.1f} deg/s"
@@ -235,8 +272,25 @@ def main():
         "--controller",
         type=str,
         default="gs-pid",
-        choices=["pid", "gs-pid"],
-        help="Controller type (default: gs-pid)",
+        help="Controller type (default: gs-pid). Ignored when an RL model is provided.",
+    )
+    parser.add_argument(
+        "--sac",
+        type=str,
+        default=None,
+        help="Path to SAC model .zip (overrides --controller)",
+    )
+    parser.add_argument(
+        "--residual-sac",
+        type=str,
+        default=None,
+        help="Path to residual SAC model .zip (overrides --controller)",
+    )
+    parser.add_argument(
+        "--ppo",
+        type=str,
+        default=None,
+        help="Path to PPO model .zip (overrides --controller)",
     )
     parser.add_argument(
         "--n-runs",
@@ -268,7 +322,27 @@ def main():
     config_path, pid_config = get_config_and_gains(args.rocket)
     config = load_config(config_path)
 
-    print(f"Running roll rate Monte Carlo: {args.rocket} / {args.controller}")
+    # Determine controller name and load RL model if provided
+    model = None
+    vec_normalize = None
+    controller_name = args.controller
+
+    if args.residual_sac:
+        model_path = Path(args.residual_sac)
+        model_config_path = model_path.parent / "config.yaml"
+        if model_config_path.exists():
+            config = load_config(str(model_config_path))
+            print(f"  Using config from: {model_config_path}")
+        model, vec_normalize = load_rl_model(args.residual_sac, "sac", config)
+        controller_name = "residual-sac"
+    elif args.sac:
+        model, vec_normalize = load_rl_model(args.sac, "sac", config)
+        controller_name = "sac"
+    elif args.ppo:
+        model, vec_normalize = load_rl_model(args.ppo, "ppo", config)
+        controller_name = "ppo"
+
+    print(f"Running roll rate Monte Carlo: {args.rocket} / {controller_name}")
     print(f"  Wind levels: {args.wind_levels}")
     print(f"  Runs per level: {args.n_runs}")
 
@@ -276,8 +350,10 @@ def main():
         config,
         args.wind_levels,
         args.n_runs,
-        args.controller,
+        controller_name,
         pid_config,
+        model=model,
+        vec_normalize=vec_normalize,
     )
 
     y_max = compute_y_max(data)
@@ -286,7 +362,7 @@ def main():
     if args.save:
         save_path = (
             f"visualizations/outputs/roll_rate_montecarlo_"
-            f"{args.rocket}_{args.controller}.{args.format}"
+            f"{args.rocket}_{controller_name}.{args.format}"
         )
 
     create_animation(
@@ -294,7 +370,7 @@ def main():
         args.wind_levels,
         y_max,
         args.rocket,
-        args.controller,
+        controller_name,
         args.n_runs,
         save_path,
     )

@@ -26,6 +26,7 @@ Usage:
 import argparse
 import sys
 import os
+from pathlib import Path
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -35,7 +36,7 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from rocket_config import load_config
-from compare_controllers import create_env
+from compare_controllers import create_env, create_wrapped_env, load_rl_model
 from controllers.pid_controller import (
     PIDController,
     GainScheduledPIDController,
@@ -136,14 +137,83 @@ def run_episode_trajectory(config, wind_speed, controller_name, pid_config, seed
     }
 
 
-def collect_data(config, wind_levels, n_runs, controller_name, pid_config):
+def run_episode_trajectory_rl(config, wind_speed, model, vec_normalize, seed):
+    """Run a single episode with an RL model and return trajectory data.
+
+    Returns dict with keys: time, altitude, x, y, velocity
+    Lateral position is estimated by integrating wind drift.
+    """
+    env = create_wrapped_env(config, wind_speed)
+    obs, info = env.reset(seed=seed)
+
+    dt = getattr(config.environment, "dt", 0.01)
+    times = [0.0]
+    altitudes = [0.0]
+    x_pos = [0.0]
+    y_pos = [0.0]
+    velocities = [0.0]
+
+    cur_x, cur_y = 0.0, 0.0
+
+    while True:
+        if vec_normalize is not None:
+            obs_normalized = vec_normalize.normalize_obs(obs.reshape(1, -1))[0]
+        else:
+            obs_normalized = obs
+
+        action, _ = model.predict(obs_normalized, deterministic=True)
+        obs, reward, terminated, truncated, info = env.step(action)
+
+        t = info.get("time_s", 0.0)
+        alt = info.get("altitude_m", 0.0)
+        ws = info.get("wind_speed_ms", 0.0)
+        wd = info.get("wind_direction_rad", 0.0)
+        v = info.get("vertical_velocity_ms", 0.0)
+
+        drift_factor = 0.3
+        cur_x += ws * np.cos(wd) * drift_factor * dt
+        cur_y += ws * np.sin(wd) * drift_factor * dt
+
+        times.append(t)
+        altitudes.append(alt)
+        x_pos.append(cur_x)
+        y_pos.append(cur_y)
+        velocities.append(v)
+
+        if terminated or truncated:
+            break
+
+    env.close()
+    return {
+        "time": np.array(times),
+        "altitude": np.array(altitudes),
+        "x": np.array(x_pos),
+        "y": np.array(y_pos),
+        "velocity": np.array(velocities),
+    }
+
+
+def collect_data(
+    config,
+    wind_levels,
+    n_runs,
+    controller_name,
+    pid_config,
+    model=None,
+    vec_normalize=None,
+):
     """Collect trajectory data for all wind levels and runs."""
     data = {}
     for ws in wind_levels:
         runs = []
         for i in range(n_runs):
             seed = 2000 * int(ws) + i
-            traj = run_episode_trajectory(config, ws, controller_name, pid_config, seed)
+            if model is not None:
+                traj = run_episode_trajectory_rl(config, ws, model, vec_normalize, seed)
+            else:
+                traj = run_episode_trajectory(
+                    config, ws, controller_name, pid_config, seed
+                )
             runs.append(traj)
             max_alt = traj["altitude"].max()
             print(f"  Wind {ws} m/s, run {i+1}/{n_runs}: " f"max_alt={max_alt:.1f}m")
@@ -375,8 +445,25 @@ def main():
         "--controller",
         type=str,
         default="gs-pid",
-        choices=["pid", "gs-pid"],
-        help="Controller type (default: gs-pid)",
+        help="Controller type (default: gs-pid). Ignored when an RL model is provided.",
+    )
+    parser.add_argument(
+        "--sac",
+        type=str,
+        default=None,
+        help="Path to SAC model .zip (overrides --controller)",
+    )
+    parser.add_argument(
+        "--residual-sac",
+        type=str,
+        default=None,
+        help="Path to residual SAC model .zip (overrides --controller)",
+    )
+    parser.add_argument(
+        "--ppo",
+        type=str,
+        default=None,
+        help="Path to PPO model .zip (overrides --controller)",
     )
     parser.add_argument(
         "--n-runs",
@@ -415,7 +502,27 @@ def main():
     config_path, pid_config = get_config_and_gains(args.rocket)
     config = load_config(config_path)
 
-    print(f"Running trajectory Monte Carlo: {args.rocket} / {args.controller}")
+    # Determine controller name and load RL model if provided
+    model = None
+    vec_normalize = None
+    controller_name = args.controller
+
+    if args.residual_sac:
+        model_path = Path(args.residual_sac)
+        model_config_path = model_path.parent / "config.yaml"
+        if model_config_path.exists():
+            config = load_config(str(model_config_path))
+            print(f"  Using config from: {model_config_path}")
+        model, vec_normalize = load_rl_model(args.residual_sac, "sac", config)
+        controller_name = "residual-sac"
+    elif args.sac:
+        model, vec_normalize = load_rl_model(args.sac, "sac", config)
+        controller_name = "sac"
+    elif args.ppo:
+        model, vec_normalize = load_rl_model(args.ppo, "ppo", config)
+        controller_name = "ppo"
+
+    print(f"Running trajectory Monte Carlo: {args.rocket} / {controller_name}")
     print(f"  Wind levels: {args.wind_levels}")
     print(f"  Runs per level: {args.n_runs}")
 
@@ -423,8 +530,10 @@ def main():
         config,
         args.wind_levels,
         args.n_runs,
-        args.controller,
+        controller_name,
         pid_config,
+        model=model,
+        vec_normalize=vec_normalize,
     )
 
     ranges = compute_axis_ranges(data)
@@ -434,14 +543,14 @@ def main():
         if args.save:
             save_path_3d = (
                 f"visualizations/outputs/trajectory_3d_"
-                f"{args.rocket}_{args.controller}.{args.format}"
+                f"{args.rocket}_{controller_name}.{args.format}"
             )
         create_3d_animation(
             data,
             args.wind_levels,
             ranges,
             args.rocket,
-            args.controller,
+            controller_name,
             args.n_runs,
             save_path_3d,
         )
@@ -451,14 +560,14 @@ def main():
         if args.save:
             save_path_2d = (
                 f"visualizations/outputs/trajectory_2d_"
-                f"{args.rocket}_{args.controller}.{args.format}"
+                f"{args.rocket}_{controller_name}.{args.format}"
             )
         create_2d_animation(
             data,
             args.wind_levels,
             ranges,
             args.rocket,
-            args.controller,
+            controller_name,
             args.n_runs,
             save_path_2d,
         )

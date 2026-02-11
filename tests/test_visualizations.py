@@ -11,7 +11,9 @@ import os
 import sys
 import shutil
 import tempfile
+from unittest.mock import MagicMock
 
+import numpy as np
 import pytest
 
 # Add project root to path
@@ -37,6 +39,7 @@ class TestRollRateMonteCarlo:
             get_config_and_gains,
             make_controller,
             run_episode,
+            run_episode_rl,
         )
 
     def test_save_creates_file(self, output_dir):
@@ -178,6 +181,7 @@ class TestTrajectoryMonteCarlo:
             create_3d_animation,
             get_config_and_gains,
             run_episode_trajectory,
+            run_episode_trajectory_rl,
         )
 
     def test_save_2d_creates_file(self, output_dir):
@@ -272,3 +276,150 @@ class TestTrajectoryMonteCarlo:
         assert len(traj["time"]) == len(traj["altitude"])
         assert len(traj["x"]) == len(traj["y"])
         assert traj["altitude"].max() > 0  # Rocket should fly
+
+
+class TestRollRateRL:
+    """Tests for RL model support in roll_rate_montecarlo.py."""
+
+    def test_run_episode_rl(self):
+        """Verify run_episode_rl returns valid (times, roll_rates) tuple."""
+        from visualizations.roll_rate_montecarlo import (
+            get_config_and_gains,
+            run_episode_rl,
+        )
+        from rocket_config import load_config
+
+        config_path, _ = get_config_and_gains("estes_alpha")
+        config = load_config(config_path)
+
+        mock_model = MagicMock()
+        mock_model.predict.return_value = (np.array([0.0]), None)
+
+        t, rr = run_episode_rl(config, 1.0, mock_model, vec_normalize=None, seed=42)
+
+        assert len(t) > 0
+        assert len(rr) > 0
+        assert len(t) == len(rr)
+        assert all(r >= 0 for r in rr)
+
+    def test_run_episode_rl_with_vec_normalize(self):
+        """Verify run_episode_rl works with a VecNormalize mock."""
+        from visualizations.roll_rate_montecarlo import (
+            get_config_and_gains,
+            run_episode_rl,
+        )
+        from rocket_config import load_config
+
+        config_path, _ = get_config_and_gains("estes_alpha")
+        config = load_config(config_path)
+
+        mock_model = MagicMock()
+        mock_model.predict.return_value = (np.array([0.0]), None)
+        mock_vec_normalize = MagicMock()
+        mock_vec_normalize.normalize_obs.side_effect = lambda x: x
+
+        t, rr = run_episode_rl(
+            config, 1.0, mock_model, vec_normalize=mock_vec_normalize, seed=42
+        )
+
+        assert len(t) > 0
+        assert mock_vec_normalize.normalize_obs.call_count > 0
+
+    def test_collect_data_with_model(self):
+        """Verify collect_data dispatches to RL when model is provided."""
+        from visualizations.roll_rate_montecarlo import (
+            collect_data,
+            get_config_and_gains,
+        )
+        from rocket_config import load_config
+
+        config_path, pid_config = get_config_and_gains("estes_alpha")
+        config = load_config(config_path)
+
+        mock_model = MagicMock()
+        mock_model.predict.return_value = (np.array([0.0]), None)
+
+        data = collect_data(config, [1.0], 2, "sac", pid_config, model=mock_model)
+
+        assert 1.0 in data
+        assert len(data[1.0]) == 2
+        t, rr = data[1.0][0]
+        assert len(t) > 0
+        assert len(t) == len(rr)
+
+
+class TestTrajectoryRL:
+    """Tests for RL model support in trajectory_montecarlo.py."""
+
+    def test_run_episode_trajectory_rl(self):
+        """Verify run_episode_trajectory_rl returns valid trajectory dict."""
+        from visualizations.trajectory_montecarlo import (
+            get_config_and_gains,
+            run_episode_trajectory_rl,
+        )
+        from rocket_config import load_config
+
+        config_path, _ = get_config_and_gains("estes_alpha")
+        config = load_config(config_path)
+
+        mock_model = MagicMock()
+        mock_model.predict.return_value = (np.array([0.0]), None)
+
+        traj = run_episode_trajectory_rl(
+            config, 1.0, mock_model, vec_normalize=None, seed=42
+        )
+
+        assert "time" in traj
+        assert "altitude" in traj
+        assert "x" in traj
+        assert "y" in traj
+        assert "velocity" in traj
+        assert len(traj["time"]) == len(traj["altitude"])
+        assert len(traj["x"]) == len(traj["y"])
+        assert traj["altitude"].max() > 0
+
+    def test_run_episode_trajectory_rl_with_vec_normalize(self):
+        """Verify run_episode_trajectory_rl works with a VecNormalize mock."""
+        from visualizations.trajectory_montecarlo import (
+            get_config_and_gains,
+            run_episode_trajectory_rl,
+        )
+        from rocket_config import load_config
+
+        config_path, _ = get_config_and_gains("estes_alpha")
+        config = load_config(config_path)
+
+        mock_model = MagicMock()
+        mock_model.predict.return_value = (np.array([0.0]), None)
+        mock_vec_normalize = MagicMock()
+        mock_vec_normalize.normalize_obs.side_effect = lambda x: x
+
+        traj = run_episode_trajectory_rl(
+            config, 1.0, mock_model, vec_normalize=mock_vec_normalize, seed=42
+        )
+
+        assert len(traj["time"]) > 0
+        assert mock_vec_normalize.normalize_obs.call_count > 0
+
+    def test_collect_data_with_model(self):
+        """Verify collect_data dispatches to RL when model is provided."""
+        from visualizations.trajectory_montecarlo import (
+            collect_data,
+            get_config_and_gains,
+        )
+        from rocket_config import load_config
+
+        config_path, pid_config = get_config_and_gains("estes_alpha")
+        config = load_config(config_path)
+
+        mock_model = MagicMock()
+        mock_model.predict.return_value = (np.array([0.0]), None)
+
+        data = collect_data(config, [1.0], 2, "sac", pid_config, model=mock_model)
+
+        assert 1.0 in data
+        assert len(data[1.0]) == 2
+        traj = data[1.0][0]
+        assert "time" in traj
+        assert "altitude" in traj
+        assert len(traj["time"]) > 0

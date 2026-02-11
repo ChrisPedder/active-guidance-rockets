@@ -278,12 +278,46 @@ All controllers re-evaluated under MIL-HDBK-1797 Dryden continuous turbulence at
 | Moderate | 0.0218 | 0.0052 | 0.0074 |
 | Severe | 0.0017 | 0.0052 | 0.0154 |
 
-### Key Findings
+### Key Findings (Estes C6)
 
 - **0 m/s target (< 5 deg/s) generalizes** across all wind models and severities
 - **ADRC dominates under Dryden turbulence** (best at 1-3 m/s across all severities) — the ESO handles broadband disturbances well
 - **PID dominates at 5 m/s** where observer-based controllers can become conservative
 - **ADRC's Dryden advantage does not transfer to J800** — same catastrophic failure regardless of wind model
+
+### J800 Dryden Moderate
+
+50 episodes per condition, IMU noise enabled. Models trained under sinusoidal wind, evaluated here under Dryden moderate turbulence to test generalization.
+
+#### Mean Spin Rate (deg/s)
+
+| Wind | PID | GS-PID | Residual SAC (2M) | Standalone SAC |
+|------|-----|--------|-------------------|----------------|
+| 0 | 12.8 ± 1.0 | 10.5 ± 0.5 | **3.7 ± 0.2** | 5.4 ± 0.2 |
+| 1 | 14.1 ± 1.3 | 11.2 ± 1.0 | **4.3 ± 0.5** | 5.7 ± 0.4 |
+| 2 | 15.2 ± 2.6 | 12.0 ± 1.4 | **4.8 ± 1.2** | 6.3 ± 0.8 |
+| 3 | 15.5 ± 2.9 | 13.5 ± 2.2 | **6.1 ± 2.2** | 7.3 ± 1.8 |
+| 5 | 15.9 ± 4.1 | 13.3 ± 2.4 | **8.5 ± 4.0** | 9.3 ± 2.9 |
+
+100% success rate for all controllers at all wind levels (PID 98% at 5 m/s).
+
+#### Comparison: Sinusoidal vs Dryden Moderate (J800)
+
+| Wind | Residual SAC (sinusoidal) | Residual SAC (Dryden) | Standalone SAC (sinusoidal) | Standalone SAC (Dryden) |
+|------|--------------------------|----------------------|----------------------------|------------------------|
+| 0 | 3.7 ± 0.1 | 3.7 ± 0.2 | 5.4 ± 0.1 | 5.4 ± 0.2 |
+| 1 | 3.9 ± 0.3 | 4.3 ± 0.5 | 5.6 ± 0.2 | 5.7 ± 0.4 |
+| 2 | 4.0 ± 0.4 | 4.8 ± 1.2 | 5.7 ± 0.4 | 6.3 ± 0.8 |
+| 3 | 4.5 ± 0.8 | 6.1 ± 2.2 | 6.1 ± 0.6 | 7.3 ± 1.8 |
+| 5 | 5.6 ± 1.5 | 8.5 ± 4.0 | 6.8 ± 1.2 | 9.3 ± 2.9 |
+
+#### Key Findings (J800 Dryden)
+
+- **RL models generalize well to Dryden turbulence.** Despite being trained exclusively under sinusoidal wind, both Residual SAC and Standalone SAC maintain strong performance under Dryden moderate turbulence. At 0 m/s, performance is identical (3.7 and 5.4 deg/s respectively).
+- **Degradation increases with wind speed.** At 3 m/s, Residual SAC degrades from 4.5 to 6.1 deg/s (+36%) and Standalone SAC from 6.1 to 7.3 deg/s (+20%). At 5 m/s, Residual SAC degrades from 5.6 to 8.5 deg/s (+52%) and Standalone SAC from 6.8 to 9.3 deg/s (+37%). The stochastic nature of Dryden turbulence creates less predictable disturbances than sinusoidal gusts.
+- **Residual SAC still dominates** even under Dryden. Meets the < 5 target at 0-1 m/s (3.7, 4.3 deg/s) and nearly meets it at 2 m/s (4.8 deg/s).
+- **Variance increases under Dryden.** Residual SAC variance at 5 m/s grows from ±1.5 to ±4.0, reflecting the broader bandwidth of Dryden disturbances.
+- **Classical controllers are similarly affected.** PID degrades from 12.8→12.8 at 0 m/s (no change) but from 15.9→15.9 at 5 m/s (no meaningful change). GS-PID goes from 10.5→10.5 at 0 m/s. The classical controllers see minimal Dryden impact because their performance is already dominated by the initial spin transient rather than wind rejection.
 
 ---
 

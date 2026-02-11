@@ -97,7 +97,8 @@ Residual SAC (2M steps) meets < 5 target at 0-2 m/s. Standalone SAC (alpha=0.5, 
 ├── configs/
 │   ├── estes_c6_sac_wind.yaml      # Main Estes config (sinusoidal wind)
 │   ├── aerotech_j800_wind.yaml     # J800 config
-│   ├── estes_c6_dryden_*.yaml      # Dryden turbulence (light/moderate/severe)
+│   ├── estes_c6_dryden_*.yaml      # Estes Dryden turbulence (light/moderate/severe)
+│   ├── aerotech_j800_dryden_moderate.yaml  # J800 Dryden moderate turbulence
 │   ├── estes_c6_4fin.yaml          # Hardware study: 4 active fins
 │   ├── estes_c6_200hz.yaml         # Hardware study: 200 Hz loop
 │   ├── estes_c6_500hz.yaml         # Hardware study: 500 Hz loop
