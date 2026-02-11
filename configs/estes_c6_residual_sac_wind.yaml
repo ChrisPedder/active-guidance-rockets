@@ -43,9 +43,9 @@ physics:
   # === RESIDUAL PID + SAC ===
   use_residual_pid: true
   max_residual: 0.1
-  pid_Kp: 0.005208
-  pid_Ki: 0.000324
-  pid_Kd: 0.016524
+  pid_Kp: 0.0203
+  pid_Ki: 0.0002
+  pid_Kd: 0.0118
   # PID reads noisy IMU observations (same as RL agent) for fair comparison
   pid_use_observations: true
   use_delta_actions: false

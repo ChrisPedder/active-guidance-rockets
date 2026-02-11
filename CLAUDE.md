@@ -24,29 +24,29 @@ All targets met on Estes up to 3 m/s. PID is most robust at 5 m/s.
 
 ### AeroTech J800T
 
-| Wind (m/s) | PID | GS-PID | Ensemble | Target |
-|------------|-----------|-----------|----------|--------|
-| 0 | 12.8 ± 0.6 | **10.5 ± 0.8** | **10.5 ± 0.7** | < 5 |
-| 1 | 13.6 ± 1.0 | 11.0 ± 0.8 | **10.8 ± 0.7** | < 10 |
-| 2 | 14.1 ± 1.5 | 11.3 ± 0.9 | **11.2 ± 0.8** | < 15 |
-| 3 | 14.6 ± 2.0 | **11.7 ± 1.2** | 12.0 ± 1.2 | < 20 |
-| 5 | 15.1 ± 1.9 | 12.7 ± 1.7 | **12.4 ± 1.5** | — |
+| Wind (m/s) | PID | GS-PID | Residual SAC (2M) | Standalone SAC | Target |
+|------------|-----------|-----------|-------------------|----------------|--------|
+| 0 | 12.8 ± 0.8 | 10.5 ± 0.8 | **3.7 ± 0.1** | 5.4 ± 0.1 | < 5 |
+| 1 | 13.2 ± 0.9 | 11.0 ± 0.8 | **3.9 ± 0.3** | 5.6 ± 0.2 | < 10 |
+| 2 | 14.4 ± 1.8 | 11.3 ± 0.9 | **4.0 ± 0.4** | 5.7 ± 0.4 | < 15 |
+| 3 | 14.6 ± 1.8 | 11.7 ± 1.2 | **4.5 ± 0.8** | 6.1 ± 0.6 | < 20 |
+| 5 | 15.9 ± 2.8 | 12.7 ± 1.7 | **5.6 ± 1.5** | 6.8 ± 1.2 | — |
 
-J800 baseline is higher (~10.5 deg/s at 0 m/s). Gains may need re-optimization. ADRC catastrophically fails on J800 (0% success).
+Residual SAC (2M steps) meets < 5 target at 0-2 m/s. Standalone SAC (alpha=0.5, ent_coef=0.01, 2M steps) also beats PID by 2-3x. Classical controllers (GS-PID) plateau at ~10.5 deg/s.
 
 ---
 
 ## Key Design Decisions
 
-- **Simple controllers win.** 17 advanced approaches were tested and eliminated — none consistently beat PID/GS-PID. See `experimental_results.md` for the full record.
+- **Simple controllers win (mostly).** 17 advanced approaches were tested — most eliminated. Residual SAC and standalone SAC (with correct hyperparameters) beat PID on J800 by 2-3x, but require careful tuning. See `experimental_results.md` for the full record.
 - **Gain scheduling** addresses the ~20x variation in control effectiveness during flight (varying dynamic pressure).
 - **Wind torque is periodic** at the spin frequency (`torque ∝ sin(wind_dir - roll_angle)`). No feedforward/estimation approach reliably tracked this.
-- **Hardware over algorithms:** 4-fin + 200 Hz GS-PID (8.4 deg/s at 3 m/s) outperforms every controller at baseline hardware.
+- **Hardware over algorithms:** 4-fin + 200 Hz GS-PID (8.4 deg/s at 3 m/s) outperforms every classical controller at baseline hardware. Residual SAC (4.5 deg/s at 3 m/s) now surpasses even hardware upgrades.
 - **IMU noise is negligible.** ICM-20948 at 100 Hz → ~0.15 deg/s RMS, irrelevant vs 5-30 deg/s spin rates.
 
 ### Known Issues
 
-- J800 0 m/s performance (10.5 deg/s) doesn't meet the < 5 target — PID gains likely need re-optimization for post-bugfix physics
+- J800 classical controllers (GS-PID: 10.5 deg/s at 0 m/s) don't meet the < 5 target — only Residual SAC achieves this (3.7 deg/s)
 - ADRC is retained as a research baseline only — it catastrophically fails on J800
 
 ---
