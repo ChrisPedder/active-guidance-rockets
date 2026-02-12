@@ -234,6 +234,7 @@ class TestRunNelderMeadPhase:
             n_episodes=2,
             wind_weights={0: 1.0},
             start_point=(0.0203, 0.0002, 0.0118),
+            maxiter=3,
         )
         assert "score" in result
         assert "kp" in result
@@ -249,6 +250,7 @@ class TestRunNelderMeadPhase:
             wind_weights={0: 1.0},
             start_point=(0.0203, 0.0002, 0.0118),
             gain_scheduled=True,
+            maxiter=3,
         )
         assert "score" in result
         assert result["score"] >= 0

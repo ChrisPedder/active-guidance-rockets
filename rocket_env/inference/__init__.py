@@ -7,13 +7,20 @@ embedded systems like Raspberry Pi 4.
 Dependencies:
 - numpy
 - onnxruntime (no PyTorch required!)
-- scipy (for normalization stats)
 """
 
 from .onnx_runner import ONNXRunner
-from .controller import RocketController
+from .controller import (
+    RocketController,
+    PIDDeployController,
+    ResidualSACController,
+    load_normalize_json,
+)
 
 __all__ = [
     "ONNXRunner",
     "RocketController",
+    "PIDDeployController",
+    "ResidualSACController",
+    "load_normalize_json",
 ]

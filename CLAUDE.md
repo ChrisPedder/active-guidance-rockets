@@ -112,7 +112,7 @@ Residual SAC (2M steps) meets < 5 target at 0-2 m/s. Standalone SAC (alpha=0.5, 
 ├── optimization_results/           # Stored gain optimization results (JSON)
 ├── tests/                          # 30 test files, 662 tests
 ├── visualizations/                 # Motor & agent visualization scripts
-├── scripts/                        # export_onnx.py
+├── deployment/                     # export_onnx.py, export_all.py
 ├── docs/                           # Wind torque analysis
 ├── camera_electronics/             # Hardware modification guides
 ├── rocket-fin-servo-mount/         # Mechanical design docs

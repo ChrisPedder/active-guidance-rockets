@@ -267,6 +267,7 @@ def run_nelder_mead_phase(
     gain_scheduled: bool = False,
     optimize_qref: bool = False,
     imu: bool = False,
+    maxiter: int = 200,
 ) -> dict:
     """Phase 2: Nelder-Mead refinement from best LHS point."""
     print(f"\n{'='*60}")
@@ -330,7 +331,7 @@ def run_nelder_mead_phase(
         method="Nelder-Mead",
         callback=callback,
         options={
-            "maxiter": 200,
+            "maxiter": maxiter,
             "xatol": 0.001,
             "fatol": 0.1,
             "adaptive": True,

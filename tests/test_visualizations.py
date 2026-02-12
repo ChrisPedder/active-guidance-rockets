@@ -59,9 +59,9 @@ class TestRollRateMonteCarlo:
         config_path, pid_config = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
 
-        # Use 2 runs and a single wind level for speed
+        # Use 1 run and a single wind level for speed
         wind_levels = [1.0]
-        n_runs = 2
+        n_runs = 1
         data = collect_data(config, wind_levels, n_runs, "pid", pid_config)
         y_max = compute_y_max(data)
 
@@ -128,7 +128,7 @@ class TestWindFieldVisualization:
         max_alt, flight_dur, rocket_vel = get_flight_params("estes_alpha")
 
         # Use a short flight duration for speed
-        flight_dur = 2.0
+        flight_dur = 0.5
         fixed_alt = 50.0
 
         wind_config = WindConfig(
@@ -202,7 +202,7 @@ class TestTrajectoryMonteCarlo:
         config = load_config(config_path)
 
         wind_levels = [1.0]
-        n_runs = 2
+        n_runs = 1
         data = collect_data(config, wind_levels, n_runs, "pid", pid_config)
         ranges = compute_axis_ranges(data)
 
@@ -238,7 +238,7 @@ class TestTrajectoryMonteCarlo:
         config = load_config(config_path)
 
         wind_levels = [1.0]
-        n_runs = 2
+        n_runs = 1
         data = collect_data(config, wind_levels, n_runs, "pid", pid_config)
         ranges = compute_axis_ranges(data)
 

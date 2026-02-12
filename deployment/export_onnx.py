@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Export SB3 PPO Model to ONNX
+Export SB3 PPO/SAC Model to ONNX
 
-Converts a trained Stable-Baselines3 PPO model to ONNX format for
+Converts a trained Stable-Baselines3 PPO or SAC model to ONNX format for
 deployment on Raspberry Pi and other embedded systems.
 
 Usage:
-    python scripts/export_onnx.py --model models/rocket_ppo/best_model.zip
-    python scripts/export_onnx.py --model models/rocket_ppo/best_model.zip --output model.onnx
-    python scripts/export_onnx.py --model models/rocket_ppo/best_model.zip --benchmark
+    python deployment/export_onnx.py --model models/rocket_ppo/best_model.zip
+    python deployment/export_onnx.py --model models/rocket_sac/best_model.zip
+    python deployment/export_onnx.py --model models/rocket_sac/best_model.zip --verify --benchmark
 
 The exported ONNX model can be loaded with:
     from rocket_env.inference import RocketController
@@ -21,6 +21,35 @@ from typing import Optional
 import numpy as np
 
 
+def _load_sb3_model(model_path: str):
+    """
+    Auto-detect and load an SB3 model (SAC or PPO).
+
+    Returns:
+        (model, model_type) where model_type is "SAC" or "PPO".
+    """
+    try:
+        from stable_baselines3 import SAC
+
+        model = SAC.load(str(model_path))
+        return model, "SAC"
+    except Exception:
+        pass
+
+    try:
+        from stable_baselines3 import PPO
+
+        model = PPO.load(str(model_path))
+        return model, "PPO"
+    except Exception:
+        pass
+
+    raise ValueError(
+        f"Could not load model as SAC or PPO: {model_path}. "
+        "Ensure the file is a valid SB3 model (.zip)."
+    )
+
+
 def export_sb3_to_onnx(
     model_path: str,
     output_path: Optional[str] = None,
@@ -29,7 +58,7 @@ def export_sb3_to_onnx(
     verbose: bool = True,
 ) -> str:
     """
-    Export SB3 PPO model to ONNX format.
+    Export SB3 PPO or SAC model to ONNX format.
 
     Args:
         model_path: Path to SB3 model (.zip file)
@@ -43,7 +72,6 @@ def export_sb3_to_onnx(
     """
     try:
         import torch
-        from stable_baselines3 import PPO
     except ImportError:
         raise ImportError(
             "PyTorch and Stable-Baselines3 are required for export.\n"
@@ -63,39 +91,23 @@ def export_sb3_to_onnx(
     if verbose:
         print(f"Loading SB3 model: {model_path}")
 
-    # Load model
-    model = PPO.load(str(model_path))
-
-    # Get policy network
-    policy = model.policy
+    # Auto-detect model type
+    model, model_type = _load_sb3_model(str(model_path))
 
     if verbose:
-        print(f"Policy type: {type(policy).__name__}")
+        print(f"Model type: {model_type}")
+        print(f"Policy type: {type(model.policy).__name__}")
         print(f"Observation space: {model.observation_space}")
         print(f"Action space: {model.action_space}")
 
     # Create dummy input
     dummy_input = torch.randn(1, obs_size, dtype=torch.float32)
 
-    # Create a wrapper for deterministic action output
-    class DeterministicPolicy(torch.nn.Module):
-        def __init__(self, policy):
-            super().__init__()
-            self.policy = policy
+    if model_type == "SAC":
+        deterministic_policy = _build_sac_wrapper(model)
+    else:
+        deterministic_policy = _build_ppo_wrapper(model)
 
-        def forward(self, obs):
-            # Get deterministic action (mean of the distribution)
-            features = self.policy.extract_features(obs)
-            if hasattr(self.policy, "mlp_extractor"):
-                latent_pi, _ = self.policy.mlp_extractor(features)
-            else:
-                latent_pi = features
-
-            # Get mean action
-            mean_actions = self.policy.action_net(latent_pi)
-            return mean_actions
-
-    deterministic_policy = DeterministicPolicy(policy)
     deterministic_policy.eval()
 
     if verbose:
@@ -124,6 +136,46 @@ def export_sb3_to_onnx(
     return str(output_path)
 
 
+def _build_sac_wrapper(model):
+    """Build a deterministic SAC policy wrapper for ONNX export."""
+    import torch
+
+    class DeterministicSACPolicy(torch.nn.Module):
+        def __init__(self, actor):
+            super().__init__()
+            self.features_extractor = actor.features_extractor
+            self.latent_pi = actor.latent_pi
+            self.mu = actor.mu
+
+        def forward(self, obs):
+            features = self.features_extractor(obs)
+            latent_pi = self.latent_pi(features)
+            return torch.tanh(self.mu(latent_pi))
+
+    return DeterministicSACPolicy(model.policy.actor)
+
+
+def _build_ppo_wrapper(model):
+    """Build a deterministic PPO policy wrapper for ONNX export."""
+    import torch
+
+    class DeterministicPolicy(torch.nn.Module):
+        def __init__(self, policy):
+            super().__init__()
+            self.policy = policy
+
+        def forward(self, obs):
+            features = self.policy.extract_features(obs)
+            if hasattr(self.policy, "mlp_extractor"):
+                latent_pi, _ = self.policy.mlp_extractor(features)
+            else:
+                latent_pi = features
+            mean_actions = self.policy.action_net(latent_pi)
+            return mean_actions
+
+    return DeterministicPolicy(model.policy)
+
+
 def verify_onnx_model(
     onnx_path: str,
     sb3_model_path: str,
@@ -146,16 +198,15 @@ def verify_onnx_model(
     """
     try:
         import torch
-        from stable_baselines3 import PPO
         import onnxruntime as ort
     except ImportError:
         print("Skipping verification (requires torch, sb3, onnxruntime)")
         return True
 
-    print(f"Verifying ONNX model against SB3 model...")
+    print("Verifying ONNX model against SB3 model...")
 
     # Load models
-    sb3_model = PPO.load(sb3_model_path)
+    model, model_type = _load_sb3_model(sb3_model_path)
     ort_session = ort.InferenceSession(onnx_path)
 
     # Test random observations
@@ -165,7 +216,7 @@ def verify_onnx_model(
 
         # SB3 prediction
         with torch.no_grad():
-            sb3_action, _ = sb3_model.predict(obs, deterministic=True)
+            sb3_action, _ = model.predict(obs, deterministic=True)
 
         # ONNX prediction
         onnx_action = ort_session.run(None, {"observation": obs})[0]
@@ -201,21 +252,18 @@ def benchmark_onnx_model(onnx_path: str, obs_size: int = 10) -> None:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Export SB3 PPO model to ONNX format",
+        description="Export SB3 PPO/SAC model to ONNX format",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    # Basic export
-    python scripts/export_onnx.py --model models/rocket_ppo/best_model.zip
+    # Basic export (auto-detects PPO or SAC)
+    python deployment/export_onnx.py --model models/rocket_ppo/best_model.zip
 
     # Export with custom output path
-    python scripts/export_onnx.py --model models/rocket_ppo/best_model.zip --output deployment/model.onnx
+    python deployment/export_onnx.py --model models/rocket_sac/best_model.zip --output model.onnx
 
     # Export, verify, and benchmark
-    python scripts/export_onnx.py --model models/rocket_ppo/best_model.zip --verify --benchmark
-
-    # Copy normalization stats for deployment
-    cp models/rocket_ppo/vec_normalize.pkl deployment/
+    python deployment/export_onnx.py --model models/rocket_sac/best_model.zip --verify --benchmark
         """,
     )
 
@@ -223,7 +271,7 @@ Examples:
         "--model",
         type=str,
         required=True,
-        help="Path to SB3 model (.zip file)",
+        help="Path to SB3 model (.zip file, PPO or SAC)",
     )
     parser.add_argument(
         "--output",

@@ -295,7 +295,7 @@ Stored in `optimization_results/*.json`.
 ├── optimization_results/           # Stored gain optimization results (JSON)
 ├── tests/                          # 39 test files, 816 tests
 ├── visualizations/                 # Animated Monte Carlo visualizations
-├── scripts/                        # ONNX export
+├── deployment/                     # ONNX export & deployment bundles
 ├── docs/                           # Wind torque analysis
 ├── camera_electronics/             # Hardware modification guides
 ├── rocket-fin-servo-mount/         # Mechanical design docs
