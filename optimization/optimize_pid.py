@@ -39,7 +39,6 @@ from controllers.pid_controller import (
 )
 from rocket_config import load_config
 
-
 # Search space bounds
 KP_BOUNDS = (0.001, 0.024)
 KI_BOUNDS = (0.00012, 0.006)

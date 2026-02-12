@@ -16,7 +16,6 @@ from airframe.components import Material, TrapezoidFinSet
 from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
 from rocket_config import RocketTrainingConfig, load_config
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

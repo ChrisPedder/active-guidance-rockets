@@ -33,7 +33,6 @@ from typing import Tuple, Optional
 
 from airframe import RocketAirframe
 
-
 # Turbulence intensity lookup (sigma_w / W_20) for MIL-F-8785C
 # at reference altitude of 20 ft (6.1 m)
 _TURBULENCE_SEVERITY = {

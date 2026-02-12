@@ -10,7 +10,6 @@ import pytest
 from unittest.mock import MagicMock, patch
 from collections import deque
 
-
 # ── video_quality_metric: lines 260, 282, 325, 329, 450-514 ──────────────────
 
 

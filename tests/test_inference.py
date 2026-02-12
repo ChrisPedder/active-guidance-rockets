@@ -11,7 +11,6 @@ from unittest.mock import Mock, patch, MagicMock
 import pickle
 import tempfile
 
-
 # Check if onnxruntime is available
 try:
     import onnxruntime
