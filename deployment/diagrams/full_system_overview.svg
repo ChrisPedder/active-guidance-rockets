@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <style>
+    .box { stroke-width: 2; rx: 6; }
+    .label { font-size: 13px; font-weight: 700; fill: #1a1a2e; }
+    .sublabel { font-size: 10px; fill: #555; }
+    .pin { font-size: 10px; fill: #333; font-family: monospace; }
+    .wire { stroke-width: 2; fill: none; stroke-linecap: round; }
+    .arrow { fill: #333; }
+    .note { font-size: 10px; fill: #666; }
+    .title { font-size: 16px; font-weight: 700; fill: #1a1a2e; }
+    .subtitle { font-size: 11px; fill: #888; }
+    .section { font-size: 11px; font-weight: 700; fill: #555; }
+  </style>
+
+  <text x="400" y="24" text-anchor="middle" class="title">Full System Overview</text>
+  <text x="400" y="40" text-anchor="middle" class="subtitle">Avionics bay wiring &mdash; spin stabilisation + camera control</text>
+
+  <!-- === POWER SECTION === -->
+  <text x="20" y="70" class="section">POWER</text>
+
+  <!-- Main battery -->
+  <rect x="20" y="80" width="110" height="55" fill="#ffebee" stroke="#c62828" class="box"/>
+  <text x="75" y="100" text-anchor="middle" class="label">2S LiPo</text>
+  <text x="75" y="115" text-anchor="middle" class="pin">7.4V</text>
+
+  <!-- Servo BEC -->
+  <rect x="20" y="155" width="110" height="45" fill="#fff3e0" stroke="#e65100" class="box"/>
+  <text x="75" y="175" text-anchor="middle" class="label">Servo BEC</text>
+  <text x="75" y="190" text-anchor="middle" class="pin">5V 3A</text>
+
+  <!-- Pi BEC -->
+  <rect x="20" y="220" width="110" height="45" fill="#e8f5e9" stroke="#2e7d32" class="box"/>
+  <text x="75" y="240" text-anchor="middle" class="label">Pi BEC</text>
+  <text x="75" y="255" text-anchor="middle" class="pin">5.1V 2.5A</text>
+
+  <!-- Power wires -->
+  <line x1="75" y1="135" x2="75" y2="155" class="wire" stroke="#e53935"/>
+  <line x1="75" y1="135" x2="75" y2="155" class="wire" stroke="#e53935"/>
+  <line x1="130" y1="107" x2="150" y2="107" class="wire" stroke="#e53935"/>
+  <line x1="150" y1="107" x2="150" y2="242" class="wire" stroke="#e53935"/>
+  <line x1="130" y1="177" x2="150" y2="177" class="wire" stroke="#e53935"/>
+  <line x1="130" y1="242" x2="150" y2="242" class="wire" stroke="#e53935"/>
+
+  <!-- === COMPUTE SECTION === -->
+  <text x="210" y="70" class="section">COMPUTE</text>
+
+  <!-- Raspberry Pi -->
+  <rect x="200" y="80" width="190" height="190" fill="#e8f5e9" stroke="#2e7d32" class="box"/>
+  <text x="295" y="105" text-anchor="middle" class="label">Raspberry Pi Zero 2 W</text>
+  <text x="295" y="122" text-anchor="middle" class="sublabel">100 Hz control loop</text>
+
+  <text x="220" y="148" class="pin">I2C: SDA (GPIO 2)</text>
+  <text x="220" y="165" class="pin">I2C: SCL (GPIO 3)</text>
+  <text x="220" y="188" class="pin">PWM: GPIO 12 (Servo 1)</text>
+  <text x="220" y="205" class="pin">PWM: GPIO 13 (Servo 2)</text>
+  <text x="220" y="222" class="pin">PWM: GPIO 19 (Servo 3)</text>
+  <text x="220" y="245" class="pin">5V in (pin 2), GND (pin 6)</text>
+
+  <!-- Power to Pi -->
+  <line x1="150" y1="242" x2="200" y2="242" class="wire" stroke="#e53935"/>
+
+  <!-- === SENSORS === -->
+  <text x="450" y="70" class="section">SENSORS</text>
+
+  <!-- IMU -->
+  <rect x="450" y="80" width="150" height="70" fill="#e3f2fd" stroke="#1565c0" class="box"/>
+  <text x="525" y="100" text-anchor="middle" class="label">ICM-20948 IMU</text>
+  <text x="525" y="117" text-anchor="middle" class="pin">I2C addr: 0x68</text>
+  <text x="525" y="132" text-anchor="middle" class="pin">Gyro: 200 Hz, 3-axis</text>
+
+  <!-- IMU wires -->
+  <line x1="390" y1="105" x2="450" y2="105" class="wire" stroke="#1565c0"/>
+  <text x="420" y="100" text-anchor="middle" class="note" fill="#1565c0">I2C</text>
+
+  <!-- === ACTUATORS === -->
+  <text x="450" y="175" class="section">ACTUATORS</text>
+
+  <!-- Servo 1 -->
+  <rect x="450" y="185" width="150" height="45" fill="#fff3e0" stroke="#e65100" class="box"/>
+  <text x="525" y="205" text-anchor="middle" class="label">Servo 1 (Fin A)</text>
+  <text x="525" y="220" text-anchor="middle" class="pin">3.7g micro, 0.7 kg/cm</text>
+
+  <!-- Servo 2 -->
+  <rect x="450" y="240" width="150" height="45" fill="#fff3e0" stroke="#e65100" class="box"/>
+  <text x="525" y="260" text-anchor="middle" class="label">Servo 2 (Fin B)</text>
+  <text x="525" y="275" text-anchor="middle" class="pin">3.7g micro, 0.7 kg/cm</text>
+
+  <!-- Servo 3 -->
+  <rect x="450" y="295" width="150" height="45" fill="#fce4ec" stroke="#c62828" class="box" stroke-dasharray="5,3"/>
+  <text x="525" y="315" text-anchor="middle" class="label" fill="#c62828">Servo 3 (J800)</text>
+  <text x="525" y="330" text-anchor="middle" class="pin">Optional, 3rd fin</text>
+
+  <!-- Servo signal wires -->
+  <line x1="390" y1="195" x2="450" y2="200" class="wire" stroke="#ff9800"/>
+  <line x1="390" y1="205" x2="450" y2="255" class="wire" stroke="#ff9800"/>
+  <line x1="390" y1="220" x2="450" y2="310" class="wire" stroke="#ff9800" stroke-dasharray="5,3"/>
+  <text x="420" y="190" text-anchor="middle" class="note" fill="#ff9800">PWM</text>
+
+  <!-- Servo power from BEC -->
+  <line x1="130" y1="170" x2="160" y2="170" class="wire" stroke="#e53935"/>
+  <line x1="160" y1="170" x2="160" y2="370" class="wire" stroke="#e53935"/>
+  <line x1="160" y1="370" x2="620" y2="370" class="wire" stroke="#e53935"/>
+  <line x1="620" y1="195" x2="620" y2="370" class="wire" stroke="#e53935"/>
+  <line x1="600" y1="200" x2="620" y2="200" class="wire" stroke="#e53935"/>
+  <line x1="600" y1="255" x2="620" y2="255" class="wire" stroke="#e53935"/>
+  <line x1="600" y1="310" x2="620" y2="310" class="wire" stroke="#e53935" stroke-dasharray="5,3"/>
+  <text x="400" y="385" text-anchor="middle" class="note" fill="#e53935">5V servo power rail (from dedicated BEC)</text>
+
+  <!-- === CAMERA SECTION (separate) === -->
+  <text x="660" y="70" class="section">CAMERA</text>
+
+  <rect x="650" y="80" width="130" height="100" fill="#f3e5f5" stroke="#7b1fa2" class="box"/>
+  <text x="715" y="100" text-anchor="middle" class="label">RunCam Split 4</text>
+  <text x="715" y="118" text-anchor="middle" class="sublabel">WiFi-triggered via</text>
+  <text x="715" y="133" text-anchor="middle" class="sublabel">DollaTek ESP8266</text>
+  <text x="715" y="150" text-anchor="middle" class="pin">(separate power)</text>
+  <text x="715" y="165" text-anchor="middle" class="sublabel">See camera_electronics/</text>
+
+  <!-- Ground bus -->
+  <rect x="20" y="410" width="760" height="28" fill="#eeeeee" stroke="#333" class="box"/>
+  <text x="400" y="430" text-anchor="middle" class="label">Common Ground Bus (all components)</text>
+
+  <!-- Legend -->
+  <line x1="20" y1="470" x2="50" y2="470" class="wire" stroke="#e53935"/>
+  <text x="55" y="474" class="note">Power</text>
+  <line x1="110" y1="470" x2="140" y2="470" class="wire" stroke="#1565c0"/>
+  <text x="145" y="474" class="note">I2C data</text>
+  <line x1="200" y1="470" x2="230" y2="470" class="wire" stroke="#ff9800"/>
+  <text x="235" y="474" class="note">PWM signal</text>
+  <line x1="310" y1="470" x2="340" y2="470" class="wire" stroke="#333"/>
+  <text x="345" y="474" class="note">Ground</text>
+  <line x1="410" y1="470" x2="440" y2="470" class="wire" stroke="#c62828" stroke-dasharray="5,3"/>
+  <text x="445" y="474" class="note">Optional (J800 3rd servo)</text>
+</svg>

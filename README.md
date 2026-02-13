@@ -227,6 +227,20 @@ uv run python -m pytest tests/ -v
 
 816 tests across 39 files covering controllers, physics simulation, optimization, configuration, wind models, sensors, training, and visualizations.
 
+### Hardware Deployment
+
+See **[`deployment/RASPBERRY_PI_GUIDE.md`](deployment/RASPBERRY_PI_GUIDE.md)** for a step-by-step guide covering:
+
+- Parts list (Pi Zero 2 W, ICM-20948 IMU, micro servos, power distribution)
+- Raspberry Pi OS setup and performance tuning
+- Wiring diagrams (IMU, servos, power — see `deployment/diagrams/`)
+- ONNX model export and deployment
+- Servo and IMU calibration
+- Bench testing procedure
+- Pre-flight checklist and post-flight data review
+
+The camera system (RunCam + DollaTek WiFi trigger + MOSFET modification) is documented separately in [`camera_electronics/`](camera_electronics/).
+
 ---
 
 ## Optimized Gains
@@ -295,7 +309,7 @@ Stored in `optimization_results/*.json`.
 ├── optimization_results/           # Stored gain optimization results (JSON)
 ├── tests/                          # 39 test files, 816 tests
 ├── visualizations/                 # Animated Monte Carlo visualizations
-├── deployment/                     # ONNX export & deployment bundles
+├── deployment/                     # ONNX export, deployment bundles & Pi guide
 ├── docs/                           # Wind torque analysis
 ├── camera_electronics/             # Hardware modification guides
 ├── rocket-fin-servo-mount/         # Mechanical design docs

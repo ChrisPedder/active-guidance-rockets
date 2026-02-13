@@ -1,0 +1,289 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 780" width="1400" height="780" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <style>
+    .title { font-size: 22px; font-weight: 700; fill: #1a1a2e; }
+    .subtitle { font-size: 12px; fill: #888; }
+    .label-title { font-size: 11px; font-weight: 700; letter-spacing: 0.5px; }
+    .label-desc { font-size: 10px; fill: #666; }
+    .dim-text { font-size: 8px; fill: #999; font-family: monospace; }
+    .connector { stroke-dasharray: 3 2; stroke-width: 0.8; fill: none; }
+    .dot { stroke-width: 1.5; fill: white; }
+  </style>
+
+  <!-- Background -->
+  <rect width="1400" height="780" fill="white"/>
+
+  <!-- Title -->
+  <text x="700" y="36" text-anchor="middle" class="title">High Power Rocket — Cutaway View</text>
+  <text x="700" y="54" text-anchor="middle" class="subtitle">Main structural and functional components</text>
+
+  <!-- ==================== ROCKET BODY (horizontal, nose pointing right) ==================== -->
+  <g transform="translate(105, 290)">
+    <defs>
+      <linearGradient id="bodyL" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#c8cdd8"/>
+        <stop offset="40%" stop-color="#e8eaf0"/>
+        <stop offset="100%" stop-color="#d0d4de"/>
+      </linearGradient>
+      <linearGradient id="cutL" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f0f1f4"/>
+        <stop offset="100%" stop-color="#e4e6ec"/>
+      </linearGradient>
+      <linearGradient id="noseL" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#ea580c"/>
+        <stop offset="100%" stop-color="#f97316"/>
+      </linearGradient>
+      <clipPath id="cut">
+        <rect x="0" y="0" width="1200" height="55"/>
+      </clipPath>
+    </defs>
+
+    <!-- ===== FINS ===== -->
+    <!-- Top fin -->
+    <path d="M105 10 L15 -55 L8 -48 L105 10Z" fill="#e0e4ec" stroke="#0891b2" stroke-width="0.8" opacity="0.7"/>
+    <path d="M105 10 L35 -35 L30 -30 L105 20Z" fill="#cffafe" opacity="0.25"/>
+    <!-- Bottom fin -->
+    <path d="M105 80 L15 145 L8 138 L105 80Z" fill="#e0e4ec" stroke="#0891b2" stroke-width="0.8" opacity="0.7"/>
+    <path d="M105 80 L35 125 L30 120 L105 70Z" fill="#cffafe" opacity="0.25"/>
+    <!-- Middle fin (side view) -->
+    <path d="M95 35 L105 35 L105 55 L95 55Z" fill="#e8ecf2" stroke="#0891b2" stroke-width="0.4" opacity="0.4"/>
+
+    <!-- ===== NOZZLE ===== -->
+    <path d="M0 20 L0 70 L-30 80 Q-38 80 -42 76 L-50 45 L-42 14 Q-38 10 -30 10 Z" fill="#d0d4de"/>
+    <path d="M-3 30 L-3 60 L-25 66 Q-30 60 -32 45 Q-30 30 -25 24 Z" fill="white" opacity="0.4" clip-path="url(#cut)"/>
+    <ellipse cx="-47" cy="45" rx="3.5" ry="10" fill="#a0a8b8" opacity="0.6"/>
+
+    <!-- ===== MOTOR MOUNT & MOTOR ===== -->
+    <rect x="0" y="10" width="130" height="70" rx="1" fill="url(#bodyL)"/>
+    <rect x="4" y="22" width="122" height="30" rx="1" fill="url(#cutL)" clip-path="url(#cut)"/>
+    <!-- Motor tube -->
+    <rect x="8" y="25" width="114" height="24" rx="1" fill="#fca5a5" opacity="0.3" stroke="#ef4444" stroke-width="0.5"/>
+    <!-- Motor casing -->
+    <rect x="12" y="27" width="106" height="20" rx="1" fill="#fecaca" opacity="0.35"/>
+    <!-- Propellant grains -->
+    <rect x="16" y="29" width="22" height="16" rx="1" fill="#ef4444" opacity="0.35"/>
+    <rect x="41" y="29" width="22" height="16" rx="1" fill="#ef4444" opacity="0.3"/>
+    <rect x="66" y="29" width="22" height="16" rx="1" fill="#ef4444" opacity="0.25"/>
+    <rect x="91" y="29" width="16" height="16" rx="1" fill="#dc2626" opacity="0.2"/>
+    <!-- Centering rings -->
+    <rect x="6" y="22" width="2.5" height="30" rx="0.5" fill="#b0b8c8" opacity="0.6"/>
+    <rect x="110" y="22" width="2.5" height="30" rx="0.5" fill="#b0b8c8" opacity="0.6"/>
+    <!-- Band -->
+    <rect x="128" y="8" width="4" height="74" rx="0.5" fill="#a0a8b8"/>
+
+    <!-- ===== BODY TUBE / AIRFRAME ===== -->
+    <rect x="132" y="10" width="140" height="70" rx="1" fill="url(#bodyL)"/>
+    <rect x="136" y="22" width="132" height="30" rx="1" fill="url(#cutL)" clip-path="url(#cut)"/>
+    <!-- Wall thickness -->
+    <rect x="136" y="22" width="132" height="3.5" fill="#d0d4de" opacity="0.6" clip-path="url(#cut)"/>
+    <rect x="136" y="48.5" width="132" height="3.5" fill="#d0d4de" opacity="0.4" clip-path="url(#cut)"/>
+    <!-- Centering ring hints -->
+    <line x1="195" y1="22" x2="195" y2="52" stroke="#b0b8c8" stroke-width="0.7" opacity="0.4"/>
+    <line x1="240" y1="22" x2="240" y2="52" stroke="#b0b8c8" stroke-width="0.7" opacity="0.4"/>
+    <!-- Band -->
+    <rect x="270" y="8" width="4" height="74" rx="0.5" fill="#a0a8b8"/>
+
+    <!-- ===== MAIN CHUTE ===== -->
+    <rect x="274" y="10" width="100" height="70" rx="1" fill="url(#bodyL)"/>
+    <rect x="278" y="22" width="92" height="30" rx="1" fill="url(#cutL)" clip-path="url(#cut)"/>
+    <!-- Large folded parachute -->
+    <ellipse cx="324" cy="37" rx="25" ry="12" fill="#eab308" opacity="0.25"/>
+    <path d="M306 32 Q324 18 342 32" stroke="#eab308" stroke-width="1" fill="none" opacity="0.45"/>
+    <path d="M303 37 Q324 24 345 37" stroke="#fbbf24" stroke-width="0.7" fill="none" opacity="0.3"/>
+    <path d="M305 42 Q324 30 343 42" stroke="#fde047" stroke-width="0.6" fill="none" opacity="0.25"/>
+    <!-- Shroud lines -->
+    <line x1="346" y1="33" x2="365" y2="31" stroke="#fbbf24" stroke-width="0.5" opacity="0.3"/>
+    <line x1="346" y1="37" x2="365" y2="37" stroke="#fbbf24" stroke-width="0.5" opacity="0.3"/>
+    <line x1="346" y1="41" x2="365" y2="43" stroke="#fbbf24" stroke-width="0.5" opacity="0.3"/>
+    <!-- Band -->
+    <rect x="372" y="8" width="4" height="74" rx="0.5" fill="#a0a8b8"/>
+
+    <!-- ===== AVIONICS BAY ===== -->
+    <rect x="376" y="10" width="75" height="70" rx="1" fill="url(#bodyL)"/>
+    <rect x="380" y="22" width="67" height="30" rx="1" fill="url(#cutL)" clip-path="url(#cut)"/>
+    <!-- Electronics sled -->
+    <rect x="385" y="24" width="55" height="26" rx="1.5" fill="#a855f7" opacity="0.35" stroke="#a855f7" stroke-width="0.6"/>
+    <!-- PCB -->
+    <rect x="390" y="28" width="14" height="18" rx="1" fill="#7c3aed" opacity="0.4"/>
+    <circle cx="396" cy="33" r="1.3" fill="#c084fc" opacity="0.6"/>
+    <circle cx="396" cy="40" r="1.3" fill="#c084fc" opacity="0.6"/>
+    <!-- Battery -->
+    <rect x="408" y="29" width="8" height="16" rx="1" fill="#6d28d9" opacity="0.35"/>
+    <!-- Threaded rods -->
+    <line x1="376" y1="32" x2="380" y2="32" stroke="#a855f7" stroke-width="0.8" opacity="0.3"/>
+    <line x1="376" y1="42" x2="380" y2="42" stroke="#a855f7" stroke-width="0.8" opacity="0.3"/>
+    <line x1="447" y1="32" x2="451" y2="32" stroke="#a855f7" stroke-width="0.8" opacity="0.3"/>
+    <line x1="447" y1="42" x2="451" y2="42" stroke="#a855f7" stroke-width="0.8" opacity="0.3"/>
+    <!-- Altimeter ports -->
+    <circle cx="413" cy="10" r="2" fill="white" stroke="#a855f7" stroke-width="0.8"/>
+    <circle cx="421" cy="10" r="2" fill="white" stroke="#a855f7" stroke-width="0.8"/>
+    <!-- Band -->
+    <rect x="449" y="8" width="4" height="74" rx="0.5" fill="#a0a8b8"/>
+
+    <!-- ===== DROGUE CHUTE ===== -->
+    <rect x="453" y="10" width="78" height="70" rx="1" fill="url(#bodyL)"/>
+    <rect x="457" y="22" width="70" height="30" rx="1" fill="url(#cutL)" clip-path="url(#cut)"/>
+    <!-- Folded chute -->
+    <ellipse cx="492" cy="37" rx="16" ry="10" fill="#22c55e" opacity="0.3"/>
+    <path d="M481 32 Q492 22 503 32" stroke="#22c55e" stroke-width="1" fill="none" opacity="0.5"/>
+    <path d="M479 37 Q492 26 505 37" stroke="#4ade80" stroke-width="0.7" fill="none" opacity="0.35"/>
+    <!-- Shock cord -->
+    <path d="M508 37 Q515 34 522 37 Q529 40 536 37" stroke="#86efac" stroke-width="0.8" fill="none" opacity="0.35"/>
+    <!-- Band -->
+    <rect x="529" y="8" width="4" height="74" rx="0.5" fill="#a0a8b8"/>
+
+    <!-- ===== PAYLOAD BAY ===== -->
+    <rect x="533" y="10" width="100" height="70" rx="1" fill="url(#bodyL)"/>
+    <rect x="537" y="22" width="92" height="30" rx="1" fill="url(#cutL)" clip-path="url(#cut)"/>
+    <!-- Electronics -->
+    <rect x="545" y="26" width="14" height="20" rx="1.5" fill="#3b82f6" opacity="0.45"/>
+    <rect x="563" y="27" width="10" height="18" rx="1" fill="#60a5fa" opacity="0.3"/>
+    <rect x="577" y="28" width="8" height="16" rx="1" fill="#93c5fd" opacity="0.25"/>
+    <!-- Wires -->
+    <line x1="590" y1="34" x2="625" y2="34" stroke="#3b82f6" stroke-width="0.7" opacity="0.35"/>
+    <line x1="590" y1="40" x2="625" y2="40" stroke="#60a5fa" stroke-width="0.5" opacity="0.25"/>
+    <!-- Band -->
+    <rect x="631" y="8" width="4" height="74" rx="0.5" fill="#a0a8b8"/>
+
+    <!-- Nose shoulder -->
+    <rect x="635" y="12" width="6" height="66" rx="1" fill="#d97706" opacity="0.8"/>
+
+    <!-- ===== NOSE CONE ===== -->
+    <path d="M641 10 Q641 10 720 32 L750 45 L720 58 Q641 80 641 80 L641 10Z" fill="url(#noseL)"/>
+    <path d="M645 18 Q660 22 710 36 L730 45 L710 54 Q660 66 645 72 L645 18Z" fill="white" opacity="0.25" clip-path="url(#cut)"/>
+    <!-- Nose tip highlight -->
+    <path d="M746 45 Q730 40 700 34" stroke="white" stroke-width="0.8" fill="none" opacity="0.4"/>
+  </g>
+
+  <!-- ==================== TOP LABELS & CONNECTORS ==================== -->
+
+  <!-- 1. Nose Cone (rightmost) -->
+  <circle cx="830" cy="326" r="3.5" class="dot" stroke="#f97316"/>
+  <path d="M830 322 L830 195" class="connector" stroke="#f97316"/>
+  <g transform="translate(770, 140)">
+    <rect x="0" y="0" width="245" height="52" rx="6" fill="#FFF7ED" stroke="#FDBA74" stroke-width="0.8"/>
+    <rect x="0" y="0" width="4" height="52" rx="2" fill="#f97316"/>
+    <text x="16" y="18" class="label-title" fill="#c2410c">NOSE CONE</text>
+    <text x="16" y="32" class="label-desc">Aerodynamic ogive tip — fiberglass or plastic.</text>
+    <text x="16" y="44" class="label-desc">Reduces drag; ejects at apogee via shear pins.</text>
+  </g>
+
+  <!-- 2. Payload Bay -->
+  <circle cx="700" cy="320" r="3.5" class="dot" stroke="#3b82f6"/>
+  <path d="M700 316 L700 125" class="connector" stroke="#3b82f6"/>
+  <g transform="translate(575, 70)">
+    <rect x="0" y="0" width="260" height="52" rx="6" fill="#EFF6FF" stroke="#93C5FD" stroke-width="0.8"/>
+    <rect x="0" y="0" width="4" height="52" rx="2" fill="#3b82f6"/>
+    <text x="16" y="18" class="label-title" fill="#1d4ed8">PAYLOAD BAY</text>
+    <text x="16" y="32" class="label-desc">Houses GPS trackers, cameras, altimeters,</text>
+    <text x="16" y="44" class="label-desc">and drogue ejection charge wiring.</text>
+  </g>
+
+  <!-- 3. Drogue Chute -->
+  <circle cx="595" cy="320" r="3.5" class="dot" stroke="#22c55e"/>
+  <path d="M595 316 L595 195" class="connector" stroke="#22c55e"/>
+  <g transform="translate(490, 140)">
+    <rect x="0" y="0" width="250" height="52" rx="6" fill="#F0FDF4" stroke="#86EFAC" stroke-width="0.8"/>
+    <rect x="0" y="0" width="4" height="52" rx="2" fill="#22c55e"/>
+    <text x="16" y="18" class="label-title" fill="#15803d">DROGUE CHUTE</text>
+    <text x="16" y="32" class="label-desc">Small chute deployed at apogee. Slows descent</text>
+    <text x="16" y="44" class="label-desc">and limits wind drift before main deployment.</text>
+  </g>
+
+  <!-- 4. Avionics Bay -->
+  <circle cx="518" cy="300" r="3.5" class="dot" stroke="#a855f7"/>
+  <path d="M518 296 L518 125" class="connector" stroke="#a855f7"/>
+  <g transform="translate(290, 70)">
+    <rect x="0" y="0" width="258" height="52" rx="6" fill="#FAF5FF" stroke="#C4B5FD" stroke-width="0.8"/>
+    <rect x="0" y="0" width="4" height="52" rx="2" fill="#a855f7"/>
+    <text x="16" y="18" class="label-title" fill="#7c3aed">AVIONICS BAY</text>
+    <text x="16" y="32" class="label-desc">Flight computers, altimeters, GPS, and batteries</text>
+    <text x="16" y="44" class="label-desc">on a sled with threaded-rod bulkheads.</text>
+  </g>
+
+  <!-- ==================== BOTTOM LABELS & CONNECTORS ==================== -->
+
+  <!-- 5. Main Chute -->
+  <circle cx="430" cy="370" r="3.5" class="dot" stroke="#eab308"/>
+  <path d="M430 374 L430 500" class="connector" stroke="#eab308"/>
+  <g transform="translate(315, 505)">
+    <rect x="0" y="0" width="270" height="52" rx="6" fill="#FEFCE8" stroke="#FDE047" stroke-width="0.8"/>
+    <rect x="0" y="0" width="4" height="52" rx="2" fill="#eab308"/>
+    <text x="16" y="18" class="label-title" fill="#a16207">MAIN PARACHUTE</text>
+    <text x="16" y="32" class="label-desc">Large chute (48–96 in) deployed at 500–1000 ft.</text>
+    <text x="16" y="44" class="label-desc">Targets 12–16 ft/s descent for safe landing.</text>
+  </g>
+
+  <!-- 6. Airframe -->
+  <circle cx="305" cy="370" r="3.5" class="dot" stroke="#64748b"/>
+  <path d="M305 374 L305 575" class="connector" stroke="#64748b"/>
+  <g transform="translate(170, 580)">
+    <rect x="0" y="0" width="270" height="52" rx="6" fill="#F8FAFC" stroke="#CBD5E1" stroke-width="0.8"/>
+    <rect x="0" y="0" width="4" height="52" rx="2" fill="#64748b"/>
+    <text x="16" y="18" class="label-title" fill="#475569">AIRFRAME / BODY TUBE</text>
+    <text x="16" y="32" class="label-desc">Structural tube — fiberglass, carbon fiber, or</text>
+    <text x="16" y="44" class="label-desc">phenolic. Typically 3–6 in diameter.</text>
+  </g>
+
+  <!-- 7. Motor -->
+  <circle cx="170" cy="370" r="3.5" class="dot" stroke="#ef4444"/>
+  <path d="M170 374 L170 500" class="connector" stroke="#ef4444"/>
+  <g transform="translate(35, 505)">
+    <rect x="0" y="0" width="270" height="64" rx="6" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="0.8"/>
+    <rect x="0" y="0" width="4" height="64" rx="2" fill="#ef4444"/>
+    <text x="16" y="18" class="label-title" fill="#dc2626">MOTOR &amp; MOTOR MOUNT</text>
+    <text x="16" y="32" class="label-desc">Solid APCP motor (H–O class) in a mount assembly</text>
+    <text x="16" y="44" class="label-desc">with centering rings, thrust ring, and retainer.</text>
+    <text x="16" y="56" class="label-desc">Reloadable or single-use casing.</text>
+  </g>
+
+  <!-- 8. Fins -->
+  <circle cx="155" cy="240" r="3.5" class="dot" stroke="#0891b2"/>
+  <path d="M155 236 L155 195" class="connector" stroke="#0891b2"/>
+  <g transform="translate(30, 140)">
+    <rect x="0" y="0" width="250" height="52" rx="6" fill="#ECFEFF" stroke="#A5F3FC" stroke-width="0.8"/>
+    <rect x="0" y="0" width="4" height="52" rx="2" fill="#0891b2"/>
+    <text x="16" y="18" class="label-title" fill="#0e7490">FIN ASSEMBLY</text>
+    <text x="16" y="32" class="label-desc">3–4 fins for aerodynamic stability. Through-the-</text>
+    <text x="16" y="44" class="label-desc">wall bonded to motor mount for max strength.</text>
+  </g>
+
+  <!-- 9. Nozzle -->
+  <circle cx="65" cy="370" r="3.5" class="dot" stroke="#ef4444"/>
+  <path d="M65 374 L65 575" class="connector" stroke="#ef4444"/>
+  <g transform="translate(0, 580)">
+    <rect x="0" y="0" width="160" height="52" rx="6" fill="#FEF2F2" stroke="#FCA5A5" stroke-width="0.8"/>
+    <rect x="0" y="0" width="4" height="52" rx="2" fill="#ef4444"/>
+    <text x="16" y="18" class="label-title" fill="#dc2626">NOZZLE</text>
+    <text x="16" y="32" class="label-desc">De Laval converging-diverging</text>
+    <text x="16" y="44" class="label-desc">nozzle with graphite throat.</text>
+  </g>
+
+  <!-- ==================== DIMENSION ANNOTATIONS ==================== -->
+  <!-- Overall length -->
+  <line x1="105" y1="420" x2="855" y2="420" stroke="#ccc" stroke-width="0.5" stroke-dasharray="3 3"/>
+  <line x1="105" y1="416" x2="105" y2="424" stroke="#bbb" stroke-width="0.6"/>
+  <line x1="855" y1="416" x2="855" y2="424" stroke="#bbb" stroke-width="0.6"/>
+  <text x="480" y="432" text-anchor="middle" class="dim-text">~6–10 ft typical length</text>
+
+  <!-- Diameter -->
+  <line x1="880" y1="300" x2="880" y2="360" stroke="#ccc" stroke-width="0.5"/>
+  <line x1="876" y1="300" x2="884" y2="300" stroke="#bbb" stroke-width="0.6"/>
+  <line x1="876" y1="360" x2="884" y2="360" stroke="#bbb" stroke-width="0.6"/>
+  <text x="895" y="334" class="dim-text">3–6 in dia</text>
+
+  <!-- ==================== LEGEND ==================== -->
+  <g transform="translate(350, 730)">
+    <circle cx="0" cy="0" r="4.5" fill="#f97316" opacity="0.8"/>
+    <text x="10" y="4" font-size="9" fill="#888">Aerodynamics</text>
+    <circle cx="105" cy="0" r="4.5" fill="#3b82f6" opacity="0.8"/>
+    <text x="115" y="4" font-size="9" fill="#888">Payload</text>
+    <circle cx="180" cy="0" r="4.5" fill="#a855f7" opacity="0.8"/>
+    <text x="190" y="4" font-size="9" fill="#888">Avionics</text>
+    <circle cx="260" cy="0" r="4.5" fill="#22c55e" opacity="0.8"/>
+    <text x="270" y="4" font-size="9" fill="#888">Recovery</text>
+    <circle cx="340" cy="0" r="4.5" fill="#ef4444" opacity="0.8"/>
+    <text x="350" y="4" font-size="9" fill="#888">Propulsion</text>
+    <circle cx="430" cy="0" r="4.5" fill="#0891b2" opacity="0.8"/>
+    <text x="440" y="4" font-size="9" fill="#888">Stability</text>
+  </g>
+</svg>

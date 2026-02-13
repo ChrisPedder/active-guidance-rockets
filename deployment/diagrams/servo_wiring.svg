@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 650 400" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <style>
+    .box { stroke-width: 2; rx: 6; }
+    .label { font-size: 14px; font-weight: 700; fill: #1a1a2e; }
+    .pin { font-size: 11px; fill: #333; font-family: monospace; }
+    .wire { stroke-width: 2.5; fill: none; stroke-linecap: round; }
+    .note { font-size: 10px; fill: #666; }
+    .title { font-size: 16px; font-weight: 700; fill: #1a1a2e; }
+    .subtitle { font-size: 11px; fill: #888; }
+  </style>
+
+  <text x="325" y="24" text-anchor="middle" class="title">Servo Wiring</text>
+  <text x="325" y="40" text-anchor="middle" class="subtitle">2 (or 3) micro servos via Raspberry Pi GPIO PWM</text>
+
+  <!-- Raspberry Pi -->
+  <rect x="30" y="65" width="200" height="180" fill="#e8f5e9" stroke="#2e7d32" class="box"/>
+  <text x="130" y="90" text-anchor="middle" class="label">Raspberry Pi</text>
+  <text x="130" y="107" text-anchor="middle" class="subtitle">GPIO Header</text>
+
+  <text x="210" y="140" text-anchor="end" class="pin">Pin 32 (GPIO 12 / PWM0)</text>
+  <text x="210" y="170" text-anchor="end" class="pin">Pin 33 (GPIO 13 / PWM1)</text>
+  <text x="210" y="200" text-anchor="end" class="pin">Pin 35 (GPIO 19 / PWM1)</text>
+  <text x="210" y="228" text-anchor="end" class="pin">Pin 34 (GND)</text>
+
+  <!-- Servo 1 -->
+  <rect x="420" y="65" width="190" height="75" fill="#fff3e0" stroke="#e65100" class="box"/>
+  <text x="515" y="90" text-anchor="middle" class="label">Servo 1 (Fin A)</text>
+  <text x="440" y="115" class="pin">Signal (orange/white)</text>
+  <text x="440" y="130" class="pin">GND (brown/black)</text>
+
+  <!-- Servo 2 -->
+  <rect x="420" y="155" width="190" height="75" fill="#fff3e0" stroke="#e65100" class="box"/>
+  <text x="515" y="180" text-anchor="middle" class="label">Servo 2 (Fin B)</text>
+  <text x="440" y="205" class="pin">Signal (orange/white)</text>
+  <text x="440" y="220" class="pin">GND (brown/black)</text>
+
+  <!-- Servo 3 (optional) -->
+  <rect x="420" y="245" width="190" height="75" fill="#fce4ec" stroke="#c62828" class="box" stroke-dasharray="5,3"/>
+  <text x="515" y="270" text-anchor="middle" class="label" fill="#c62828">Servo 3 (J800 only)</text>
+  <text x="440" y="295" class="pin">Signal (orange/white)</text>
+  <text x="440" y="310" class="pin">GND (brown/black)</text>
+
+  <!-- Signal wires -->
+  <line x1="218" y1="136" x2="430" y2="111" class="wire" stroke="#ff9800"/>
+  <line x1="218" y1="166" x2="430" y2="201" class="wire" stroke="#ff9800"/>
+  <line x1="218" y1="196" x2="430" y2="291" class="wire" stroke="#ff9800" stroke-dasharray="5,3"/>
+
+  <!-- GND wires -->
+  <line x1="218" y1="224" x2="350" y2="224" class="wire" stroke="#333"/>
+  <line x1="350" y1="126" x2="350" y2="306" class="wire" stroke="#333"/>
+  <line x1="350" y1="126" x2="430" y2="126" class="wire" stroke="#333"/>
+  <line x1="350" y1="216" x2="430" y2="216" class="wire" stroke="#333"/>
+  <line x1="350" y1="306" x2="430" y2="306" class="wire" stroke="#333" stroke-dasharray="5,3"/>
+
+  <!-- Notes -->
+  <text x="325" y="350" text-anchor="middle" class="note" font-weight="700" fill="#c62828">Servo VCC (red wire) does NOT connect to the Pi &mdash; see power_distribution.svg</text>
+  <text x="325" y="366" text-anchor="middle" class="note">pigpio software PWM works on any GPIO; hardware PWM on GPIO 12/13/18/19 only</text>
+  <text x="325" y="382" text-anchor="middle" class="note">Servo signal: 50 Hz, 1000-2000 &mu;s pulse width (1500 &mu;s = centre)</text>
+</svg>
