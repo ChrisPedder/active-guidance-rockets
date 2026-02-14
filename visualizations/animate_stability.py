@@ -32,7 +32,7 @@ T_PERIOD = 6.0  # oscillation period (s)
 # Animation parameters
 # ---------------------------------------------------------------------------
 FPS = 25
-DPI = 100
+DPI = 72
 N_FRAMES = 150  # 6 s x 25 fps — exact loop
 FIGSIZE = (7, 8)
 
