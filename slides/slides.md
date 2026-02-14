@@ -1,5 +1,4 @@
-# Some Rocket Science
-# First Some Physics
+# A Bit of Rocket Science
 
 **HES-SO CS/ML Seminar**
 *16th February 2026*
@@ -54,6 +53,68 @@ Thrust T from the motor, drag D from air resistance, weight mg from gravity. Dyn
 
 ---
 
+## Stability: The Barrowman Equations
+
+Every surface on the rocket generates aerodynamic force.
+
+The <span class="key-term">centre of pressure (CP)</span> is the point where all these forces act:
+
+$$\bar{X}\_{CP} = \frac{\sum\_i (C\_{N\_i} \cdot X\_i)}{\sum\_i C\_{N\_i}}$$
+
+Each component contributes a normal force coefficient $C\_{N\_i}$.
+
+Note:
+The Barrowman equations (1966) let us calculate CP from geometry alone — no wind tunnel needed. These are used for pre-flight airframe design; the flight simulation assumes an already-stable airframe.
+
+----
+
+## Component Normal Force Coefficients
+
+| Component | $C\_N$ contribution |
+|-----------|-------------------|
+| Nose cone | $C\_N = 2$ (always) |
+| Body tube | $\approx 0$ at small $\alpha$ |
+| Fins | $C\_N = \frac{4 n \, (S/A\_{ref})}{1 + \sqrt{1 + \left(\frac{2l}{c\_r + c\_t}\right)^2}}$ |
+
+Fins are the main stabilising force — bigger fins, further back = more stability.
+
+Note:
+The key insight: the nose always contributes CN=2 regardless of shape (at small angle of attack). Fins are the main stabilising force — bigger fins, further back, means more stability. The body tube contribution is negligible at small angles of attack.
+
+---
+
+## Stability: CG Ahead of CP
+
+<div class="columns">
+<div class="column">
+
+**Stable** — CG forward of CP
+
+If the rocket tips, fins generate a restoring force.
+
+**Rule of thumb:**
+
+$$X\_{CG} + d\_{body} \leq X\_{CP}$$
+
+CG should be at least **one body diameter** ahead of CP.
+
+<span class="small">This is the "1-calibre stability margin".</span>
+
+</div>
+<div class="column">
+
+  <img src="images/rocket_stability.gif" width="350">
+
+</div>
+</div>
+
+<span class="emphasis">Too stable = weathercocks into wind. Too unstable = tumbles.</span>
+
+Note:
+Think of it like a dart versus a shuttlecock — the heavy end flies forward. If the CG is behind the CP, any small perturbation gets amplified and the rocket tumbles. The one-diameter rule gives enough margin for safety without making the rocket over-stable. Over-stable rockets turn aggressively into the wind, which can be dangerous at a launch site. You can move the CG forward by adding nose weight, or move the CP backward by adding fin area.
+
+---
+
 ## Flight Profile
 
   <div class="columns">
@@ -74,32 +135,11 @@ Thrust T from the motor, drag D from air resistance, weight mg from gravity. Dyn
   - $q$ drops rapidly
   - Control authority fading
 
-  <span class="small">AeroTech J800T: ~300 m/s (transonic!)</span>
-
   </div>
   </div>
 
 Note:
 The boost phase lasts about 2 seconds on the J800. After burnout, the rocket coasts upward but decelerating. Dynamic pressure — and therefore control effectiveness — drops dramatically. The J800 reaches nearly Mach 1, which introduces compressibility effects.
-
----
-
-## Why Do Rockets Spin?
-
-<!-- IMAGE: still frame from a spinning rocket camera showing severe rotational blur -->
-
-Sources of unwanted roll:
-
-- Manufacturing asymmetry in fins
-- Wind gusts creating differential lift
-- Fin misalignment (even 0.5° matters)
-
-Typical roll rate: **20–50 deg/s** — ruins onboard video.
-
-<span class="emphasis">Our goal: keep spin rate below 5 deg/s.</span>
-
-Note:
-Even carefully built rockets spin. A fraction of a degree of fin misalignment is enough. At 30 deg/s you get a full rotation every 12 seconds, which creates horrible rolling shutter and motion blur on lightweight action cameras.
 
 ---
 
@@ -129,14 +169,14 @@ Motor letters double in impulse with each step. A C motor has 5-10 Newton-second
 <div class="column">
 
 **ARGOS Amateur Rocket Group**
-<img src="images/ARGOS_website_screenshot.png" width="300" height="200">
+<img src="images/ARGOS_website_screenshot.png" width="300">
 <img src="images/qr_argos_hpr.png" width="80" height="80">
 
 </div>
 <div class="column">
 
 **EPFL Rocket Team**
-<img src="images/EPFL_website_screenshot.png" width="300" height="200">
+<img src="images/EPFL_website_screenshot.png" width="300">
 <img src="images/qr_epfl_rocket_team.png" width="80" height="80">
 
 </div>
@@ -146,7 +186,7 @@ Motor letters double in impulse with each step. A C motor has 5-10 Newton-second
 
 ## Anatomy of a Rocket
 
-<img src="images/rocket-cutaway-landscape.png" width="800" height="500" style="margin-left: 180px;">
+<img src="images/rocket-cutaway-landscape.png" width="800" style="margin-left: 80px;">
 
 ---
 
@@ -166,8 +206,7 @@ Motor letters double in impulse with each step. A C motor has 5-10 Newton-second
 
 **Payload**
 - Camera (RunCam)
-- IMU (ICM-20948)
-- Raspberry Pi Zero
+- Altimeter
 - Recovery system (parachute)
 
 </div>
@@ -189,7 +228,7 @@ Walk through the construction photos here. Talk about the precision needed for f
 
 ## Launch Day
 
-<video width="360" height="360" controls>
+<video width="270" height="480" controls>
   <source src="videos/launch_clip.mp4" type="video/mp4">
 </video>
 
@@ -200,37 +239,63 @@ Play the launch video here. Talk through what's happening — ignition, boost ph
 
 ## They say it's not a sport...
 
-<img src="images/hiking_with_rockets.png" width="400" height="480">
+<img src="images/hiking_with_rockets.png" width="400">
 
 
 ---
 
 ## Why we need control.
 
-<img src="images/frenzy_off_axis.JPG" width="500" height="400">
+<img src="images/frenzy_off_axis.JPG" width="500">
 
+
+---
+
+## The Problem of Spinning Rockets?
+
+<video width="270" height="480" controls>
+  <source src="videos/spinning_rocket_clip.mp4" type="video/mp4">
+</video>
+
+---
+
+## Why Do Rockets Spin?
+
+Sources of unwanted roll:
+
+- Manufacturing asymmetry in fins
+- Wind gusts creating differential lift
+- Fin misalignment (even 0.5° matters)
+
+Typical roll rate: **20–50 deg/s** — ruins onboard video.
+
+<span class="emphasis">Our goal: keep spin rate below 5 deg/s.</span>
+
+Note:
+Even carefully built rockets spin. A fraction of a degree of fin misalignment is enough. At 30 deg/s you get a full rotation every 12 seconds, which creates horrible rolling shutter and motion blur on lightweight action cameras.
 
 ---
 
 ## The Control Hardware
 
-<!-- IMAGE: photo or CAD render of the servo-mounted fin tab mechanism from rocket-fin-servo-mount/ -->
-
-<div class="columns">
-<div class="column">
+<div style="display: flex; align-items: center; gap: 1em;">
+<div style="flex: 1; font-size: 0.75em;">
 
 **Actuators**
 - Servo-driven fin tabs
-- Trailing edge, **30° max** deflection
+- Trailing edge, **30° max**
 - 2 of 4 fins controlled
-- Tab: 25% chord × 50% span
 
 </div>
-<div class="column">
+<div style="flex: 1; text-align: center;">
+
+<img src="images/control_tabs.jpeg" width="300">
+
+</div>
+<div style="flex: 1; font-size: 0.75em;">
 
 **Sensors & Compute**
-- ICM-20948 gyroscope, 100 Hz
-- ~0.15 deg/s RMS noise
+- ICM-20948 gyro, 100 Hz
 - Raspberry Pi Zero
 - 100 Hz control loop
 
@@ -238,7 +303,7 @@ Play the launch video here. Talk through what's happening — ignition, boost ph
 </div>
 
 Note:
-We only control 2 of the 4 fins. The tabs are small — about a quarter of the fin chord and half the span. The IMU noise is essentially irrelevant compared to the spin rates we're trying to control. All processing happens onboard at 100 Hz.
+We only control 2 of the 4 fins. The tabs are small — about a quarter of the fin chord and half the span (25% chord x 50% span). The IMU noise (~0.15 deg/s RMS) is essentially irrelevant compared to the spin rates we're trying to control. All processing happens onboard at 100 Hz.
 
 ---
 
@@ -261,26 +326,12 @@ The camera system is modified with a MOSFET so the Pi can trigger recording elec
 
 ## How Fin Tabs Create Torque
 
-Deflecting a tab increases drag on one side → net roll torque.
-
-$$\tau \propto q \cdot \tanh\!\left(\frac{q}{200}\right) \cdot \delta$$
+<img src="images/roll_control.gif" width="450">
 
 <span class="emphasis">Control effectiveness varies ~20× during a J800 flight!</span>
 
-<div class="mermaid">
-flowchart LR
-    subgraph "Low deflection fin"
-        A["Fin 1<br/>δ = 0°"] --> B["Low drag"]
-    end
-    subgraph "High deflection fin"
-        C["Fin 2<br/>δ = 30°"] --> D["High drag"]
-    end
-    B --> E["Net torque →<br/>Roll correction"]
-    D --> E
-</div>
-
 Note:
-This is differential drag, not differential lift. The tab acts like a small spoiler. The tanh term captures the transition from negligible to full effectiveness. At low speed — near apogee — the tabs are almost useless. At peak velocity they're very effective. This 20x variation is the core challenge.
+This is differential drag, not differential lift. The tab acts like a small spoiler. The left diagram shows the cross-section: deflecting a tab on one fin increases its drag, creating a net torque about the roll axis. The moment arm r is fixed by the fin position. The right side breaks down the torque equation — dynamic pressure q dominates because it varies ~20x during a J800 flight. The tanh term captures the transition from negligible effectiveness at low speed to full effectiveness at high speed. At apogee the tabs are almost useless; at peak velocity they're very effective.
 
 ---
 
@@ -318,7 +369,7 @@ Transition from hardware to algorithms. Two approaches: classical control theory
 
 The most widely-used controller in engineering:
 
-$$u = K_p \, e + K_i \int e \, dt + K_d \, \dot{e}$$
+$$u = K\_p \, e + K\_i \int e \, dt + K\_d \, \dot{e}$$
 
 | Term | Question it answers |
 |------|-------------------|
@@ -335,7 +386,7 @@ PID is the workhorse of control engineering. P reacts to current error, I correc
 
 ## The Problem with Fixed Gains
 
-<!-- IMAGE: plot showing dynamic pressure variation during J800 flight, with "too weak" and "too aggressive" zones annotated -->
+<img src="images/flight_dynamic_pressure.png" width="500">
 
 Dynamic pressure $q$ varies **~20×** during flight.
 
@@ -353,16 +404,15 @@ This is the fundamental problem. At peak dynamic pressure the fins are 20 times 
 
 Scale gains by dynamic pressure to keep loop gain constant:
 
-$$K_p' = K_p \cdot \frac{q_{ref} \cdot \tanh(q_{ref}/200)}{q \cdot \tanh(q/200)}$$
+$$K\_p' = K\_p \cdot \frac{q\_{ref} \cdot \tanh(q\_{ref}/200)}{q \cdot \tanh(q/200)}$$
 
-- Same formula for $K_d'$; $K_i$ is **not** scaled
-- $q_{ref}$ = reference dynamic pressure (tuned per motor)
-- Gains clamped to [0.5×, 5×] to prevent extremes
+- Same formula for $K\_d'$; $K\_i$ is **not** scaled
+- $q\_{ref}$ = reference dynamic pressure (tuned per motor)
 
 <span class="key-term">GS-PID</span>: same algorithm, adapts to flight conditions.
 
 Note:
-This is gain scheduling — a standard technique in aerospace. We divide by the current effectiveness and multiply by the reference effectiveness. The tanh captures the nonlinear effectiveness curve. We clamp the scaling to prevent extreme values near zero velocity. The integral gain stays constant because we want consistent offset correction. Kd uses the same scaling formula.
+This is gain scheduling — a standard technique in aerospace. We divide by the current effectiveness and multiply by the reference effectiveness. The tanh captures the nonlinear effectiveness curve. Gains are clamped to [0.5x, 5x] to prevent extreme values near zero velocity. The integral gain stays constant because we want consistent offset correction. Kd uses the same scaling formula.
 
 ---
 
@@ -390,16 +440,16 @@ On the J800, even GS-PID can't get below 10.5 deg/s in calm conditions. The targ
 
 Wind creates a <span class="emphasis">periodic</span> disturbance torque:
 
-$$\tau_{wind} \propto \sin(\theta_{wind} - \psi_{roll})$$
+$$\tau\_{wind} \propto \sin\!\bigl(2(\theta\_{wind} - \phi\_{roll})\bigr)$$
 
-- Torque oscillates at the spin frequency
+- Torque oscillates at **twice** the spin frequency (4-fin symmetry)
 - PID reacts to error — it cannot **predict** this pattern
 - 20× $q$ variation means gain scheduling alone can't compensate
 
 <span class="key-term">We need something that can learn the disturbance pattern.</span>
 
 Note:
-The key insight: wind torque depends on the angle between the wind direction and the rocket's current roll angle. As the rocket spins, this creates a sinusoidal torque. A PID controller can only react after the error appears. It cannot anticipate the next half-cycle. This is a fundamental limitation of reactive feedback control.
+The key insight: wind torque depends on the angle between the wind direction and the rocket's current roll angle. The factor of 2 inside the sine comes from the 4-fin symmetry — opposing fin pairs partially cancel, so the torque has period pi (half rotation), not 2pi. As the rocket spins, this creates a sinusoidal torque. A PID controller can only react after the error appears. It cannot anticipate the next half-cycle. This is a fundamental limitation of reactive feedback control.
 
 ---
 
@@ -411,10 +461,9 @@ Gymnasium environment:
 <div class="column">
 
 **Observation** (10D)
-- Position: altitude, velocity
-- Roll: angle, rate, acceleration
-- Flight: $q$, time, thrust fraction
-- Control: previous action, shake
+- Altitude, velocity, roll angle/rate/accel
+- $q$, time, thrust fraction
+- Previous action, shake metric
 
 </div>
 <div class="column">
@@ -446,7 +495,7 @@ We formulate this as a standard RL problem. The observation gives the agent ever
 
 **Core idea:** maximise reward *and* entropy
 
-$$J(\pi) = \sum_t \mathbb{E}\left[r_t + \alpha \, \mathcal{H}(\pi(\cdot|s_t))\right]$$
+$$J(\pi) = \sum\_t \mathbb{E}\left[r\_t + \alpha \, \mathcal{H}(\pi(\cdot|s\_t))\right]$$
 
 Note:
 SAC is an off-policy actor-critic algorithm. The key innovation is the entropy term — the agent is rewarded for maintaining randomness in its policy, which encourages exploration. Alpha controls the trade-off between reward and entropy. This is important for our problem because the dynamics change throughout the flight.
@@ -508,7 +557,7 @@ flowchart LR
     style SUM fill:#f39c12,color:#fff
 </div>
 
-$$a_{final} = \text{clip}\!\left(a_{PID} + \text{clip}(a_{SAC} \cdot 0.2)\right)$$
+$$a\_{final} = \text{clip}\!\left(a\_{PID} + \text{clip}(a\_{SAC} \cdot 0.2)\right)$$
 
 SAC can only adjust the PID output by ±20%.
 
@@ -605,8 +654,6 @@ The whole point — camera footage quality:
 - At **5 deg/s** → **0.04° blur per frame** (excellent)
 - At 10.5 deg/s (GS-PID) → 0.08° blur (noticeable)
 
-<!-- IMAGE: side-by-side comparison of stabilised vs unstabilised rocket camera footage, or Gyroflow screenshot -->
-
 **Pipeline:** Low spin rate → Gyroflow post-stabilisation → Smooth footage
 
 Note:
@@ -633,16 +680,12 @@ Five takeaways. First, don't reach for RL when PID works — GS-PID solves the E
 - **First flight test** — validate sim-to-real transfer
 - **Sim-to-real gap** — aerodynamic model vs reality
 
-<!-- PLACEHOLDER: add your actual next steps or timeline if you want to customise this -->
-
 Note:
 The simulation work is done. Next step is deploying to actual hardware. We export the SAC policy to ONNX format for fast inference on the Pi. The big unknown is sim-to-real transfer — how well does our simulated aerodynamic model match reality? That's what the flight test will tell us.
 
 ---
 
 ## Questions?
-
-<!-- PLACEHOLDER: add your GitHub URL and contact details -->
 
 **Repository:** *github.com/chrispedder/active-guidance-rockets*
 

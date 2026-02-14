@@ -98,7 +98,7 @@
         }
 
         /* Math equations styling */
-        .reveal .mjx-chtml {
+        .reveal .katex {
             font-size: 1.1em !important;
         }
 
@@ -119,14 +119,6 @@
         /* Alternative: Subtle gradient background */
         .reveal .slides.gradient-bg {
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-        }
-
-        /* Alternative: University branding background */
-        .reveal .slides.university-bg {
-            background-image: url('path/to/your/logo.png');
-            background-repeat: no-repeat;
-            background-position: bottom 20px right 20px;
-            background-size: 100px;
         }
 
         /* Title slide background - different from content slides */
@@ -185,7 +177,7 @@
     <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/search/search.js"></script>
 
     <!-- Mermaid -->
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js"></script>
 
     <script>
         // Initialize Mermaid
@@ -218,10 +210,9 @@
             // Transition style
             transition: 'slide', // none/fade/slide/convex/concave/zoom
 
-            // Math rendering
-            math: {
-                mathjax: 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js',
-                config: 'TeX-AMS_HTML-full',
+            // KaTeX math rendering
+            katex: {
+                version: '0.16.9',
             },
 
             // Code highlighting
