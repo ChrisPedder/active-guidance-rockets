@@ -17,7 +17,7 @@ slides/
 
 ### Online (GitHub Pages)
 Once you've enabled GitHub Pages for your repository:
-- **URL:** `https://[your-username].github.io/active_guidance_rockets/`
+- **URL:** `https://chrispedder.github.io/active_guidance_rockets/`
 
 ### Locally
 1. Simply open `index.html` in a web browser

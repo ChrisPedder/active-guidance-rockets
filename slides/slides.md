@@ -12,7 +12,7 @@ Welcome everyone. Today we'll look at a practical problem — stabilising camera
 
 ## Housekeeping
 
-- Seminar is in two parts, around 45 minutes long in total.
+- Seminar is around 45 minutes long in total.
 - I want to challenge and inspire, not teach all the details.
 - If you want more details, there is a repository for code.
 - Please ask me questions whenever you think of them.
@@ -66,7 +66,7 @@ Each component contributes a normal force coefficient $C\_{N\_i}$.
 Note:
 The Barrowman equations (1966) let us calculate CP from geometry alone — no wind tunnel needed. These are used for pre-flight airframe design; the flight simulation assumes an already-stable airframe.
 
-----
+---
 
 ## Component Normal Force Coefficients
 
@@ -120,7 +120,7 @@ Think of it like a dart versus a shuttlecock — the heavy end flies forward. If
   <div class="columns">
   <div class="column">
 
-  <img src="images/frenzy_3d_flight_plot.png" width="500">
+  <img src="images/frenzy_3d_flight_plot.png" width="450">
 
   </div>
   <div class="column" style="font-size: 0.75em;">
@@ -145,7 +145,8 @@ The boost phase lasts about 2 seconds on the J800. After burnout, the rocket coa
 
 ## Model Rocketry 101
 
-<!-- IMAGE: photo of an Estes rocket next to a high-power rocket for scale comparison -->
+<div class="columns">
+<div class="column">
 
 Motors classified by total impulse (NAR/TRA):
 
@@ -155,11 +156,24 @@ Motors classified by total impulse (NAR/TRA):
 | E–G | 20–160 N·s | Mid power |
 | H–O | 320+ N·s | **High power** |
 
-E.g. **AeroTech J800T** (~1200 N·s)
-- ~1500m altitude, requires certification
+E.g. **AeroTech J800T** (~1200 N·s) ~1500m altitude, requires certification
+
+</div>
+<div class="column">
+
+<img src="images/how_it_started.png" width="350">
+
+</div>
+</div>
 
 Note:
 Motor letters double in impulse with each step. A C motor has 5-10 Newton-seconds, a J motor has up to 1280Ns. That's roughly 80x more energy. The J800 is a serious rocket — you need a government licence to fly it.
+
+---
+
+## Where It Can Go...
+
+<img src="images/how_its_going.png" width="350">
 
 ---
 
@@ -186,7 +200,7 @@ Motor letters double in impulse with each step. A C motor has 5-10 Newton-second
 
 ## Anatomy of a Rocket
 
-<img src="images/rocket-cutaway-landscape.png" width="800" style="margin-left: 80px;">
+<img src="images/rocket-cutaway-landscape.png" width="800">
 
 ---
 
@@ -219,7 +233,25 @@ The airframe code mirrors this exactly — NoseCone, BodyTube, TrapezoidFinSet a
 
 ## Building the Rocket
 
-<!-- IMAGE: photo(s) of rocket construction — e.g. fin alignment jig, electronics bay, or partially assembled airframe -->
+<div style="display: flex; align-items: center; gap: 1em;">
+<div style="flex: 1; font-size: 0.75em;">
+
+<img src="images/l3-build/motor_tube_centering_ring_glue.png" width="300">
+
+</div>
+
+<div style="flex: 1; text-align: center;">
+
+<img src="images/l3-build/fin_attachent.png" width="300">
+
+</div>
+
+<div style="flex: 1; font-size: 0.75em;">
+
+<img src="images/l3-build/fin_assembly.png" width="300">
+
+</div>
+</div>
 
 Note:
 Walk through the construction photos here. Talk about the precision needed for fin alignment, the electronics integration, fitting everything inside the body tube, etc. This slide is intentionally image-heavy with minimal text — let the photos do the talking.
@@ -309,8 +341,6 @@ We only control 2 of the 4 fins. The tabs are small — about a quarter of the f
 
 ## The Camera System
 
-<!-- IMAGE: photo of the camera electronics setup, or the wiring diagram from camera_electronics/runcam_complete_wiring.svg -->
-
 - **RunCam** action camera with MOSFET trigger modification
 - **Dollatek** mod for remote start/stop
 - Camera is the whole point — stabilise the footage
@@ -369,24 +399,24 @@ Transition from hardware to algorithms. Two approaches: classical control theory
 
 The most widely-used controller in engineering:
 
-$$u = K\_p \, e + K\_i \int e \, dt + K\_d \, \dot{e}$$
+$$u = K\_p  e\_\theta + K\_i \int e\_\theta dt + K\_d \omega$$
 
-| Term | Question it answers |
+| Term | What it uses |
 |------|-------------------|
-| **P** (proportional) | How far off am I? |
-| **I** (integral) | Have I been off for a while? |
-| **D** (derivative) | How fast is the error changing? |
+| **P** | Orientation error $e\_\theta$ — how far off? |
+| **I** | Accumulated error — been drifting? |
+| **D** | Roll rate $\omega$ — how fast spinning? |
 
-Setpoint = 0 spin. Error = measured spin rate. Output = tab angle.
+Setpoint = launch orientation. Output = tab angle.
 
 Note:
-PID is the workhorse of control engineering. P reacts to current error, I corrects for persistent offset, D damps oscillations. For our rocket, the setpoint is zero spin rate. The error is the measured spin rate. The output is a tab deflection angle. You can visualise this as a simple feedback loop: target minus measured goes through PID, output drives the rocket, which feeds back to the sensor.
+PID is the workhorse of control engineering. In our implementation, the P and I terms act on orientation error — the angular deviation from launch orientation, not the spin rate directly. The D term uses the measured roll rate, which is the derivative of orientation. The output is a tab deflection angle. This means the controller both corrects accumulated drift (P+I) and damps current rotation (D). The gain names in code are Cprop, Cint, Cderiv.
 
 ---
 
 ## The Problem with Fixed Gains
 
-<img src="images/flight_dynamic_pressure.png" width="500">
+<img src="images/flight_dynamic_pressure.png" width="500" height="200">
 
 Dynamic pressure $q$ varies **~20×** during flight.
 
@@ -440,7 +470,7 @@ On the J800, even GS-PID can't get below 10.5 deg/s in calm conditions. The targ
 
 Wind creates a <span class="emphasis">periodic</span> disturbance torque:
 
-$$\tau\_{wind} \propto \sin\!\bigl(2(\theta\_{wind} - \phi\_{roll})\bigr)$$
+$$\tau\_{wind} \propto \sin \bigl(2(\theta\_{wind} - \phi\_{roll})\bigr)$$
 
 - Torque oscillates at **twice** the spin frequency (4-fin symmetry)
 - PID reacts to error — it cannot **predict** this pattern
@@ -506,8 +536,8 @@ SAC is an off-policy actor-critic algorithm. The key innovation is the entropy t
 
 Train SAC end-to-end on J800...
 
-## 0% success rate <!-- .element: class="emphasis" -->
-## 91 deg/s mean spin <!-- .element: class="emphasis" -->
+## 0% success rate <!-- .element: class="emphasis" style="margin: 0.2em 0;" -->
+## 91 deg/s mean spin <!-- .element: class="emphasis" style="margin: 0.2em 0;" -->
 
 What went wrong?
 
@@ -549,15 +579,15 @@ flowchart LR
     O["Observation"] --> PID["GS-PID<br/>(base action)"]
     O --> SAC["SAC<br/>(residual)"]
     PID --> SUM["+"]
-    SAC -->|"× 0.2"| SUM
-    SUM --> CLIP["clip [-1, 1]"]
+    SAC -->|"&times; 0.2"| SUM
+    SUM --> CLIP["clip [&minus;1, 1]"]
     CLIP --> ENV["Environment"]
     style PID fill:#3498db,color:#fff
     style SAC fill:#e74c3c,color:#fff
     style SUM fill:#f39c12,color:#fff
 </div>
 
-$$a\_{final} = \text{clip}\!\left(a\_{PID} + \text{clip}(a\_{SAC} \cdot 0.2)\right)$$
+$$a\_{final} = \text{clip} \left(a\_{PID} + \text{clip}(a\_{SAC} \cdot 0.2)\right)$$
 
 SAC can only adjust the PID output by ±20%.
 
@@ -646,18 +676,25 @@ This is the key insight of the whole project. The wind torque is periodic — it
 
 ---
 
-## Video Quality
+## J800 Trajectory — 3D View
 
-The whole point — camera footage quality:
+<img src="images/trajectory_3d_j800_residual-sac.gif" width="700">
 
-- Motion blur = exposure time × roll rate
-- At **5 deg/s** → **0.04° blur per frame** (excellent)
-- At 10.5 deg/s (GS-PID) → 0.08° blur (noticeable)
-
-**Pipeline:** Low spin rate → Gyroflow post-stabilisation → Smooth footage
+<span class="small">Residual SAC, 5 runs per wind level (0–5 m/s), physics-based lateral dynamics</span>
 
 Note:
-At 5 deg/s and 1/120s exposure time, each frame has only 0.04 degrees of rotational blur — completely invisible. Gyroflow can then handle the remaining small oscillations in post-processing. The combination of active stabilisation and computational post-processing gives us broadcast-quality footage from a model rocket.
+These 3D trajectories show the J800 with Residual SAC control across wind speeds 0, 1, 2, 3, and 5 m/s. Lateral displacement is computed using physics-based tracking — wind drag, thrust-vector tilt, and gyroscopic suppression. At 0 m/s the trajectory is perfectly vertical. At 5 m/s the maximum lateral drift reaches about 40 m — modest relative to the 2600 m apogee.
+
+---
+
+## J800 Trajectory — 2D Panels
+
+<img src="images/trajectory_2d_j800_residual-sac.gif" width="850">
+
+<span class="small">X vs altitude, Y vs altitude, and ground track</span>
+
+Note:
+The 2D panel view makes it easier to read off the drift magnitudes. The ground track panel on the right shows the x-y footprint. Even at 5 m/s wind, the rocket stays within roughly 40 m of the launch point — well within typical model rocket field boundaries for a flight reaching 2.6 km altitude.
 
 ---
 
