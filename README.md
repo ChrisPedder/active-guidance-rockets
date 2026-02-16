@@ -28,11 +28,11 @@ Closed-loop spin stabilization for model rockets with onboard cameras. Deflectab
 
 #### Estes Alpha III (C6)
 
-![Estes Alpha III airframe](visualizations/outputs/estes_alpha_airframe.png)
+![Estes Alpha III airframe](estes_alpha_airframe.png)
 
 #### AeroTech J800T (75mm Carbon Fibre)
 
-![J800 75mm airframe](visualizations/outputs/j800_airframe.png)
+![J800 75mm airframe](j800_airframe.png)
 
 ## Results Summary
 
