@@ -446,6 +446,39 @@ This is gain scheduling — a standard technique in aerospace. We divide by the 
 
 ---
 
+## GS-PID: The Exact Loop (J800T)
+
+Optimised gains (Bayesian optimisation, 50 episodes):
+
+| $K\_p$ | $K\_i$ | $K\_d$ | $q\_{ref}$ |
+|--------|--------|--------|------------|
+| 0.0213 | 0.0050 | 0.0271 | 13 268 Pa |
+
+<pre style="font-size: 0.45em; text-align: left;"><code class="python">
+# Gain-scheduled PID step (simplified)
+def gs_pid_step(roll_angle_deg, roll_rate_deg, q, integ_error, dt=0.01):
+    Kp, Ki, Kd, q_ref = 0.0213, 0.0050, 0.0271, 13268
+
+    # Gain schedule: keep loop gain constant across q
+    eff     = q * np.tanh(q / 200)
+    eff_ref = q_ref * np.tanh(q_ref / 200)
+    scale   = np.clip(eff_ref / max(eff, 1e-3), 0.5, 5.0)
+
+    # PID terms (Kp, Kd scaled; Ki not)
+    error        = roll_angle_deg          # orientation error
+    integ_error += error * dt
+    cmd = -(Kp * scale * error
+          + Ki * integ_error
+          + Kd * scale * roll_rate_deg)
+
+    return np.clip(cmd / 30.0, -1, 1), integ_error
+</code></pre>
+
+Note:
+This is the exact PID loop that runs on the J800. The gains were found by Latin Hypercube Sampling followed by Nelder-Mead refinement. Kp and Kd are scaled inversely with control effectiveness so the product (gain times effectiveness) stays constant. Ki is NOT scaled — integral action should accumulate consistently regardless of dynamic pressure. The output is normalised to [-1, 1] by dividing by the 30-degree max deflection.
+
+---
+
 ## Results: AeroTech J800T (Classical)
 
 Targets NOT met ✗
@@ -512,6 +545,44 @@ Tab deflection ∈ [-1, 1]
 
 Note:
 We formulate this as a standard RL problem. The observation gives the agent everything a real IMU and onboard computer could measure — 10 dimensions total. The action is a single continuous value — how much to deflect the tab. The reward encourages low spin rate with smooth control actions.
+
+---
+
+## The Reward Function
+
+<pre style="font-size: 0.42em; text-align: left;"><code class="python">
+def _calculate_reward(self, camera_shake):
+    reward = 0.0
+    roll_rate_deg = np.rad2deg(abs(self.roll_rate))
+
+    # 1. Roll rate reward (primary objective)
+    if   roll_rate_deg < 5:   reward += 10.0        # Excellent
+    elif roll_rate_deg < 15:  reward += 5.0          # Good
+    elif roll_rate_deg < 30:  reward += 2.0          # Acceptable
+    else:                     reward -= roll_rate_deg * 0.05  # Penalty
+
+    # 2. Camera shake penalty
+    reward -= camera_shake * 0.1
+
+    # 3. Control effort penalty
+    reward -= abs(self.last_action) * 0.1
+
+    # 4. Control smoothness (jitter penalty)
+    action_change = abs(self.last_action - self.previous_action)
+    reward -= action_change * 0.5
+
+    # 5. Altitude progress bonus
+    if self.altitude > 0:
+        reward += min(self.altitude / 100, 2.0)
+
+    # 6. Survival bonus
+    reward += 0.1
+
+    return np.clip(reward, -20, 20)
+</code></pre>
+
+Note:
+Six terms. The dominant signal is the stepped roll-rate bonus — the agent gets +10 per timestep when below 5 deg/s, versus a growing penalty above 30. Camera shake combines roll rate and roll acceleration to penalise both steady spinning and rapid oscillation. The effort and smoothness penalties discourage bang-bang control, which would damage servos on real hardware. Altitude progress and survival bonuses keep the agent engaged during the coast phase when control authority fades.
 
 ---
 
