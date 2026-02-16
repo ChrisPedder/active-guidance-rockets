@@ -6,9 +6,9 @@ Shows 3D flight paths for multiple simulation runs under varying wind
 conditions. Also provides a 2D panel view (x-z, y-z, x-y) which is
 often easier to read.
 
-Lateral drift is estimated from wind speed and direction at each timestep
-(the simulation only tracks altitude; this gives a first-order wind-drift
-estimate).
+Lateral displacement is computed using the physics-based LateralTracker
+(wind drag, thrust-vector tilt, gyroscopic suppression).  Pass --legacy
+to fall back to the old linear drift estimate for comparison.
 
 Usage:
     # Display 3D plot (Estes, GS-PID)
@@ -21,6 +21,9 @@ Usage:
     # Both modes
     uv run python visualizations/trajectory_montecarlo.py --rocket estes_alpha --controller gs-pid \
         --mode both --save
+
+    # Old drift estimate for comparison
+    uv run python visualizations/trajectory_montecarlo.py --rocket estes_alpha --controller gs-pid --legacy
 """
 
 import argparse
@@ -42,6 +45,7 @@ from controllers.pid_controller import (
     GainScheduledPIDController,
     PIDConfig,
 )
+from lateral_dynamics import LateralTracker
 
 # Consistent color scheme
 COLORS = [
@@ -80,13 +84,31 @@ def make_controller(controller_name: str, pid_config: PIDConfig):
         return PIDController(pid_config, use_observations=False)
 
 
-def run_episode_trajectory(config, wind_speed, controller_name, pid_config, seed):
+def _get_thrust(info, config):
+    """Extract thrust from info dict with fallback."""
+    t = info.get("time_s", 0.0)
+    thrust = info.get("current_thrust_N", 0.0)
+    burn_time = getattr(config.motor, "burn_time_s", None) or 2.0
+    if thrust == 0.0 and t < burn_time:
+        thrust = getattr(config.motor, "avg_thrust_N", None) or 5.4
+    if t >= burn_time:
+        thrust = 0.0
+    return thrust
+
+
+def run_episode_trajectory(
+    config, wind_speed, controller_name, pid_config, seed, legacy=False
+):
     """Run a single episode and return trajectory data.
 
-    Returns dict with keys: time, altitude, x, y, velocity
-    Lateral position is estimated by integrating wind drift.
+    Returns dict with keys: time, altitude, x, y, velocity.
+    Uses physics-based LateralTracker unless legacy=True.
     """
     env = create_env(config, wind_speed)
+    airframe = env.airframe
+    tracker = LateralTracker(airframe)
+    tracker.reset()
+
     controller = make_controller(controller_name, pid_config)
     controller.reset()
     obs, info = env.reset(seed=seed)
@@ -94,12 +116,10 @@ def run_episode_trajectory(config, wind_speed, controller_name, pid_config, seed
     dt = getattr(config.environment, "dt", 0.01)
     times = [0.0]
     altitudes = [0.0]
-    x_pos = [0.0]
-    y_pos = [0.0]
     velocities = [0.0]
-
-    # Integrate lateral drift from wind
-    cur_x, cur_y = 0.0, 0.0
+    cur_dx, cur_dy = 0.0, 0.0
+    drift_x = [0.0]
+    drift_y = [0.0]
 
     while True:
         action = controller.step(obs, info, dt)
@@ -110,50 +130,62 @@ def run_episode_trajectory(config, wind_speed, controller_name, pid_config, seed
         ws = info.get("wind_speed_ms", 0.0)
         wd = info.get("wind_direction_rad", 0.0)
         v = info.get("vertical_velocity_ms", 0.0)
+        mass = info.get("mass_kg", 0.1)
+        thrust = _get_thrust(info, config)
 
-        # Estimate lateral drift from wind
-        # Wind pushes rocket sideways; drift ~ wind_speed * dt
-        # Use a fraction of wind speed (rocket has some inertia)
-        drift_factor = 0.3  # empirical scaling for lateral drift
-        cur_x += ws * np.cos(wd) * drift_factor * dt
-        cur_y += ws * np.sin(wd) * drift_factor * dt
+        # Physics-based lateral tracking
+        tracker.update(info, thrust, mass, dt)
+
+        # Legacy drift estimate (kept for --legacy flag)
+        cur_dx += ws * np.cos(wd) * 0.3 * dt
+        cur_dy += ws * np.sin(wd) * 0.3 * dt
+        drift_x.append(cur_dx)
+        drift_y.append(cur_dy)
 
         times.append(t)
         altitudes.append(alt)
-        x_pos.append(cur_x)
-        y_pos.append(cur_y)
         velocities.append(v)
 
         if terminated or truncated:
             break
 
     env.close()
+
+    if legacy:
+        x_arr, y_arr = np.array(drift_x), np.array(drift_y)
+    else:
+        x_arr, y_arr = np.array(tracker.x_history), np.array(tracker.y_history)
+
     return {
         "time": np.array(times),
         "altitude": np.array(altitudes),
-        "x": np.array(x_pos),
-        "y": np.array(y_pos),
+        "x": x_arr,
+        "y": y_arr,
         "velocity": np.array(velocities),
     }
 
 
-def run_episode_trajectory_rl(config, wind_speed, model, vec_normalize, seed):
+def run_episode_trajectory_rl(
+    config, wind_speed, model, vec_normalize, seed, legacy=False
+):
     """Run a single episode with an RL model and return trajectory data.
 
-    Returns dict with keys: time, altitude, x, y, velocity
-    Lateral position is estimated by integrating wind drift.
+    Uses physics-based LateralTracker unless legacy=True.
     """
     env = create_wrapped_env(config, wind_speed)
+    airframe = config.physics.resolve_airframe()
+    tracker = LateralTracker(airframe)
+    tracker.reset()
+
     obs, info = env.reset(seed=seed)
 
     dt = getattr(config.environment, "dt", 0.01)
     times = [0.0]
     altitudes = [0.0]
-    x_pos = [0.0]
-    y_pos = [0.0]
     velocities = [0.0]
-
-    cur_x, cur_y = 0.0, 0.0
+    cur_dx, cur_dy = 0.0, 0.0
+    drift_x = [0.0]
+    drift_y = [0.0]
 
     while True:
         if vec_normalize is not None:
@@ -169,26 +201,35 @@ def run_episode_trajectory_rl(config, wind_speed, model, vec_normalize, seed):
         ws = info.get("wind_speed_ms", 0.0)
         wd = info.get("wind_direction_rad", 0.0)
         v = info.get("vertical_velocity_ms", 0.0)
+        mass = info.get("mass_kg", 0.1)
+        thrust = _get_thrust(info, config)
 
-        drift_factor = 0.3
-        cur_x += ws * np.cos(wd) * drift_factor * dt
-        cur_y += ws * np.sin(wd) * drift_factor * dt
+        tracker.update(info, thrust, mass, dt)
+
+        cur_dx += ws * np.cos(wd) * 0.3 * dt
+        cur_dy += ws * np.sin(wd) * 0.3 * dt
+        drift_x.append(cur_dx)
+        drift_y.append(cur_dy)
 
         times.append(t)
         altitudes.append(alt)
-        x_pos.append(cur_x)
-        y_pos.append(cur_y)
         velocities.append(v)
 
         if terminated or truncated:
             break
 
     env.close()
+
+    if legacy:
+        x_arr, y_arr = np.array(drift_x), np.array(drift_y)
+    else:
+        x_arr, y_arr = np.array(tracker.x_history), np.array(tracker.y_history)
+
     return {
         "time": np.array(times),
         "altitude": np.array(altitudes),
-        "x": np.array(x_pos),
-        "y": np.array(y_pos),
+        "x": x_arr,
+        "y": y_arr,
         "velocity": np.array(velocities),
     }
 
@@ -201,6 +242,7 @@ def collect_data(
     pid_config,
     model=None,
     vec_normalize=None,
+    legacy=False,
 ):
     """Collect trajectory data for all wind levels and runs."""
     data = {}
@@ -209,14 +251,20 @@ def collect_data(
         for i in range(n_runs):
             seed = 2000 * int(ws) + i
             if model is not None:
-                traj = run_episode_trajectory_rl(config, ws, model, vec_normalize, seed)
+                traj = run_episode_trajectory_rl(
+                    config, ws, model, vec_normalize, seed, legacy=legacy
+                )
             else:
                 traj = run_episode_trajectory(
-                    config, ws, controller_name, pid_config, seed
+                    config, ws, controller_name, pid_config, seed, legacy=legacy
                 )
             runs.append(traj)
             max_alt = traj["altitude"].max()
-            print(f"  Wind {ws} m/s, run {i+1}/{n_runs}: " f"max_alt={max_alt:.1f}m")
+            max_xy = np.sqrt(traj["x"] ** 2 + traj["y"] ** 2).max()
+            print(
+                f"  Wind {ws} m/s, run {i+1}/{n_runs}: "
+                f"max_alt={max_alt:.1f}m, max_xy={max_xy:.1f}m"
+            )
         data[ws] = runs
     return data
 
@@ -497,6 +545,11 @@ def main():
         choices=["gif", "mp4"],
         help="Output format when saving (default: gif)",
     )
+    parser.add_argument(
+        "--legacy",
+        action="store_true",
+        help="Use old linear drift estimate instead of physics-based LateralTracker",
+    )
     args = parser.parse_args()
 
     config_path, pid_config = get_config_and_gains(args.rocket)
@@ -526,6 +579,9 @@ def main():
     print(f"  Wind levels: {args.wind_levels}")
     print(f"  Runs per level: {args.n_runs}")
 
+    mode_label = "legacy drift" if args.legacy else "physics-based"
+    print(f"  Lateral model: {mode_label}")
+
     data = collect_data(
         config,
         args.wind_levels,
@@ -534,6 +590,7 @@ def main():
         pid_config,
         model=model,
         vec_normalize=vec_normalize,
+        legacy=args.legacy,
     )
 
     ranges = compute_axis_ranges(data)
