@@ -19,7 +19,7 @@ from controllers.pid_controller import (
     print_summary,
 )
 from compare_controllers import create_env
-from rocket_config import load_config
+from simulation.config import load_config
 
 
 @pytest.fixture

@@ -20,7 +20,7 @@ import numpy as np
 import pytest
 from unittest.mock import MagicMock, patch, PropertyMock
 
-from rocket_config import load_config, SACConfig, RocketTrainingConfig
+from simulation.config import load_config, SACConfig, RocketTrainingConfig
 
 # ---------------------------------------------------------------------------
 # MovingAverageEarlyStoppingCallback (train_residual_sac.py)

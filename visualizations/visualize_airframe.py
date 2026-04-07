@@ -336,7 +336,7 @@ def visualize_airframe(airframe, config_path=None, annotate=True):
     tab_chord_frac = 0.25
     tab_span_frac = 0.5
     if config_path:
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config = load_config(config_path)
         tab_chord_frac = config.physics.tab_chord_fraction

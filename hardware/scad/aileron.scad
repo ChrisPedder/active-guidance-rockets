@@ -11,10 +11,10 @@ module aileron() {
     difference() {
         // Main aileron body with airfoil profile
         aileron_body();
-        
+
         // Hinge holes
         hinge_holes();
-        
+
         // Servo adapter slot
         adapter_slot();
     }
@@ -38,18 +38,18 @@ module aileron_profile() {
     // - Rounded leading edge
     // - Maximum thickness at ~30% chord
     // - Tapered trailing edge
-    
+
     // Using hull of circles to create smooth shape
     hull() {
         // Leading edge - full round
         translate([aileron_le_radius, 0])
             circle(r = aileron_le_radius);
-        
+
         // Maximum thickness point (at 30% chord)
         translate([aileron_chord * 0.3, 0])
             scale([1, aileron_thickness / aileron_le_radius / 2])
                 circle(r = aileron_le_radius);
-        
+
         // Trailing edge - thin
         translate([aileron_chord - aileron_te_thickness/2, 0])
             scale([aileron_te_thickness/2, aileron_te_thickness/2])
@@ -74,7 +74,7 @@ module adapter_slot() {
     translate([aileron_hinge_offset, 0, 0]) {
         // Main slot
         cube([aileron_slot_depth * 2, aileron_slot_width, adapter_tab_height + 1], center = true);
-        
+
         // Widen at bottom for adapter insertion
         translate([0, 0, -adapter_tab_height/2])
             cube([aileron_slot_depth * 2, aileron_slot_width + 1, 2], center = true);
@@ -105,7 +105,7 @@ module aileron_thick() {
 module aileron_lightened() {
     difference() {
         aileron();
-        
+
         // Lightening holes along span
         for (y = [-aileron_hinge_spacing/3, 0, aileron_hinge_spacing/3]) {
             translate([aileron_chord * 0.5, 0, y])

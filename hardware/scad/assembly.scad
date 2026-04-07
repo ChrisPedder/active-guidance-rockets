@@ -30,22 +30,22 @@ module servo_model() {
     color(color_servo) {
         // Main body
         cube([servo_body_length, servo_body_width, servo_body_height], center = true);
-        
+
         // Mounting tabs
         translate([0, 0, servo_body_height/2 - servo_tab_height])
-            cube([servo_body_length, 
-                  servo_body_width + servo_tab_extension * 2, 
+            cube([servo_body_length,
+                  servo_body_width + servo_tab_extension * 2,
                   servo_tab_thickness], center = true);
-        
+
         // Output shaft
-        translate([servo_body_length/2 - servo_shaft_offset_x, 
-                   0, 
+        translate([servo_body_length/2 - servo_shaft_offset_x,
+                   0,
                    servo_body_height/2 + servo_shaft_offset_z])
             cylinder(h = 4, d = servo_shaft_diameter, center = false);
-        
+
         // Horn (cross pattern)
-        translate([servo_body_length/2 - servo_shaft_offset_x, 
-                   0, 
+        translate([servo_body_length/2 - servo_shaft_offset_x,
+                   0,
                    servo_body_height/2 + servo_shaft_offset_z + 3])
             horn();
     }
@@ -99,35 +99,35 @@ module assembly() {
     pocket_z = -(mount_wall_thickness + mount_pocket_height/2) - fin_engagement_depth;
     shaft_z = pocket_z + mount_pocket_height/2 + servo_shaft_offset_z;
     shaft_x = mount_total_length/2;
-    
+
     // Fin (reference)
     if (show_fin)
         translate([0, 0, exploded * 30])
             fin_section();
-    
+
     // Servo mount housing
     if (show_servo_mount)
         translate([0, 0, exploded * -10])
             servo_mount();
-    
+
     // Servo inside mount
     if (show_servo)
         translate([servo_shaft_offset_x, 0, pocket_z + exploded * -20])
             servo_model();
-    
+
     // Adapter on servo horn
     if (show_adapter)
         translate([shaft_x + 2, 0, shaft_z + 4 + exploded * -30])
             rotate([0, 0, aileron_deflection])  // Rotates with servo
                 servo_arm_adapter();
-    
+
     // Aileron
     if (show_aileron)
         translate([shaft_x + 5 + aileron_hinge_offset, 0, shaft_z - 5 + exploded * -40])
             rotate([0, -aileron_deflection, 0])  // Deflection rotation
                 rotate([90, 0, 0])
                     aileron();
-    
+
     // Hinge pins
     if (show_hinge_pins)
         translate([shaft_x + 5, 0, shaft_z - 5 + exploded * -35])

@@ -27,7 +27,7 @@ from optimization.bayesian_optimize import (
     evaluate_gs_pid,
     get_baseline_params,
 )
-from rocket_config import load_config
+from simulation.config import load_config
 
 
 class TestParameterBounds:

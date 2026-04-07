@@ -38,7 +38,7 @@ Residual SAC (2M steps) meets < 5 target at 0-2 m/s. Standalone SAC (alpha=0.5, 
 
 ## Key Design Decisions
 
-- **Simple controllers win (mostly).** 17 advanced approaches were tested — most eliminated. Residual SAC and standalone SAC (with correct hyperparameters) beat PID on J800 by 2-3x, but require careful tuning. See `experimental_results.md` for the full record.
+- **Simple controllers win (mostly).** 17 advanced approaches were tested — most eliminated. Residual SAC and standalone SAC (with correct hyperparameters) beat PID on J800 by 2-3x, but require careful tuning. See `docs/experimental_results.md` for the full record.
 - **Gain scheduling** addresses the ~20x variation in control effectiveness during flight (varying dynamic pressure).
 - **Wind torque is periodic** at the spin frequency (`torque ∝ sin(wind_dir - roll_angle)`). No feedforward/estimation approach reliably tracked this.
 - **Hardware over algorithms:** 4-fin + 200 Hz GS-PID (8.4 deg/s at 3 m/s) outperforms every classical controller at baseline hardware. Residual SAC (4.5 deg/s at 3 m/s) now surpasses even hardware upgrades.
@@ -55,13 +55,14 @@ Residual SAC (2M steps) meets < 5 target at 0-2 m/s. Standalone SAC (alpha=0.5, 
 
 ```
 ├── compare_controllers.py          # Main evaluation tool
-├── realistic_spin_rocket.py        # Physics simulation
-├── spin_stabilized_control_env.py  # Gym environment
-├── rocket_config.py                # Configuration management
-├── wind_model.py                   # Wind disturbance model
-├── motor_loader.py                 # Motor thrust curve loading
-├── thrustcurve_motor_data.py       # Thrust curve data parsing
-├── generate_motor_config.py        # Auto-generate configs from motor specs
+│
+├── simulation/                     # Core simulation package
+│   ├── config.py                   # YAML config loading and dataclasses
+│   ├── environment.py              # Gymnasium environment for RL training
+│   ├── rocket.py                   # 6-DOF physics with real motor data
+│   ├── wind.py                     # Sinusoidal + Dryden wind disturbance models
+│   ├── motors.py                   # Motor thrust curve loading
+│   └── sensors/                    # IMU noise simulation (ICM-20948)
 │
 ├── controllers/
 │   ├── pid_controller.py           # PID and Gain-Scheduled PID
@@ -71,10 +72,9 @@ Residual SAC (2M steps) meets < 5 target at 0-2 m/s. Standalone SAC (alpha=0.5, 
 │   └── video_quality_metric.py     # Gyroflow post-stabilization analysis
 │
 ├── training/
-│   ├── train_improved.py           # PPO training
+│   ├── train_improved.py           # PPO training + environment factory
 │   ├── train_sac.py                # SAC training with wind curriculum
-│   ├── train_residual_sac.py       # Residual SAC (PID + RL corrections)
-│   └── sweep_hyperparams.py        # Hyperparameter sweep automation
+│   └── train_residual_sac.py       # Residual SAC (PID + RL corrections)
 │
 ├── optimization/
 │   ├── optimize_pid.py             # LHS + Nelder-Mead PID gain optimization
@@ -85,41 +85,15 @@ Residual SAC (2M steps) meets < 5 target at 0-2 m/s. Standalone SAC (alpha=0.5, 
 │   ├── components.py               # NoseCone, BodyTube, TrapezoidFinSet
 │   └── openrocket_parser.py        # .ork file parser
 │
-├── rocket_env/
-│   ├── inference/                  # ONNX inference for embedded deployment
-│   │   ├── controller.py
-│   │   └── onnx_runner.py
-│   └── sensors/                    # Sensor simulation
-│       ├── gyro_model.py
-│       ├── imu_config.py
-│       └── imu_wrapper.py
-│
-├── configs/
-│   ├── estes_c6_sac_wind.yaml      # Main Estes config (sinusoidal wind)
-│   ├── aerotech_j800_wind.yaml     # J800 config
-│   ├── estes_c6_dryden_*.yaml      # Estes Dryden turbulence (light/moderate/severe)
-│   ├── aerotech_j800_dryden_moderate.yaml  # J800 Dryden moderate turbulence
-│   ├── estes_c6_4fin.yaml          # Hardware study: 4 active fins
-│   ├── estes_c6_200hz.yaml         # Hardware study: 200 Hz loop
-│   ├── estes_c6_500hz.yaml         # Hardware study: 500 Hz loop
-│   ├── estes_c6_4fin_200hz.yaml    # Hardware study: combined
-│   ├── estes_c6_tab{10,15,25,30}.yaml  # Tab deflection sweep
-│   ├── estes_c6_bigtab.yaml        # 4x tab area
-│   ├── estes_c6_residual*.yaml     # Residual RL configs
-│   ├── estes_c6_dob_sac.yaml       # DOB-SAC config
-│   └── airframes/                  # Airframe YAML definitions
-│
-├── optimization_results/           # Stored gain optimization results (JSON)
-├── tests/                          # 30 test files, 662 tests
-├── visualizations/                 # Motor & agent visualization scripts
-├── deployment/                     # export_onnx.py, export_all.py
-├── docs/                           # Wind torque analysis
-├── camera_electronics/             # Hardware modification guides
-├── rocket-fin-servo-mount/         # Mechanical design docs
+├── configs/                        # YAML environment configs
+├── scripts/                        # Shell automation scripts
+├── tests/                          # Pytest test suite (~960 tests)
+├── visualizations/                 # Plotting and animation scripts
+├── hardware/                       # Camera electronics and servo mount docs
+├── docs/                           # Wind torque analysis, experimental results
 ├── slides/                         # Presentation materials
-├── models/                         # Trained RL models & wind estimator weights
-├── sweeps/                         # Hyperparameter sweep results
-└── evaluation_results/             # Past evaluation plots/reports
+├── models/                         # Trained RL models (gitignored)
+└── optimization_results/           # Gain optimization results (JSON)
 ```
 
 ---

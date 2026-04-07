@@ -11,7 +11,7 @@ Supports two gust models:
 - Dryden turbulence: MIL-F-8785C forming filters on white noise
 
 Usage:
-    from wind_model import WindModel, WindConfig
+    from simulation.wind import WindModel, WindConfig
 
     # Legacy sinusoidal model (default, backward compatible)
     config = WindConfig(enable=True, base_speed=3.0, max_gust_speed=2.0)

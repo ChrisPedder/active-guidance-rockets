@@ -166,7 +166,7 @@ class TestLeadCompensatedGSPIDController:
     def test_full_episode_integration(self):
         """Run a full episode with LeadCompensatedGSPIDController."""
         from compare_controllers import create_env, run_controller_episode
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config = load_config("configs/estes_c6_sac_wind.yaml")
         env = create_env(config, wind_speed=1.0)

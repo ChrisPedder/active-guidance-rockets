@@ -60,7 +60,7 @@ from compare_controllers import (
 from controllers.pid_controller import PIDConfig, GainScheduledPIDController
 from controllers.adrc_controller import ADRCController, ADRCConfig, estimate_adrc_config
 from controllers.ensemble_controller import EnsembleController, EnsembleConfig
-from rocket_config import load_config
+from simulation.config import load_config
 
 
 @dataclass

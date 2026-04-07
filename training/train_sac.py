@@ -39,7 +39,7 @@ from stable_baselines3.common.callbacks import (
 )
 from stable_baselines3.common.monitor import Monitor
 
-from rocket_config import RocketTrainingConfig, load_config
+from simulation.config import RocketTrainingConfig, load_config
 from training.train_improved import (
     create_environment,
     TrainingMetricsCallback,
@@ -121,7 +121,7 @@ class WindCurriculumCallback(BaseCallback):
                 base_env.wind_model.config.max_gust_speed = gust_speed
             elif hasattr(base_env, "config"):
                 # Wind was disabled, need to enable it
-                from wind_model import WindModel, WindConfig
+                from simulation.wind import WindModel, WindConfig
 
                 base_env.config.enable_wind = base_speed > 0
                 base_env.config.base_wind_speed = base_speed
@@ -422,7 +422,7 @@ Examples:
 
     # Ensure SAC config exists
     if config.sac is None:
-        from rocket_config import SACConfig
+        from simulation.config import SACConfig
 
         config.sac = SACConfig()
 

@@ -48,9 +48,9 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 
 import copy
 
-from rocket_config import RocketTrainingConfig, load_config
-from spin_stabilized_control_env import RocketConfig
-from realistic_spin_rocket import RealisticMotorRocket
+from simulation.config import RocketTrainingConfig, load_config
+from simulation.environment import RocketConfig
+from simulation.rocket import RealisticMotorRocket
 from controllers.pid_controller import (
     PIDController,
     GainScheduledPIDController,
@@ -59,9 +59,9 @@ from controllers.pid_controller import (
 )
 from controllers.adrc_controller import ADRCController, ADRCConfig, estimate_adrc_config
 from controllers.ensemble_controller import EnsembleController, EnsembleConfig
-from wind_model import WindModel, WindConfig
+from simulation.wind import WindModel, WindConfig
 from training.train_improved import create_environment
-from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+from simulation.sensors import IMUObservationWrapper, IMUConfig
 
 
 @dataclass

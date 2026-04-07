@@ -290,7 +290,7 @@ class TestCreateEnv:
 
     def test_create_env_from_config(self, sample_training_config_yaml):
         """Test environment creation from config file."""
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config = load_config(sample_training_config_yaml)
         env = create_env(config)
@@ -307,7 +307,7 @@ class TestRunEpisode:
 
     def test_run_episode(self, sample_training_config_yaml):
         """Test running a single episode."""
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config = load_config(sample_training_config_yaml)
         env = create_env(config)

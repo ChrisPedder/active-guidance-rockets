@@ -7,7 +7,7 @@ import numpy as np
 import gymnasium as gym
 from gymnasium import spaces
 
-from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+from simulation.sensors import IMUObservationWrapper, IMUConfig
 
 
 class MockRocketEnv(gym.Env):

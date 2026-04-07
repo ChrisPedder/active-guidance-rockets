@@ -48,7 +48,7 @@ from stable_baselines3.common.callbacks import (
     CheckpointCallback,
 )
 
-from rocket_config import RocketTrainingConfig, load_config
+from simulation.config import RocketTrainingConfig, load_config
 from training.train_improved import create_environment, TrainingMetricsCallback
 
 
@@ -431,7 +431,7 @@ Examples:
 
     # Ensure SAC config exists
     if config.sac is None:
-        from rocket_config import SACConfig
+        from simulation.config import SACConfig
 
         config.sac = SACConfig()
 

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import yaml
 
-from rocket_config import load_config
+from simulation.config import load_config
 
 # ─── Config file paths ───────────────────────────────────────────────────────
 

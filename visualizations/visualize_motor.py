@@ -23,7 +23,7 @@ import argparse
 import yaml
 import glob
 
-from motor_loader import Motor, load_motor_from_config
+from simulation.motors import Motor, load_motor_from_config
 
 
 def get_motor(motor_name: str):
@@ -196,11 +196,11 @@ def plot_motor_profile(motor, save_path: str = None, show: bool = True):
     stats_text = f"""
     MOTOR SPECIFICATIONS
     ════════════════════════════════════
-    
+
     Manufacturer:     {motor.manufacturer}
     Designation:      {motor.designation}
     Motor Class:      {motor_class}
-    
+
     ─────────────────────────────────────
     PHYSICAL PROPERTIES
     ─────────────────────────────────────
@@ -209,7 +209,7 @@ def plot_motor_profile(motor, save_path: str = None, show: bool = True):
     Total Mass:       {motor.total_mass * 1000:.1f} g
     Propellant Mass:  {motor.propellant_mass * 1000:.1f} g
     Case Mass:        {motor.case_mass * 1000:.1f} g
-    
+
     ─────────────────────────────────────
     PERFORMANCE
     ─────────────────────────────────────
@@ -218,7 +218,7 @@ def plot_motor_profile(motor, save_path: str = None, show: bool = True):
     Average Thrust:   {motor.average_thrust:.1f} N
     Peak Thrust:      {motor.max_thrust:.1f} N
     Specific Impulse: {isp:.0f} s
-    
+
     ─────────────────────────────────────
     RECOMMENDED ROCKET MASS
     ─────────────────────────────────────
@@ -359,10 +359,10 @@ def main():
 Examples:
     # Plot single motor profile
     python visualize_motor.py --motor estes_c6
-    
+
     # Save to file
     python visualize_motor.py --motor aerotech_f40 --save motor_f40.png
-    
+
     # Compare multiple motors
     python visualize_motor.py --compare estes_c6 aerotech_f40 cesaroni_g79
         """,

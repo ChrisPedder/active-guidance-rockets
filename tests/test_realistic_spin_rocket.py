@@ -39,8 +39,8 @@ class TestRealisticMotorRocket:
 
     def test_realistic_motor_rocket_creation(self, airframe, sample_motor_config):
         """Test creating RealisticMotorRocket environment."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
 
         config = RocketConfig(
             max_tab_deflection=30.0,
@@ -60,8 +60,8 @@ class TestRealisticMotorRocket:
 
     def test_environment_reset(self, airframe, sample_motor_config):
         """Test environment reset."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
 
         config = RocketConfig()
 
@@ -79,8 +79,8 @@ class TestRealisticMotorRocket:
 
     def test_environment_step(self, airframe, sample_motor_config):
         """Test environment step."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
 
         config = RocketConfig()
 
@@ -102,8 +102,8 @@ class TestRealisticMotorRocket:
 
     def test_motor_thrust_during_simulation(self, airframe, sample_motor_config):
         """Test that motor thrust is applied during simulation."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
 
         config = RocketConfig(dt=0.01)
 
@@ -127,8 +127,8 @@ class TestRealisticMotorRocket:
 
     def test_motor_info_in_step(self, airframe, sample_motor_config):
         """Test that motor info is included in step info."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
 
         config = RocketConfig()
 
@@ -147,8 +147,8 @@ class TestRealisticMotorRocket:
 
     def test_propellant_consumption(self, airframe, sample_motor_config):
         """Test that propellant is consumed during burn."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
 
         config = RocketConfig(dt=0.01)
 
@@ -176,7 +176,7 @@ class TestRealisticMotorRocket:
 
     def test_missing_airframe_error(self, sample_motor_config):
         """Test that missing airframe raises error."""
-        from realistic_spin_rocket import RealisticMotorRocket
+        from simulation.rocket import RealisticMotorRocket
 
         with pytest.raises(ValueError, match="RocketAirframe is required"):
             RealisticMotorRocket(
@@ -186,7 +186,7 @@ class TestRealisticMotorRocket:
 
     def test_missing_motor_error(self, airframe):
         """Test that missing motor raises error."""
-        from realistic_spin_rocket import RealisticMotorRocket
+        from simulation.rocket import RealisticMotorRocket
 
         with pytest.raises(ValueError, match="Must provide either"):
             RealisticMotorRocket(
@@ -208,8 +208,8 @@ class TestRealisticMotorRocketWithMotorData:
 
     def test_create_with_motor_data(self, airframe):
         """Test creating environment with MotorData object."""
-        from realistic_spin_rocket import RealisticMotorRocket, MotorData
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket, MotorData
+        from simulation.environment import RocketConfig
         from scipy import interpolate
 
         # Create MotorData directly
@@ -322,7 +322,7 @@ components:
 
     def test_create_environment_from_config(self, config_yaml):
         """Test creating environment from config file."""
-        from realistic_spin_rocket import create_environment_from_config
+        from simulation.rocket import create_environment_from_config
 
         env = create_environment_from_config(config_yaml)
 
@@ -333,7 +333,7 @@ components:
     def test_create_environment_missing_airframe(self, tmp_path):
         """Test error when airframe_file is missing."""
         import yaml
-        from realistic_spin_rocket import create_environment_from_config
+        from simulation.rocket import create_environment_from_config
 
         config = {
             "physics": {
@@ -368,8 +368,8 @@ class TestRealisticMotorRocketPhysics:
     @pytest.fixture
     def env(self):
         """Create an environment for testing."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
         from airframe import RocketAirframe
 
         airframe = RocketAirframe.estes_alpha()
@@ -456,7 +456,7 @@ class TestMotorDataFallback:
 
     def test_fallback_motor_data_creation(self):
         """Test that fallback MotorData works."""
-        from realistic_spin_rocket import MotorData
+        from simulation.rocket import MotorData
 
         motor = MotorData(
             manufacturer="Test",
@@ -480,7 +480,7 @@ class TestMotorDataFallback:
 
     def test_fallback_motor_data_thrust(self):
         """Test thrust interpolation in fallback MotorData."""
-        from realistic_spin_rocket import MotorData
+        from simulation.rocket import MotorData
 
         motor = MotorData(
             manufacturer="Test",
@@ -504,7 +504,7 @@ class TestMotorDataFallback:
 
     def test_fallback_motor_data_mass(self):
         """Test mass calculation in fallback MotorData."""
-        from realistic_spin_rocket import MotorData
+        from simulation.rocket import MotorData
 
         motor = MotorData(
             manufacturer="Test",
@@ -543,8 +543,8 @@ class TestRealisticMotorRocketTWR:
 
     def test_normal_twr(self, airframe, capsys):
         """Test environment with normal TWR doesn't warn."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
 
         # Normal motor config with good TWR
         motor_config = {
@@ -579,8 +579,8 @@ class TestRealisticMotorRocketUpdatePropulsion:
     @pytest.fixture
     def env(self):
         """Create an environment for testing."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
         from airframe import RocketAirframe
 
         airframe = RocketAirframe.estes_alpha()

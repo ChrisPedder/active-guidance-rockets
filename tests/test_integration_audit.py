@@ -19,16 +19,16 @@ from pathlib import Path
 from unittest.mock import patch
 from dataclasses import dataclass
 
-from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
-from realistic_spin_rocket import RealisticMotorRocket
+from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
+from simulation.rocket import RealisticMotorRocket
 from airframe import RocketAirframe
-from wind_model import WindModel, WindConfig
+from simulation.wind import WindModel, WindConfig
 from controllers.pid_controller import (
     PIDController,
     PIDConfig,
     GainScheduledPIDController,
 )
-from rocket_config import load_config
+from simulation.config import load_config
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -433,7 +433,7 @@ class TestDynamicsToIMUIntegration:
         self, estes_airframe, base_config, motor_config
     ):
         """IMU wrapper must add noise to obs[3] (roll rate)."""
-        from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+        from simulation.sensors import IMUObservationWrapper, IMUConfig
 
         env = make_motor_env(estes_airframe, motor_config, base_config)
         imu_config = IMUConfig.icm_20948()
@@ -467,7 +467,7 @@ class TestDynamicsToIMUIntegration:
         absolute angle. Angle is derived by integration (which the environment
         does internally) and doesn't have IMU noise applied.
         """
-        from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+        from simulation.sensors import IMUObservationWrapper, IMUConfig
 
         env = make_motor_env(estes_airframe, motor_config, base_config)
         imu_config = IMUConfig.icm_20948()
@@ -495,7 +495,7 @@ class TestDynamicsToIMUIntegration:
         Classical controllers read roll_rate from the info dict to bypass
         sensor_delay_steps. The info dict value must also be noisy.
         """
-        from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+        from simulation.sensors import IMUObservationWrapper, IMUConfig
 
         env = make_motor_env(estes_airframe, motor_config, base_config)
         imu_config = IMUConfig.icm_20948()
@@ -524,7 +524,7 @@ class TestDynamicsToIMUIntegration:
         If the environment uses a different dt (e.g., 0.005 for 200 Hz),
         the IMU dt must match.
         """
-        from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+        from simulation.sensors import IMUObservationWrapper, IMUConfig
 
         env = make_motor_env(estes_airframe, motor_config, base_config)
         imu_env = IMUObservationWrapper(

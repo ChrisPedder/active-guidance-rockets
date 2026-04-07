@@ -22,7 +22,7 @@ from dataclasses import dataclass, field
 from collections import deque
 
 from airframe import RocketAirframe
-from wind_model import WindModel, WindConfig
+from simulation.wind import WindModel, WindConfig
 
 
 @dataclass

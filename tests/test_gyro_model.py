@@ -4,7 +4,7 @@ Tests for gyroscope noise model.
 
 import pytest
 import numpy as np
-from rocket_env.sensors import GyroConfig, GyroModel
+from simulation.sensors import GyroConfig, GyroModel
 
 
 class TestGyroModel:

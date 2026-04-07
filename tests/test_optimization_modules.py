@@ -48,7 +48,7 @@ from optimization.optimize_pid import (
     run_lhs_phase,
     run_nelder_mead_phase,
 )
-from rocket_config import load_config
+from simulation.config import load_config
 
 
 @pytest.fixture(scope="module")

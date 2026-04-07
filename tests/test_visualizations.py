@@ -54,7 +54,7 @@ class TestRollRateMonteCarlo:
             create_animation,
             get_config_and_gains,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, pid_config = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -85,7 +85,7 @@ class TestRollRateMonteCarlo:
             collect_data,
             get_config_and_gains,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, pid_config = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -123,7 +123,7 @@ class TestWindFieldVisualization:
             create_animation,
             get_flight_params,
         )
-        from wind_model import WindModel, WindConfig
+        from simulation.wind import WindModel, WindConfig
 
         max_alt, flight_dur, rocket_vel = get_flight_params("estes_alpha")
 
@@ -196,7 +196,7 @@ class TestTrajectoryMonteCarlo:
             create_2d_animation,
             get_config_and_gains,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, pid_config = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -232,7 +232,7 @@ class TestTrajectoryMonteCarlo:
             create_3d_animation,
             get_config_and_gains,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, pid_config = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -262,7 +262,7 @@ class TestTrajectoryMonteCarlo:
             get_config_and_gains,
             run_episode_trajectory,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, pid_config = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -287,7 +287,7 @@ class TestRollRateRL:
             get_config_and_gains,
             run_episode_rl,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, _ = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -308,7 +308,7 @@ class TestRollRateRL:
             get_config_and_gains,
             run_episode_rl,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, _ = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -331,7 +331,7 @@ class TestRollRateRL:
             collect_data,
             get_config_and_gains,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, pid_config = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -357,7 +357,7 @@ class TestTrajectoryRL:
             get_config_and_gains,
             run_episode_trajectory_rl,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, _ = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -384,7 +384,7 @@ class TestTrajectoryRL:
             get_config_and_gains,
             run_episode_trajectory_rl,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, _ = get_config_and_gains("estes_alpha")
         config = load_config(config_path)
@@ -407,7 +407,7 @@ class TestTrajectoryRL:
             collect_data,
             get_config_and_gains,
         )
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_path, pid_config = get_config_and_gains("estes_alpha")
         config = load_config(config_path)

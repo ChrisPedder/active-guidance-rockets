@@ -30,7 +30,7 @@ class IMUObservationWrapper(gym.ObservationWrapper):
     the underlying environment's physics.
 
     Example:
-        >>> from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+        >>> from simulation.sensors import IMUObservationWrapper, IMUConfig
         >>> base_env = RealisticMotorRocket(airframe=airframe, motor_config=motor)
         >>> imu_config = IMUConfig.icm_20948()
         >>> env = IMUObservationWrapper(base_env, imu_config=imu_config)

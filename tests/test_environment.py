@@ -11,7 +11,7 @@ class TestRocketConfig:
 
     def test_default_values(self):
         """Test RocketConfig default values."""
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.environment import RocketConfig
 
         config = RocketConfig()
 
@@ -23,7 +23,7 @@ class TestRocketConfig:
 
     def test_custom_values(self):
         """Test RocketConfig with custom values."""
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.environment import RocketConfig
 
         config = RocketConfig(
             max_tab_deflection=20.0,
@@ -39,14 +39,14 @@ class TestSpinStabilizedCameraRocket:
 
     def test_requires_airframe(self):
         """Test that environment requires an airframe."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         with pytest.raises(ValueError, match="RocketAirframe is required"):
             SpinStabilizedCameraRocket(airframe=None)
 
     def test_creation_with_airframe(self, estes_alpha_airframe):
         """Test creating environment with airframe."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
 
@@ -55,7 +55,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_action_space(self, estes_alpha_airframe):
         """Test action space definition."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
 
@@ -65,7 +65,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_observation_space(self, estes_alpha_airframe):
         """Test observation space definition."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
 
@@ -74,7 +74,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_reset(self, estes_alpha_airframe):
         """Test environment reset."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         obs, info = env.reset()
@@ -86,7 +86,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_reset_with_seed(self, estes_alpha_airframe):
         """Test that reset returns valid observation."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
 
@@ -99,7 +99,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_step(self, estes_alpha_airframe):
         """Test taking a step in the environment."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()
@@ -115,7 +115,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_step_updates_time(self, estes_alpha_airframe):
         """Test that time advances after step."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
+        from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
 
         config = RocketConfig(dt=0.01)
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe, config=config)
@@ -128,7 +128,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_action_clipping(self, estes_alpha_airframe):
         """Test that actions are clipped to valid range."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()
@@ -142,7 +142,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_altitude_increases_during_burn(self, estes_alpha_airframe):
         """Test that altitude increases during motor burn."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()
@@ -157,7 +157,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_termination_on_excessive_spin(self, estes_alpha_airframe):
         """Test that episode terminates on excessive spin."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
+        from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
 
         config = RocketConfig(max_roll_rate=100.0)  # Low threshold
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe, config=config)
@@ -172,7 +172,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_truncation_on_max_time(self, estes_alpha_airframe):
         """Test that episode truncates at max time."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
+        from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
 
         config = RocketConfig(
             max_episode_time=0.5, max_roll_rate=10000.0
@@ -190,7 +190,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_observation_bounds(self, estes_alpha_airframe):
         """Test that observations stay within bounds."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()
@@ -209,7 +209,7 @@ class TestSpinStabilizedCameraRocket:
 
     def test_info_contains_required_keys(self, estes_alpha_airframe):
         """Test that info dict contains expected keys."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         _, info = env.reset()
@@ -233,7 +233,7 @@ class TestEnvironmentPhysics:
 
     def test_roll_torque_increases_with_dynamic_pressure(self, estes_alpha_airframe):
         """Test that control effectiveness increases with dynamic pressure."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
 
@@ -248,7 +248,7 @@ class TestEnvironmentPhysics:
 
     def test_roll_inertia_calculation(self, estes_alpha_airframe):
         """Test roll inertia calculation."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()
@@ -260,7 +260,7 @@ class TestEnvironmentPhysics:
 
     def test_air_density_model(self, estes_alpha_airframe):
         """Test atmospheric density model."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
 
@@ -276,7 +276,7 @@ class TestEnvironmentPhysics:
 
     def test_propulsion_during_burn(self, estes_alpha_airframe):
         """Test propulsion values during burn phase."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
+        from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
 
         config = RocketConfig(average_thrust=10.0, burn_time=2.0)
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe, config=config)
@@ -289,7 +289,7 @@ class TestEnvironmentPhysics:
 
     def test_propulsion_after_burnout(self, estes_alpha_airframe):
         """Test propulsion values after burnout."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
+        from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
 
         config = RocketConfig(burn_time=1.0)
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe, config=config)
@@ -308,7 +308,7 @@ class TestRewardFunction:
 
     def test_low_roll_rate_gives_high_reward(self, estes_alpha_airframe):
         """Test that low roll rate gives high reward."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()
@@ -325,7 +325,7 @@ class TestRewardFunction:
 
     def test_control_effort_penalty(self, estes_alpha_airframe):
         """Test that large control actions are penalized."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()
@@ -343,7 +343,7 @@ class TestRewardFunction:
 
     def test_camera_shake_penalty(self, estes_alpha_airframe):
         """Test that camera shake is penalized."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()
@@ -361,7 +361,7 @@ class TestCameraShake:
 
     def test_shake_depends_on_roll_rate(self, estes_alpha_airframe):
         """Test that shake depends on roll rate."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()
@@ -381,7 +381,7 @@ class TestGymnasiumCompliance:
 
     def test_env_api(self, estes_alpha_airframe):
         """Test environment has required Gymnasium API methods."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
 
@@ -411,7 +411,7 @@ class TestGymnasiumCompliance:
 
     def test_sample_action(self, estes_alpha_airframe):
         """Test that sampled actions work."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket
+        from simulation.environment import SpinStabilizedCameraRocket
 
         env = SpinStabilizedCameraRocket(airframe=estes_alpha_airframe)
         env.reset()

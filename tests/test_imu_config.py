@@ -3,7 +3,7 @@ Tests for IMU configuration dataclasses.
 """
 
 import pytest
-from rocket_env.sensors import IMUConfig, GyroConfig
+from simulation.sensors import IMUConfig, GyroConfig
 
 
 class TestGyroConfig:

@@ -72,7 +72,7 @@ The servo mount is a streamlined housing that clamps onto the fin trailing edge.
 
 ```
                     TOP VIEW (looking down Z-axis)
-                    
+
     ┌─────────────────────────────────────────────────┐
     │                                                 │
     │    ┌─────────────────────────────────────┐     │
@@ -87,9 +87,9 @@ The servo mount is a streamlined housing that clamps onto the fin trailing edge.
     │                      ○ ← Servo shaft           │
     │                                                 │
     └─────────────────────────────────────────────────┘
-    
+
                     SIDE VIEW (looking along Y-axis)
-                    
+
                          FIN
                           │
                      ┌────┴────┐
@@ -131,7 +131,7 @@ The mount uses a compliant clip design with the following features:
 
 ```
     CLAMP DETAIL (Section through fin slot)
-    
+
          ┌─────┬─────┐
          │     │     │
          │  ▼  │  ▼  │ ← Entry chamfers
@@ -167,7 +167,7 @@ The aileron is a flat rectangular control surface that pivots about its leading 
 
 ```
     AILERON PLAN VIEW
-    
+
     ←───────── 50mm ──────────→
     ┌─────────────────────────┐ ↑
     │                         │ │
@@ -175,9 +175,9 @@ The aileron is a flat rectangular control surface that pivots about its leading 
     │    ○             ○      │ │
     │                         │ ↓
     └─────────────────────────┘
-    
+
     AILERON SIDE VIEW
-    
+
     ┌───────────────────────────┐
     │                           │ ← 3mm thick
     ○─────────────────────────○─┘
@@ -221,7 +221,7 @@ The adapter connects the servo's output horn to the aileron, translating the ser
 
 ```
     ADAPTER TOP VIEW
-    
+
          ┌─────────┐
          │  ○  ○   │ ← Servo horn mount holes
          │    ○    │
@@ -232,9 +232,9 @@ The adapter connects the servo's output horn to the aileron, translating the ser
          ┌────┴────┐
          │         │ ← Aileron interface tab
          └─────────┘
-    
+
     ADAPTER SIDE VIEW
-    
+
               ┌───┐
               │   │ ← Horn interface plate
               │   │

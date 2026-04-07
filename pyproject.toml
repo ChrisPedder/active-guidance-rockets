@@ -39,11 +39,6 @@ thrust = [
 sensors = [
     "numpy>=1.24.0",  # Already a main dep, but explicit for sensors
 ]
-inference = [
-    "numpy>=1.24.0",
-    "onnxruntime>=1.16.0",  # Lightweight inference runtime (no PyTorch)
-    "scipy>=1.11.0",
-]
 dev = [
     "pytest>=7.4.0",
     "pytest-cov>=4.1.0",
@@ -68,7 +63,7 @@ all = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
-packages = ["rocket_env"]
+packages = ["simulation", "controllers", "airframe", "training", "optimization"]
 [tool.black]
 line-length = 88
 target-version = ['py311']
@@ -106,7 +101,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]
 [tool.coverage.run]
 source = ["."]
-omit = ["tests/*", "examples/*", ".venv/*", "slides/*", "training/train_improved.py", "training/sweep_hyperparams.py", "rocket_env/inference/onnx_runner.py"]
+omit = ["tests/*", "examples/*", ".venv/*", "slides/*", "training/train_improved.py"]
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",

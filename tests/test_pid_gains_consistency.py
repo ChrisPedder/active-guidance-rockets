@@ -48,7 +48,7 @@ class TestRocketPhysicsConfigDefaults:
 
     def test_rocket_physics_pid_defaults(self):
         """RocketPhysicsConfig pid_Kp/Ki/Kd defaults must be optimized gains."""
-        from rocket_config import RocketPhysicsConfig
+        from simulation.config import RocketPhysicsConfig
 
         config = RocketPhysicsConfig()
         assert config.pid_Kp == OPTIMIZED_KP, (

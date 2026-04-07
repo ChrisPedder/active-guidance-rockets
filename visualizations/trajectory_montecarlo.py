@@ -38,14 +38,14 @@ from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from rocket_config import load_config
+from simulation.config import load_config
 from compare_controllers import create_env, create_wrapped_env, load_rl_model
 from controllers.pid_controller import (
     PIDController,
     GainScheduledPIDController,
     PIDConfig,
 )
-from lateral_dynamics import LateralTracker
+from visualizations.lateral_dynamics import LateralTracker
 
 # Consistent color scheme
 COLORS = [

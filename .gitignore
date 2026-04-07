@@ -19,8 +19,6 @@ visualizations/outputs
 
 # Claude code
 .claude/
-CLAUDE.md
-CODE_AUDIT.md
 
 # Distribution / packaging
 .Python

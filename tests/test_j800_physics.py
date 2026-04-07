@@ -13,8 +13,8 @@ from pathlib import Path
 
 from airframe import RocketAirframe
 from airframe.components import Material, TrapezoidFinSet
-from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
-from rocket_config import RocketTrainingConfig, load_config
+from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
+from simulation.config import RocketTrainingConfig, load_config
 
 # ---------------------------------------------------------------------------
 # Helpers

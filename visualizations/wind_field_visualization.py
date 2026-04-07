@@ -33,7 +33,7 @@ import matplotlib.animation as animation
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from wind_model import WindModel, WindConfig
+from simulation.wind import WindModel, WindConfig
 
 # Consistent styling
 COLORS = [

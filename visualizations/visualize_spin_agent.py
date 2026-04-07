@@ -32,11 +32,11 @@ import gymnasium as gym
 from gymnasium import spaces
 
 # Import environment components
-from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
-from realistic_spin_rocket import RealisticMotorRocket
-from rocket_config import load_config
+from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
+from simulation.rocket import RealisticMotorRocket
+from simulation.config import load_config
 from controllers.pid_controller import PIDController, PIDConfig
-from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+from simulation.sensors import IMUObservationWrapper, IMUConfig
 
 
 @dataclass

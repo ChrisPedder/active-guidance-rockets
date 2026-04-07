@@ -324,7 +324,7 @@ class TestEstimateADRCConfig:
 
     def test_b0_per_pa_is_set(self, estes_alpha_airframe):
         """estimate_adrc_config should set b0_per_pa."""
-        from rocket_config import RocketPhysicsConfig
+        from simulation.config import RocketPhysicsConfig
 
         physics = RocketPhysicsConfig()
         config = estimate_adrc_config(estes_alpha_airframe, physics)
@@ -333,7 +333,7 @@ class TestEstimateADRCConfig:
 
     def test_b0_matches_b0_per_pa_at_ref_q(self, estes_alpha_airframe):
         """b0 should equal b0_per_pa * ref_q * tanh(ref_q/200) at ref_q=500."""
-        from rocket_config import RocketPhysicsConfig
+        from simulation.config import RocketPhysicsConfig
 
         physics = RocketPhysicsConfig()
         config = estimate_adrc_config(estes_alpha_airframe, physics)
@@ -346,14 +346,14 @@ class TestEstimateADRCConfig:
         )
 
     def test_b0_is_positive(self, estes_alpha_airframe):
-        from rocket_config import RocketPhysicsConfig
+        from simulation.config import RocketPhysicsConfig
 
         physics = RocketPhysicsConfig()
         config = estimate_adrc_config(estes_alpha_airframe, physics)
         assert config.b0 > 0
 
     def test_bandwidths_propagated(self, estes_alpha_airframe):
-        from rocket_config import RocketPhysicsConfig
+        from simulation.config import RocketPhysicsConfig
 
         physics = RocketPhysicsConfig()
         config = estimate_adrc_config(

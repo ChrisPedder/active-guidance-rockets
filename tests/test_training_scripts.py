@@ -9,7 +9,7 @@ import numpy as np
 import pytest
 from unittest.mock import MagicMock, PropertyMock
 
-from rocket_config import load_config
+from simulation.config import load_config
 
 
 class TestWindCurriculumCallback:

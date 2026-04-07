@@ -2,7 +2,7 @@
 Tests targeting specific coverage gaps to push coverage above 80%.
 
 Covers uncovered lines in: video_quality_metric, ensemble_controller,
-rocket_config, pid_controller, thrustcurve_motor_data.
+rocket_config, pid_controller.
 """
 
 import numpy as np
@@ -228,7 +228,7 @@ class TestRocketConfigGaps:
 
     def test_validate_no_airframe(self):
         """Lines 785-790: validate with no airframe_file."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
 
         config = RocketTrainingConfig.for_estes_alpha()
         config.physics.airframe_file = None
@@ -237,7 +237,7 @@ class TestRocketConfigGaps:
 
     def test_validate_with_airframe(self):
         """Lines 792-825: validate full path with airframe."""
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config = load_config("configs/estes_c6_sac_wind.yaml")
         issues = config.validate()
@@ -247,7 +247,7 @@ class TestRocketConfigGaps:
 
     def test_validate_bad_airframe_path(self):
         """Lines 796-798: validation fails on bad airframe path."""
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config = load_config("configs/estes_c6_sac_wind.yaml")
         config.physics.airframe_file = "nonexistent_airframe.yaml"
@@ -256,7 +256,7 @@ class TestRocketConfigGaps:
 
     def test_validate_batch_size_warning(self):
         """Lines 819-823: batch_size > rollout size warning."""
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config = load_config("configs/estes_c6_sac_wind.yaml")
         config.ppo.batch_size = 999999
@@ -267,7 +267,7 @@ class TestRocketConfigGaps:
 
     def test_create_default_configs(self, tmp_path):
         """Lines 836-849: create_default_configs function."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
 
         # Test for_estes_alpha factory
         config = RocketTrainingConfig.for_estes_alpha()
@@ -435,31 +435,6 @@ class TestADRCControllerGaps:
         action = ctrl.step(obs, info, dt=0.01)
         assert action.shape == (1,)
         mock_estimator.update.assert_called_once()
-
-
-# ── thrustcurve_motor_data: lines 274-290 ────────────────────────────────────
-
-
-class TestThrustcurveMotorDataGaps:
-    """Test uncovered lines in thrustcurve_motor_data.py."""
-
-    def test_parse_eng_file(self, tmp_path):
-        """Test ThrustCurveParser.parse_eng_file with valid eng content."""
-        from thrustcurve_motor_data import ThrustCurveParser
-
-        # Standard .eng file format: header line then time/thrust pairs
-        # The parser skips comment lines (starting with ;)
-        eng_content = "C6 18 70 5-7-9 0.0124 0.0245 Estes\n0.031 14.09\n0.092 9.83\n0.154 7.07\n1.7 4.0\n1.85 0.0\n"
-
-        eng_path = tmp_path / "test_motor.eng"
-        with open(eng_path, "w") as f:
-            f.write(eng_content)
-
-        motor = ThrustCurveParser.parse_eng_file(str(eng_path))
-        assert motor is not None
-        assert motor.manufacturer == "Estes"
-        assert motor.designation == "C6"
-        assert len(motor.time_points) > 0
 
 
 # ── airframe: lines 57, 103, 113, 163, 188, 232, 274-275, 316-318 ────────────

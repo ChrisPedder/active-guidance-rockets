@@ -90,7 +90,7 @@ class TestRealisticMotorRocketInitBranches:
 
     def test_init_with_motor_config_default_rocketconfig(self, airframe, motor_config):
         """__init__ with motor_config and config=None (default RocketConfig)."""
-        from realistic_spin_rocket import RealisticMotorRocket
+        from simulation.rocket import RealisticMotorRocket
 
         env = RealisticMotorRocket(
             airframe=airframe,
@@ -103,21 +103,21 @@ class TestRealisticMotorRocketInitBranches:
 
     def test_init_raises_when_airframe_none(self, motor_config):
         """__init__ raises ValueError when airframe is None."""
-        from realistic_spin_rocket import RealisticMotorRocket
+        from simulation.rocket import RealisticMotorRocket
 
         with pytest.raises(ValueError, match="RocketAirframe is required"):
             RealisticMotorRocket(airframe=None, motor_config=motor_config)
 
     def test_init_raises_when_no_motor_data_or_config(self, airframe):
         """__init__ raises ValueError when neither motor_data nor motor_config."""
-        from realistic_spin_rocket import RealisticMotorRocket
+        from simulation.rocket import RealisticMotorRocket
 
         with pytest.raises(ValueError, match="Must provide either"):
             RealisticMotorRocket(airframe=airframe, motor_data=None, motor_config=None)
 
     def test_init_with_motor_data_object(self, airframe):
         """__init__ with a MotorData object instead of motor_config dict."""
-        from realistic_spin_rocket import RealisticMotorRocket, MotorData
+        from simulation.rocket import RealisticMotorRocket, MotorData
 
         motor_data = MotorData(
             manufacturer="Test",
@@ -143,8 +143,8 @@ class TestRealisticMotorRocketInitBranches:
 
     def test_low_twr_warning(self, airframe, capsys):
         """__init__ prints TWR < 1.0 warning for very low thrust motors."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
 
         # Extremely low thrust -> TWR < 1.0
         motor_config = {
@@ -174,8 +174,8 @@ class TestRealisticMotorRocketInitBranches:
 
     def test_marginal_twr_warning(self, airframe, capsys):
         """__init__ prints TWR < 2.0 warning for marginal thrust motors."""
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
 
         # Estes alpha dry mass ~ 0.022 kg, propellant = 0.001 kg => ~0.023 kg
         # Need TWR = avg_thrust / (0.023 * 9.81) between 1.0 and 2.0
@@ -211,8 +211,8 @@ class TestUpdatePropulsionDetailed:
 
     @pytest.fixture
     def env(self):
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
         from airframe import RocketAirframe
 
         airframe = RocketAirframe.estes_alpha()
@@ -279,8 +279,8 @@ class TestGetInfoMotorFields:
 
     @pytest.fixture
     def env(self):
-        from realistic_spin_rocket import RealisticMotorRocket
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.rocket import RealisticMotorRocket
+        from simulation.environment import RocketConfig
         from airframe import RocketAirframe
 
         airframe = RocketAirframe.estes_alpha()
@@ -332,7 +332,7 @@ class TestCreateEnvironmentFromConfigAdditional:
     def test_missing_airframe_file_key(self, tmp_path):
         """Error when physics section lacks airframe_file."""
         import yaml
-        from realistic_spin_rocket import create_environment_from_config
+        from simulation.rocket import create_environment_from_config
 
         config = {
             "physics": {"max_tab_deflection": 30.0},
@@ -359,7 +359,7 @@ class TestCreateEnvironmentFromConfigAdditional:
     def test_create_with_rank_gt_zero(self, tmp_path):
         """create_environment_from_config with rank > 0 seeds env."""
         import yaml
-        from realistic_spin_rocket import create_environment_from_config
+        from simulation.rocket import create_environment_from_config
 
         airframe_content = (
             "name: Test Airframe\n"
@@ -430,7 +430,7 @@ class TestCreateEnvironmentFromConfigAdditional:
     def test_create_with_relative_airframe_path(self, tmp_path):
         """create_environment_from_config resolves relative airframe_file paths."""
         import yaml
-        from realistic_spin_rocket import create_environment_from_config
+        from simulation.rocket import create_environment_from_config
 
         # Create airframe in a subdirectory of tmp_path
         airframes_dir = tmp_path / "airframes"
@@ -502,295 +502,6 @@ class TestCreateEnvironmentFromConfigAdditional:
 
 
 # ===========================================================================
-# rocket_env/inference/controller.py — additional coverage
-# ===========================================================================
-
-
-class TestRocketControllerFullInit:
-    """Test RocketController __init__ via mocked ONNXRunner."""
-
-    def test_init_without_normalize(self):
-        """__init__ without normalize_path leaves obs_mean/obs_var as None."""
-        with patch("rocket_env.inference.controller.ONNXRunner") as MockRunner:
-            mock_runner = MagicMock()
-            mock_runner.predict.return_value = np.array([0.5])
-            mock_runner.get_info.return_value = {"model": "test"}
-            MockRunner.return_value = mock_runner
-
-            from rocket_env.inference.controller import RocketController
-
-            ctrl = RocketController(model_path="fake_model.onnx")
-
-            assert ctrl.obs_mean is None
-            assert ctrl.obs_var is None
-            assert ctrl.runner is mock_runner
-            assert ctrl.action_low == -1.0
-            assert ctrl.action_high == 1.0
-
-    def test_init_with_normalize(self, tmp_path):
-        """__init__ with normalize_path loads stats."""
-        pkl_path = tmp_path / "vec_normalize.pkl"
-        with open(pkl_path, "wb") as f:
-            pickle.dump(_MockVecNormalize(size=5), f)
-
-        with patch("rocket_env.inference.controller.ONNXRunner") as MockRunner:
-            mock_runner = MagicMock()
-            MockRunner.return_value = mock_runner
-
-            from rocket_env.inference.controller import RocketController
-
-            ctrl = RocketController(
-                model_path="fake_model.onnx",
-                normalize_path=str(pkl_path),
-            )
-
-            assert ctrl.obs_mean is not None
-            assert ctrl.obs_var is not None
-            assert len(ctrl.obs_mean) == 5
-
-    def test_init_custom_action_range(self):
-        """__init__ with custom action_low, action_high, clip_obs."""
-        with patch("rocket_env.inference.controller.ONNXRunner") as MockRunner:
-            MockRunner.return_value = MagicMock()
-
-            from rocket_env.inference.controller import RocketController
-
-            ctrl = RocketController(
-                model_path="fake.onnx",
-                action_low=-0.5,
-                action_high=0.5,
-                clip_obs=5.0,
-            )
-            assert ctrl.action_low == -0.5
-            assert ctrl.action_high == 0.5
-            assert ctrl.clip_obs == 5.0
-
-
-class TestRocketControllerNormalization:
-    """Test normalize_observation with and without loaded stats."""
-
-    def _make_controller(self, obs_mean=None, obs_var=None):
-        """Create a controller with mocked runner."""
-        with patch("rocket_env.inference.controller.ONNXRunner") as MockRunner:
-            mock_runner = MagicMock()
-            mock_runner.predict.return_value = np.array([0.0])
-            mock_runner.get_info.return_value = {}
-            MockRunner.return_value = mock_runner
-
-            from rocket_env.inference.controller import RocketController
-
-            ctrl = RocketController(model_path="fake.onnx")
-            ctrl.obs_mean = obs_mean
-            ctrl.obs_var = obs_var
-            return ctrl
-
-    def test_normalize_without_stats_passes_through(self):
-        """Without stats, normalize_observation returns original."""
-        ctrl = self._make_controller(obs_mean=None, obs_var=None)
-        obs = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-        result = ctrl.normalize_observation(obs)
-        assert np.allclose(result, obs)
-
-    def test_normalize_with_stats_applies_formula(self):
-        """With stats, normalize_observation applies (obs - mean) / sqrt(var + eps)."""
-        mean = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-        var = np.array([4.0, 4.0, 4.0], dtype=np.float32)
-        ctrl = self._make_controller(obs_mean=mean, obs_var=var)
-
-        obs = np.array([3.0, 4.0, 5.0], dtype=np.float32)
-        result = ctrl.normalize_observation(obs)
-
-        expected = (obs - mean) / np.sqrt(var + 1e-8)
-        assert np.allclose(result, expected, atol=1e-5)
-
-    def test_normalize_clips_extreme_values(self):
-        """Normalization clips to [-clip_obs, clip_obs]."""
-        mean = np.array([0.0], dtype=np.float32)
-        var = np.array([0.001], dtype=np.float32)  # tiny variance
-        ctrl = self._make_controller(obs_mean=mean, obs_var=var)
-        ctrl.clip_obs = 5.0
-
-        obs = np.array([1000.0], dtype=np.float32)
-        result = ctrl.normalize_observation(obs)
-        assert result[0] == pytest.approx(5.0)
-
-
-class TestRocketControllerGetAction:
-    """Test get_action and get_tab_deflection via mocked runner."""
-
-    def _make_controller(self, predict_return=np.array([0.5])):
-        """Create a controller with mocked runner that returns predict_return."""
-        with patch("rocket_env.inference.controller.ONNXRunner") as MockRunner:
-            mock_runner = MagicMock()
-            mock_runner.predict.return_value = predict_return
-            mock_runner.get_info.return_value = {"model": "test"}
-            MockRunner.return_value = mock_runner
-
-            from rocket_env.inference.controller import RocketController
-
-            ctrl = RocketController(model_path="fake.onnx")
-            return ctrl
-
-    def test_get_action_normalize_true_no_stats(self):
-        """get_action with normalize=True but no stats still works."""
-        ctrl = self._make_controller(np.array([0.3]))
-        obs = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-        action = ctrl.get_action(obs, normalize=True)
-        assert action[0] == pytest.approx(0.3)
-
-    def test_get_action_normalize_false(self):
-        """get_action with normalize=False skips normalization."""
-        ctrl = self._make_controller(np.array([0.7]))
-        obs = np.array([1.0, 2.0], dtype=np.float32)
-        action = ctrl.get_action(obs, normalize=False)
-        assert action[0] == pytest.approx(0.7)
-
-    def test_get_action_clips_high(self):
-        """get_action clips action above action_high."""
-        ctrl = self._make_controller(np.array([5.0]))
-        obs = np.array([1.0], dtype=np.float32)
-        action = ctrl.get_action(obs, normalize=False)
-        assert action[0] == pytest.approx(1.0)
-
-    def test_get_action_clips_low(self):
-        """get_action clips action below action_low."""
-        ctrl = self._make_controller(np.array([-5.0]))
-        obs = np.array([1.0], dtype=np.float32)
-        action = ctrl.get_action(obs, normalize=False)
-        assert action[0] == pytest.approx(-1.0)
-
-    def test_get_tab_deflection_returns_float(self):
-        """get_tab_deflection returns a Python float."""
-        ctrl = self._make_controller(np.array([0.5]))
-        obs = np.array([1.0, 2.0, 3.0], dtype=np.float32)
-        deflection = ctrl.get_tab_deflection(obs, max_deflection_deg=20.0)
-        assert isinstance(deflection, float)
-        assert deflection == pytest.approx(10.0)
-
-    def test_get_tab_deflection_default_max(self):
-        """get_tab_deflection uses default 15 deg max."""
-        ctrl = self._make_controller(np.array([1.0]))
-        obs = np.array([0.0], dtype=np.float32)
-        deflection = ctrl.get_tab_deflection(obs)
-        assert deflection == pytest.approx(15.0)
-
-    def test_get_info_returns_dict(self):
-        """get_info returns dict with expected keys."""
-        ctrl = self._make_controller()
-        info = ctrl.get_info()
-        assert isinstance(info, dict)
-        assert "model_path" in info
-        assert "has_normalization" in info
-        assert "action_range" in info
-        assert info["has_normalization"] is False
-        assert info["action_range"] == (-1.0, 1.0)
-
-
-class TestLoadNormalizeStatsFormats:
-    """Test _load_normalize_stats with different pickle formats."""
-
-    def _make_bare_controller(self):
-        """Create a controller without calling __init__."""
-        from rocket_env.inference.controller import RocketController
-
-        ctrl = RocketController.__new__(RocketController)
-        ctrl.obs_mean = None
-        ctrl.obs_var = None
-        return ctrl
-
-    def test_obs_rms_format(self, tmp_path):
-        """Load stats from pickle with obs_rms attribute."""
-        pkl_path = tmp_path / "stats.pkl"
-        with open(pkl_path, "wb") as f:
-            pickle.dump(_MockVecNormalize(size=8), f)
-
-        ctrl = self._make_bare_controller()
-        ctrl._load_normalize_stats(str(pkl_path))
-
-        assert ctrl.obs_mean is not None
-        assert ctrl.obs_var is not None
-        assert len(ctrl.obs_mean) == 8
-        assert ctrl.obs_mean.dtype == np.float32
-
-    def test_running_mean_format(self, tmp_path):
-        """Load stats from pickle with running_mean/running_var attributes."""
-        pkl_path = tmp_path / "stats_alt.pkl"
-        with open(pkl_path, "wb") as f:
-            pickle.dump(_MockVecNormalizeAlt(size=6), f)
-
-        ctrl = self._make_bare_controller()
-        ctrl._load_normalize_stats(str(pkl_path))
-
-        assert ctrl.obs_mean is not None
-        assert ctrl.obs_var is not None
-        assert len(ctrl.obs_mean) == 6
-
-    def test_unknown_format_warns(self, tmp_path, capsys):
-        """Load stats from pickle with unknown format prints warning."""
-        pkl_path = tmp_path / "stats_unk.pkl"
-        with open(pkl_path, "wb") as f:
-            pickle.dump(_MockVecNormalizeEmpty(), f)
-
-        ctrl = self._make_bare_controller()
-        ctrl._load_normalize_stats(str(pkl_path))
-
-        assert ctrl.obs_mean is None
-        assert ctrl.obs_var is None
-        captured = capsys.readouterr()
-        assert "Warning" in captured.out or "Could not extract" in captured.out
-
-    def test_file_not_found_raises(self, tmp_path):
-        """_load_normalize_stats raises FileNotFoundError for missing file."""
-        ctrl = self._make_bare_controller()
-        with pytest.raises(FileNotFoundError):
-            ctrl._load_normalize_stats(str(tmp_path / "nonexistent.pkl"))
-
-
-class TestLoadControllerFromTraining:
-    """Test the load_controller_from_training convenience function."""
-
-    def test_raises_file_not_found(self, tmp_path):
-        """Raises FileNotFoundError when model file is missing."""
-        from rocket_env.inference.controller import load_controller_from_training
-
-        with pytest.raises(FileNotFoundError, match="Model not found"):
-            load_controller_from_training(str(tmp_path))
-
-    def test_loads_without_normalize_file(self, tmp_path):
-        """Loads successfully when normalize file is missing."""
-        model_path = tmp_path / "best_model.onnx"
-        model_path.touch()
-
-        with patch("rocket_env.inference.controller.ONNXRunner") as MockRunner:
-            MockRunner.return_value = MagicMock()
-
-            from rocket_env.inference.controller import load_controller_from_training
-
-            ctrl = load_controller_from_training(str(tmp_path))
-            assert ctrl is not None
-            assert ctrl.obs_mean is None
-
-    def test_loads_with_normalize_file(self, tmp_path):
-        """Loads successfully when both model and normalize file exist."""
-        model_path = tmp_path / "best_model.onnx"
-        model_path.touch()
-
-        pkl_path = tmp_path / "vec_normalize.pkl"
-        with open(pkl_path, "wb") as f:
-            pickle.dump(_MockVecNormalize(size=10), f)
-
-        with patch("rocket_env.inference.controller.ONNXRunner") as MockRunner:
-            MockRunner.return_value = MagicMock()
-
-            from rocket_env.inference.controller import load_controller_from_training
-
-            ctrl = load_controller_from_training(str(tmp_path))
-            assert ctrl is not None
-            assert ctrl.obs_mean is not None
-            assert len(ctrl.obs_mean) == 10
-
-
-# ===========================================================================
 # visualizations/wind_field_visualization.py — additional coverage
 # ===========================================================================
 
@@ -829,7 +540,7 @@ class TestSampleWindField:
 
     @pytest.fixture
     def wind_model(self):
-        from wind_model import WindModel, WindConfig
+        from simulation.wind import WindModel, WindConfig
 
         config = WindConfig(
             enable=True,
@@ -898,7 +609,7 @@ class TestSampleTimeseries:
 
     @pytest.fixture
     def wind_model(self):
-        from wind_model import WindModel, WindConfig
+        from simulation.wind import WindModel, WindConfig
 
         config = WindConfig(
             enable=True,
@@ -959,7 +670,7 @@ class TestSampleTimeseries:
 
     def test_different_altitudes_give_different_results(self):
         """Wind at different altitudes should differ when altitude gradient is set."""
-        from wind_model import WindModel, WindConfig
+        from simulation.wind import WindModel, WindConfig
         from visualizations.wind_field_visualization import sample_timeseries
 
         config = WindConfig(
@@ -990,7 +701,7 @@ class TestSampleWindFieldWithDryden:
     """Test sampling with Dryden turbulence model enabled."""
 
     def test_dryden_model_sampling(self):
-        from wind_model import WindModel, WindConfig
+        from simulation.wind import WindModel, WindConfig
         from visualizations.wind_field_visualization import (
             sample_wind_field,
             sample_timeseries,

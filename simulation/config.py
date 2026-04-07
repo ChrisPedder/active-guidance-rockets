@@ -6,7 +6,7 @@ This module provides a clean way to parametrize all training settings,
 avoiding magic numbers and enabling systematic experimentation.
 
 Usage:
-    from rocket_config import RocketTrainingConfig, load_config
+    from simulation.config import RocketTrainingConfig, load_config
 
     # Load from YAML file
     config = load_config("configs/experiment_01.yaml")
@@ -189,7 +189,7 @@ class MotorConfig:
         Returns:
             Motor object that can provide thrust/mass as functions of time
         """
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         # Convert dataclass to dict format expected by Motor class
         motor_dict = {

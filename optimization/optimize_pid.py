@@ -37,7 +37,7 @@ from controllers.pid_controller import (
     PIDController,
     GainScheduledPIDController,
 )
-from rocket_config import load_config
+from simulation.config import load_config
 
 # Search space bounds
 KP_BOUNDS = (0.001, 0.024)

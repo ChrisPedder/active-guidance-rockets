@@ -226,7 +226,7 @@ class TestTrainingMetricsCallback:
     @pytest.fixture
     def mock_config(self):
         """Create a mock config for callback."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
 
         return RocketTrainingConfig()
 
@@ -304,7 +304,7 @@ class TestWrapperIntegration:
     @pytest.fixture
     def real_env(self):
         """Create a real rocket environment."""
-        from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
+        from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
         from airframe import RocketAirframe
 
         airframe = RocketAirframe.estes_alpha()

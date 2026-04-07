@@ -50,13 +50,13 @@ from stable_baselines3.common.callbacks import (
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.utils import set_random_seed
 
-from rocket_config import RocketTrainingConfig, load_config
+from simulation.config import RocketTrainingConfig, load_config
 
-from spin_stabilized_control_env import SpinStabilizedCameraRocket
-from spin_stabilized_control_env import RocketConfig as CompositeRocketConfig
-from realistic_spin_rocket import RealisticMotorRocket
-from motor_loader import Motor
-from rocket_env.sensors import IMUObservationWrapper, IMUConfig
+from simulation.environment import SpinStabilizedCameraRocket
+from simulation.environment import RocketConfig as CompositeRocketConfig
+from simulation.rocket import RealisticMotorRocket
+from simulation.motors import Motor
+from simulation.sensors import IMUObservationWrapper, IMUConfig
 from controllers.pid_controller import PIDController, PIDConfig
 from controllers.disturbance_observer import (
     DisturbanceObserver,
@@ -1516,7 +1516,7 @@ Examples:
     args = parser.parse_args()
 
     if args.create_configs:
-        from rocket_config import create_default_configs
+        from simulation.config import create_default_configs
 
         create_default_configs()
         return

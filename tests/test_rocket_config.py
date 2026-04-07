@@ -13,7 +13,7 @@ class TestRocketPhysicsConfig:
 
     def test_default_values(self):
         """Test that RocketPhysicsConfig has reasonable defaults."""
-        from rocket_config import RocketPhysicsConfig
+        from simulation.config import RocketPhysicsConfig
 
         config = RocketPhysicsConfig()
 
@@ -27,7 +27,7 @@ class TestRocketPhysicsConfig:
 
     def test_custom_values(self):
         """Test that custom values are properly set."""
-        from rocket_config import RocketPhysicsConfig
+        from simulation.config import RocketPhysicsConfig
 
         config = RocketPhysicsConfig(
             max_tab_deflection=20.0,
@@ -43,7 +43,7 @@ class TestMotorConfig:
 
     def test_default_values(self):
         """Test MotorConfig default values."""
-        from rocket_config import MotorConfig
+        from simulation.config import MotorConfig
 
         config = MotorConfig()
 
@@ -52,7 +52,7 @@ class TestMotorConfig:
 
     def test_custom_motor(self, sample_motor_config):
         """Test creating motor config with custom values."""
-        from rocket_config import MotorConfig
+        from simulation.config import MotorConfig
 
         config = MotorConfig(**sample_motor_config)
 
@@ -62,7 +62,7 @@ class TestMotorConfig:
 
     def test_to_motor(self, sample_motor_config):
         """Test converting MotorConfig to Motor object."""
-        from rocket_config import MotorConfig
+        from simulation.config import MotorConfig
 
         config = MotorConfig(**sample_motor_config)
         motor = config.to_motor()
@@ -73,7 +73,7 @@ class TestMotorConfig:
 
     def test_get_specs_dict(self, sample_motor_config):
         """Test getting motor specs as dictionary."""
-        from rocket_config import MotorConfig
+        from simulation.config import MotorConfig
 
         config = MotorConfig(**sample_motor_config)
         specs = config.get_specs_dict()
@@ -89,7 +89,7 @@ class TestEnvironmentConfig:
 
     def test_default_values(self):
         """Test EnvironmentConfig defaults."""
-        from rocket_config import EnvironmentConfig
+        from simulation.config import EnvironmentConfig
 
         config = EnvironmentConfig()
 
@@ -104,7 +104,7 @@ class TestRewardConfig:
 
     def test_default_values(self):
         """Test RewardConfig defaults."""
-        from rocket_config import RewardConfig
+        from simulation.config import RewardConfig
 
         config = RewardConfig()
 
@@ -119,7 +119,7 @@ class TestPPOConfig:
 
     def test_default_values(self):
         """Test PPOConfig defaults."""
-        from rocket_config import PPOConfig
+        from simulation.config import PPOConfig
 
         config = PPOConfig()
 
@@ -135,7 +135,7 @@ class TestRocketTrainingConfig:
 
     def test_default_construction(self):
         """Test creating config with defaults."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
 
         config = RocketTrainingConfig()
 
@@ -147,7 +147,7 @@ class TestRocketTrainingConfig:
 
     def test_to_dict(self):
         """Test converting config to dictionary."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
 
         config = RocketTrainingConfig()
         d = config.to_dict()
@@ -159,7 +159,7 @@ class TestRocketTrainingConfig:
 
     def test_save_and_load(self, tmp_path):
         """Test saving and loading config."""
-        from rocket_config import RocketTrainingConfig, EnvironmentConfig
+        from simulation.config import RocketTrainingConfig, EnvironmentConfig
 
         # Create config with list-based ranges (YAML-compatible)
         config = RocketTrainingConfig()
@@ -191,7 +191,7 @@ class TestRocketTrainingConfig:
 
     def test_load_legacy_config(self, sample_training_config_yaml):
         """Test loading a legacy config with old-style physics."""
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config = load_config(sample_training_config_yaml)
 
@@ -208,7 +208,7 @@ class TestRocketTrainingConfig:
     ):
         """Test loading a new-style config with airframe_file."""
         import yaml
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config_dict = {
             "physics": new_style_physics_config,
@@ -235,7 +235,7 @@ class TestBackwardCompatibility:
 
     def test_legacy_config_creates_airframe(self, legacy_physics_config):
         """Test that legacy config creates temporary airframe."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
 
         physics_config = RocketTrainingConfig._load_physics_config(
             legacy_physics_config
@@ -246,7 +246,7 @@ class TestBackwardCompatibility:
 
     def test_legacy_airframe_has_correct_mass(self, legacy_physics_config):
         """Test that created airframe has approximately correct mass."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
         from airframe import RocketAirframe
 
         physics_config = RocketTrainingConfig._load_physics_config(
@@ -259,7 +259,7 @@ class TestBackwardCompatibility:
 
     def test_legacy_airframe_has_correct_dimensions(self, legacy_physics_config):
         """Test that created airframe has correct dimensions."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
         from airframe import RocketAirframe
 
         physics_config = RocketTrainingConfig._load_physics_config(
@@ -272,7 +272,7 @@ class TestBackwardCompatibility:
 
     def test_mixed_config_prefers_new_fields(self, tmp_path):
         """Test that when both old and new fields exist, airframe_file is used."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
         import yaml
 
         # Create airframe file
@@ -307,7 +307,7 @@ components:
 
     def test_legacy_fields_accessible_after_load(self, legacy_physics_config):
         """Test that legacy fields (dry_mass, diameter, etc.) are accessible after loading."""
-        from rocket_config import RocketTrainingConfig
+        from simulation.config import RocketTrainingConfig
 
         physics_config = RocketTrainingConfig._load_physics_config(
             legacy_physics_config
@@ -327,7 +327,7 @@ components:
 
     def test_legacy_fields_from_yaml_file(self, sample_training_config_yaml):
         """Test that legacy fields are accessible when loading a YAML config file."""
-        from rocket_config import load_config
+        from simulation.config import load_config
 
         config = load_config(sample_training_config_yaml)
 

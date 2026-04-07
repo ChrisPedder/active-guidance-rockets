@@ -11,73 +11,66 @@ import numpy as np
 from typing import Tuple, Dict, Any, Optional
 from scipy import integrate
 
-from spin_stabilized_control_env import SpinStabilizedCameraRocket, RocketConfig
+from simulation.environment import SpinStabilizedCameraRocket, RocketConfig
 from airframe import RocketAirframe
 
 # Try to import motor_loader for config-based motors
 try:
-    from motor_loader import Motor as ConfigMotor
+    from simulation.motors import Motor as ConfigMotor
 
     MOTOR_LOADER_AVAILABLE = True
 except ImportError:
     MOTOR_LOADER_AVAILABLE = False
     ConfigMotor = None
 
-# Try to import motor data classes
-try:
-    from thrustcurve_motor_data import MotorData
+# MotorData fallback for legacy motor_data parameter support
+from dataclasses import dataclass as _dataclass
+from scipy import interpolate as _interpolate
 
-    MOTOR_DATA_AVAILABLE = True
-except ImportError:
-    MOTOR_DATA_AVAILABLE = False
-    # Define a simple MotorData class if not available
-    from dataclasses import dataclass
-    from scipy import interpolate
 
-    @dataclass
-    class MotorData:
-        manufacturer: str
-        designation: str
-        diameter: float  # mm
-        length: float  # mm
-        total_mass: float  # g
-        propellant_mass: float  # g
-        case_mass: float  # g (computed as total - propellant)
-        total_impulse: float  # N·s
-        burn_time: float  # s
-        average_thrust: float  # N
-        max_thrust: float  # N
-        time_points: np.ndarray
-        thrust_points: np.ndarray
-        delays: list = None
-        sparky: bool = False
+@_dataclass
+class MotorData:
+    """Legacy motor data class for direct thrust curve specification."""
 
-        def __post_init__(self):
-            # Convert to SI units
-            self.diameter = self.diameter / 1000  # mm to m
-            self.length = self.length / 1000  # mm to m
-            self.total_mass = self.total_mass / 1000  # g to kg
-            self.propellant_mass = self.propellant_mass / 1000
-            self.case_mass = self.case_mass / 1000
+    manufacturer: str
+    designation: str
+    diameter: float  # mm
+    length: float  # mm
+    total_mass: float  # g
+    propellant_mass: float  # g
+    case_mass: float  # g (computed as total - propellant)
+    total_impulse: float  # N·s
+    burn_time: float  # s
+    average_thrust: float  # N
+    max_thrust: float  # N
+    time_points: np.ndarray
+    thrust_points: np.ndarray
+    delays: list = None
+    sparky: bool = False
 
-            # Create interpolation function
-            self._thrust_interp = interpolate.interp1d(
-                self.time_points,
-                self.thrust_points,
-                kind="linear",
-                bounds_error=False,
-                fill_value=0.0,
-            )
+    def __post_init__(self):
+        self.diameter = self.diameter / 1000  # mm to m
+        self.length = self.length / 1000  # mm to m
+        self.total_mass = self.total_mass / 1000  # g to kg
+        self.propellant_mass = self.propellant_mass / 1000
+        self.case_mass = self.case_mass / 1000
+        self._thrust_interp = _interpolate.interp1d(
+            self.time_points,
+            self.thrust_points,
+            kind="linear",
+            bounds_error=False,
+            fill_value=0.0,
+        )
 
-        def get_thrust(self, time: float) -> float:
-            return float(self._thrust_interp(time))
+    def get_thrust(self, time: float) -> float:
+        return float(self._thrust_interp(time))
 
-        def get_mass(self, time: float) -> float:
-            if time >= self.burn_time:
-                return self.case_mass
-            burn_fraction = time / self.burn_time
-            remaining_prop = self.propellant_mass * (1 - burn_fraction)
-            return self.case_mass + remaining_prop
+    def get_mass(self, time: float) -> float:
+        if time >= self.burn_time:
+            return self.case_mass
+        burn_fraction = time / self.burn_time
+        remaining_prop = self.propellant_mass * (1 - burn_fraction)
+        return self.case_mass + remaining_prop
 
 
 class RealisticMotorRocket(SpinStabilizedCameraRocket):

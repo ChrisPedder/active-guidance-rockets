@@ -110,7 +110,7 @@ class TestSuccessCriteriaConsistency:
 
     @pytest.fixture
     def results_md(self):
-        path = PROJECT_ROOT / "experimental_results.md"
+        path = PROJECT_ROOT / "docs" / "experimental_results.md"
         if not path.exists():
             pytest.skip("experimental_results.md not found")
         return path.read_text()
@@ -135,7 +135,7 @@ class TestDocumentedFilesExist:
         "controllers/pid_controller.py",
         "controllers/adrc_controller.py",
         "compare_controllers.py",
-        "experimental_results.md",
+        "docs/experimental_results.md",
     ]
 
     @pytest.mark.parametrize("filename", FILES_REFERENCED)
@@ -198,7 +198,7 @@ class TestRecommendedController:
 
     def test_results_md_recommends_gs_pid(self):
         """experimental_results.md should recommend GS-PID for deployment."""
-        path = PROJECT_ROOT / "experimental_results.md"
+        path = PROJECT_ROOT / "docs" / "experimental_results.md"
         if not path.exists():
             pytest.skip("experimental_results.md not found")
         text = path.read_text()

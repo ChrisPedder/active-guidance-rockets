@@ -178,7 +178,7 @@ class TestEstimateDOBParameters:
 
     def test_basic(self):
         from airframe import RocketAirframe
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.environment import RocketConfig
 
         airframe = RocketAirframe.estes_alpha()
         config = RocketConfig()
@@ -195,7 +195,7 @@ class TestEstimateDOBParameters:
     def test_scales_with_airframe(self):
         """Larger airframes should have different DOB parameters."""
         from airframe import RocketAirframe
-        from spin_stabilized_control_env import RocketConfig
+        from simulation.environment import RocketConfig
 
         estes = RocketAirframe.estes_alpha()
         config = RocketConfig()

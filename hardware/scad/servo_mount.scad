@@ -10,30 +10,30 @@ include <config.scad>
 module servo_mount() {
     // Total height of mount below fin
     total_height = mount_pocket_height + mount_wall_thickness * 2 + 5;
-    
+
     difference() {
         // Main body with aerodynamic fairing
         mount_body(total_height);
-        
+
         // Fin slot
         fin_slot();
-        
+
         // Servo pocket
         servo_pocket();
-        
+
         // Wire channel
         wire_channel();
-        
+
         // Servo mounting screw holes (optional)
         servo_screw_holes();
-        
+
         // Shaft exit hole
         shaft_exit();
-        
+
         // Hinge pin holes
         hinge_holes();
     }
-    
+
     // Add retention barbs
     retention_barbs();
 }
@@ -48,7 +48,7 @@ module mount_body(height) {
         // Front rounded section
         translate([-mount_total_length/2 + mount_fairing_radius, 0, -height/2])
             cylinder(h = height, r = mount_fairing_radius, center = true);
-        
+
         // Rear rounded section
         translate([mount_total_length/2 - mount_fairing_radius, 0, -height/2])
             cylinder(h = height, r = mount_fairing_radius, center = true);
@@ -59,11 +59,11 @@ module mount_body(height) {
 module fin_slot() {
     slot_width = fin_thickness + fin_slot_clearance * 2;
     slot_length = mount_total_length;
-    
+
     // Main slot
     translate([0, 0, fin_engagement_depth/2 + 0.01])
         cube([slot_length + 1, slot_width, fin_engagement_depth], center = true);
-    
+
     // Entry chamfer (45 degrees)
     translate([0, 0, fin_engagement_depth + 1])
         hull() {
@@ -71,7 +71,7 @@ module fin_slot() {
             translate([0, 0, 2])
                 cube([slot_length + 1, slot_width + 4, 0.01], center = true);
         }
-    
+
     // Compliance slot (allows flex for clip action)
     compliance_depth = 15;
     translate([mount_total_length/4, mount_total_width/2 - 2, -compliance_depth/2])
@@ -84,15 +84,15 @@ module fin_slot() {
 module servo_pocket() {
     // Position: servo shaft should be at rear of mount, below fin
     pocket_z = -(mount_wall_thickness + mount_pocket_height/2) - fin_engagement_depth;
-    
+
     // Main pocket
     translate([servo_shaft_offset_x, 0, pocket_z])
         cube([mount_pocket_length, mount_pocket_width, mount_pocket_height + 1], center = true);
-    
+
     // Tab recesses (wider area at tab height)
     tab_recess_width = servo_body_width + servo_tab_extension * 2 + servo_clearance;
     tab_z = pocket_z + mount_pocket_height/2 - servo_tab_height;
-    
+
     translate([servo_shaft_offset_x, 0, tab_z])
         cube([mount_pocket_length, tab_recess_width, servo_tab_thickness + 1], center = true);
 }
@@ -101,13 +101,13 @@ module servo_pocket() {
 module wire_channel() {
     // Runs from servo pocket up alongside fin slot
     pocket_z = -(mount_wall_thickness + mount_pocket_height/2) - fin_engagement_depth;
-    
+
     // Vertical section
-    translate([servo_shaft_offset_x - servo_body_length/2 - wire_channel_diameter/2, 
-               0, 
+    translate([servo_shaft_offset_x - servo_body_length/2 - wire_channel_diameter/2,
+               0,
                pocket_z/2])
         cylinder(h = abs(pocket_z) + 5, d = wire_channel_diameter, center = true);
-    
+
     // Horizontal exit (alongside fin)
     translate([servo_shaft_offset_x - servo_body_length/2 - wire_channel_diameter/2,
                0,
@@ -120,15 +120,15 @@ module wire_channel() {
 module servo_screw_holes() {
     pocket_z = -(mount_wall_thickness + mount_pocket_height/2) - fin_engagement_depth;
     screw_z = pocket_z + mount_pocket_height/2 - servo_tab_height - servo_tab_thickness/2;
-    
+
     // Screw positions (at ends of tabs)
     screw_x_offset = servo_body_length/2 - 3;  // Typical screw position
-    
+
     for (x_sign = [-1, 1]) {
         translate([servo_shaft_offset_x + x_sign * screw_x_offset, 0, screw_z]) {
             // Through hole
             cylinder(h = 20, d = m2_hole_diameter, center = true);
-            
+
             // Access from outside (countersink)
             translate([0, 0, -8])
                 cylinder(h = 10, d = 4, center = true);
@@ -142,7 +142,7 @@ module shaft_exit() {
     shaft_x = servo_shaft_offset_x + servo_body_length/2 - servo_shaft_offset_x;
     pocket_z = -(mount_wall_thickness + mount_pocket_height/2) - fin_engagement_depth;
     shaft_z = pocket_z + mount_pocket_height/2 + servo_shaft_offset_z;
-    
+
     // Elongated hole to allow shaft rotation clearance
     translate([mount_total_length/2 - mount_fairing_radius/2, 0, shaft_z])
         hull() {
@@ -156,7 +156,7 @@ module shaft_exit() {
 module hinge_holes() {
     pocket_z = -(mount_wall_thickness + mount_pocket_height/2) - fin_engagement_depth;
     shaft_z = pocket_z + mount_pocket_height/2 + servo_shaft_offset_z;
-    
+
     // Holes at each end, aligned with aileron hinge
     for (y = [-aileron_hinge_spacing/2, aileron_hinge_spacing/2]) {
         translate([mount_total_length/2 + 2, y, shaft_z - 5])
@@ -169,7 +169,7 @@ module hinge_holes() {
 module retention_barbs() {
     barb_z = fin_engagement_depth - 2;
     slot_width = fin_thickness + fin_slot_clearance * 2;
-    
+
     for (y_sign = [-1, 1]) {
         translate([0, y_sign * (slot_width/2 + retention_barb_depth/2), barb_z]) {
             // Small triangular barb

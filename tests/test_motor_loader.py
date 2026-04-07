@@ -14,7 +14,7 @@ class TestMotor:
 
     def test_construction(self, sample_motor_config):
         """Test Motor construction from config."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -24,7 +24,7 @@ class TestMotor:
 
     def test_si_unit_conversion(self, sample_motor_config):
         """Test that units are converted to SI."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -39,7 +39,7 @@ class TestMotor:
 
     def test_get_thrust_during_burn(self, sample_motor_config):
         """Test thrust retrieval during burn."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -57,7 +57,7 @@ class TestMotor:
 
     def test_get_thrust_after_burnout(self, sample_motor_config):
         """Test that thrust is zero after burnout."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -67,7 +67,7 @@ class TestMotor:
 
     def test_get_thrust_before_ignition(self, sample_motor_config):
         """Test that thrust is zero before ignition."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -76,7 +76,7 @@ class TestMotor:
 
     def test_get_mass_at_start(self, sample_motor_config):
         """Test mass at start of burn."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -85,7 +85,7 @@ class TestMotor:
 
     def test_get_mass_at_end(self, sample_motor_config):
         """Test mass at end of burn (empty)."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -94,7 +94,7 @@ class TestMotor:
 
     def test_get_mass_linear_burn(self, sample_motor_config):
         """Test that mass decreases linearly during burn."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -105,7 +105,7 @@ class TestMotor:
 
     def test_thrust_multiplier(self, sample_motor_config):
         """Test that thrust multiplier works."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         # Without multiplier
         motor_normal = Motor(sample_motor_config)
@@ -121,7 +121,7 @@ class TestMotor:
 
     def test_repr(self, sample_motor_config):
         """Test string representation."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
         repr_str = repr(motor)
@@ -132,7 +132,7 @@ class TestMotor:
 
     def test_mass_flow_rate(self, sample_motor_config):
         """Test mass flow rate calculation."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -150,7 +150,7 @@ class TestLoadMotorFromConfig:
 
     def test_load_from_yaml(self, tmp_path, sample_motor_config):
         """Test loading motor from YAML config file."""
-        from motor_loader import load_motor_from_config
+        from simulation.motors import load_motor_from_config
 
         config = {"motor": sample_motor_config}
         config_path = tmp_path / "config.yaml"
@@ -169,7 +169,7 @@ class TestLoadMotorFromDict:
 
     def test_load_from_dict(self, sample_motor_config):
         """Test loading motor from config dict."""
-        from motor_loader import load_motor_from_dict
+        from simulation.motors import load_motor_from_dict
 
         config = {"motor": sample_motor_config}
         motor = load_motor_from_dict(config)
@@ -182,7 +182,7 @@ class TestMotorDefaults:
 
     def test_minimal_config(self):
         """Test motor with minimal configuration."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         minimal_config = {
             "name": "minimal",
@@ -196,7 +196,7 @@ class TestMotorDefaults:
 
     def test_missing_thrust_curve(self):
         """Test motor with missing thrust curve."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         config = {"name": "no_curve"}
         motor = Motor(config)
@@ -210,7 +210,7 @@ class TestMotorPhysics:
 
     def test_specific_impulse_consistency(self, sample_motor_config):
         """Test that specific impulse is consistent."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 
@@ -222,7 +222,7 @@ class TestMotorPhysics:
 
     def test_thrust_curve_bounds(self, sample_motor_config):
         """Test that thrust stays within bounds."""
-        from motor_loader import Motor
+        from simulation.motors import Motor
 
         motor = Motor(sample_motor_config)
 

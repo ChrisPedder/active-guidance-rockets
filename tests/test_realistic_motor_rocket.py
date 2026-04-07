@@ -7,9 +7,9 @@ Covers: RealisticMotorRocket creation, stepping, _update_propulsion, _get_info.
 import numpy as np
 import pytest
 
-from realistic_spin_rocket import RealisticMotorRocket
+from simulation.rocket import RealisticMotorRocket
 from airframe import RocketAirframe
-from spin_stabilized_control_env import RocketConfig
+from simulation.environment import RocketConfig
 
 
 @pytest.fixture

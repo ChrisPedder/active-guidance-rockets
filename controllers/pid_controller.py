@@ -23,9 +23,9 @@ import matplotlib.pyplot as plt
 from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3 import PPO
 
-from rocket_config import load_config
-from spin_stabilized_control_env import RocketConfig
-from realistic_spin_rocket import RealisticMotorRocket
+from simulation.config import load_config
+from simulation.environment import RocketConfig
+from simulation.rocket import RealisticMotorRocket
 
 
 @dataclass

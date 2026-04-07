@@ -31,7 +31,7 @@ import matplotlib.animation as animation
 # Add project root to path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from rocket_config import load_config
+from simulation.config import load_config
 from compare_controllers import create_env, create_wrapped_env, load_rl_model
 from controllers.pid_controller import (
     PIDController,

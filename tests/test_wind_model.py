@@ -3,7 +3,12 @@
 import numpy as np
 import pytest
 
-from wind_model import WindConfig, WindModel, DrydenTurbulence, _TURBULENCE_SEVERITY
+from simulation.wind import (
+    WindConfig,
+    WindModel,
+    DrydenTurbulence,
+    _TURBULENCE_SEVERITY,
+)
 
 # ========================================================================
 # DrydenTurbulence unit tests
